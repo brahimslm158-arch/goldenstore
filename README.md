@@ -63,6 +63,7 @@ cp .env.example .env.local
 | `FIREBASE_CLIENT_EMAIL` | من JSON الذي حمّلته |
 | `FIREBASE_PRIVATE_KEY` | المفتاح PEM — يقبل أسطر حقيقية أو `\n` المهروبة، باقتباس أو بدونه |
 | `FIREBASE_PRIVATE_KEY_BASE64` | بديل أنظف لـ `FIREBASE_PRIVATE_KEY` — السلسلة بصيغة base64 (انظر القسم 4) |
+| `FIREBASE_SERVICE_ACCOUNT` | بديل آخر: ملف Firebase service account JSON كاملاً في متغير واحد |
 | `R2_ACCOUNT_ID` | Account ID من Cloudflare |
 | `R2_ACCESS_KEY_ID` | من R2 API Token |
 | `R2_SECRET_ACCESS_KEY` | من R2 API Token |
@@ -90,6 +91,7 @@ npm run dev
 2. افتح [https://vercel.com/new](https://vercel.com/new) واختر المستودع.
 3. لا تغيّر إعدادات البناء (المشروع جاهز).
 4. في صفحة الإعداد، أضف جميع متغيرات البيئة من `.env.local`.
+   * إن أردت لصق ملف Firebase JSON كاملاً كما هو، استخدم متغيراً واحداً باسم `FIREBASE_SERVICE_ACCOUNT` واترك `FIREBASE_PROJECT_ID` و`FIREBASE_CLIENT_EMAIL` و`FIREBASE_PRIVATE_KEY` فارغة.
    * **مفتاح Firebase** — أسهل طريقة مع Vercel هي استخدام `FIREBASE_PRIVATE_KEY_BASE64`:
      ```bash
      # 1) استخرج قيمة private_key من ملف service-account.json
