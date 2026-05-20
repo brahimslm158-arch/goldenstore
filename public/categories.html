@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#000000">
+<title>التصنيفات — Goldenstore</title>
+<link rel="icon" type="image/png" href="/images/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css">
+</head>
+<body data-page="categories">
+
+<header class="header"></header>
+
+<main>
+  <div class="container">
+    <div class="section-head">
+      <h2 class="section-title">جميع التصنيفات</h2>
+    </div>
+    <div id="grid" class="categories-grid"><div class="center-spinner"><div class="spinner"></div></div></div>
+  </div>
+</main>
+
+<footer class="footer"></footer>
+
+<script src="/js/icons.js"></script>
+<script src="/js/common.js"></script>
+<script>
+(async function () {
+  const { api, el, ico } = window.GS;
+  const grid = document.getElementById('grid');
+  try {
+    const { categories } = await api('/api/categories');
+    grid.innerHTML = '';
+    categories.forEach((c) => {
+      grid.append(el('a', { href: `/browse?category=${c.slug}`, class: 'category-card' },
+        el('div', { class: 'category-icon' }, ico(c.icon)),
+        el('div', { class: 'category-info' },
+          el('div', { class: 'category-name' }, c.name),
+          el('div', { class: 'category-count' }, `${c.count || 0} تطبيق`),
+        ),
+      ));
+    });
+  } catch {
+    grid.innerHTML = '';
+    grid.append(el('div', { class: 'empty-state' },
+      ico('info', 'icon icon-xxl'),
+      el('p', null, 'تعذر التحميل.'),
+    ));
+  }
+})();
+</script>
+</body>
+</html>
