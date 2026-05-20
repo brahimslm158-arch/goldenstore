@@ -24,13 +24,13 @@
       const { apps } = await api('/api/apps?featured=1&limit=8');
       featuredGrid.innerHTML = '';
       if (!apps.length) {
-        featuredGrid.append(emptyMsg('لا توجد تطبيقات مميزة بعد.'));
+        featuredGrid.append(emptyMsg('لا توجد مختارات ذهبية بعد.'));
         return;
       }
       apps.forEach((a) => featuredGrid.append(appCard(a)));
     } catch {
       featuredGrid.innerHTML = '';
-      featuredGrid.append(emptyMsg('تعذر التحميل.'));
+      featuredGrid.append(emptyMsg('تعذّر تحميل المختارات.'));
     }
   }
 
@@ -51,7 +51,7 @@
       });
     } catch {
       categoriesGrid.innerHTML = '';
-      categoriesGrid.append(emptyMsg('تعذر تحميل التصنيفات.'));
+      categoriesGrid.append(emptyMsg('تعذّر تحميل التصنيفات.'));
     }
   }
 
@@ -59,18 +59,18 @@
     try {
       const { apps } = await api('/api/apps?sort=recent&limit=8');
       recentGrid.innerHTML = '';
-      if (!apps.length) { recentGrid.append(emptyMsg('لا توجد تطبيقات بعد.')); return; }
+      if (!apps.length) { recentGrid.append(emptyMsg('لم تُضُف تطبيقات بعد.')); return; }
       apps.forEach((a) => recentGrid.append(appCard(a)));
-    } catch { recentGrid.innerHTML = ''; recentGrid.append(emptyMsg('تعذر التحميل.')); }
+    } catch { recentGrid.innerHTML = ''; recentGrid.append(emptyMsg('تعذّر تحميل التطبيقات.')); }
   }
 
   async function loadPopular() {
     try {
       const { apps } = await api('/api/apps?sort=popular&limit=8');
       popularGrid.innerHTML = '';
-      if (!apps.length) { popularGrid.append(emptyMsg('لا توجد تطبيقات بعد.')); return; }
+      if (!apps.length) { popularGrid.append(emptyMsg('لا توجد تنزيلات بعد.')); return; }
       apps.forEach((a) => popularGrid.append(appCard(a)));
-    } catch { popularGrid.innerHTML = ''; popularGrid.append(emptyMsg('تعذر التحميل.')); }
+    } catch { popularGrid.innerHTML = ''; popularGrid.append(emptyMsg('تعذّر تحميل التطبيقات.')); }
   }
 
   await Promise.all([loadFeatured(), loadCategories(), loadRecent(), loadPopular()]);

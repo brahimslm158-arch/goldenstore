@@ -109,37 +109,75 @@
 
   async function renderLogin() {
     root.innerHTML = '';
-    const form = el('form', { class: 'form', onsubmit: async (e) => {
+
+    const passInput = el('input', {
+      name: 'password',
+      type: 'password',
+      required: true,
+      autofocus: true,
+      autocomplete: 'current-password',
+      placeholder: 'كلمة مرور الإدارة',
+      'aria-label': 'كلمة مرور الإدارة',
+    });
+
+    const submitBtn = el('button', { type: 'submit', class: 'btn btn-primary btn-block btn-lg mt-md' },
+      ico('shield'), 'دخول مباشر');
+
+    function setBusy(busy) {
+      submitBtn.disabled = busy;
+      passInput.disabled = busy;
+      submitBtn.innerHTML = '';
+      if (busy) {
+        submitBtn.append(el('div', { class: 'spinner', style: 'width:18px; height:18px; border-width:2px;' }));
+      } else {
+        submitBtn.append(ico('shield'), document.createTextNode('دخول مباشر'));
+      }
+    }
+
+    const form = el('form', { class: 'form', autocomplete: 'on', onsubmit: async (e) => {
       e.preventDefault();
-      const username = form.querySelector('[name=username]').value.trim();
-      const password = form.querySelector('[name=password]').value;
+      const password = passInput.value;
+      if (!password) { passInput.focus(); return; }
+      setBusy(true);
       try {
-        await api('/api/login', { method: 'POST', body: { username, password } });
+        await api('/api/login', { method: 'POST', body: { password } });
+        // Direct in — no extra round trip; render the admin app immediately.
+        activeTab = 'dashboard';
         await renderApp();
       } catch (err) {
-        toast(err.message === 'invalid_credentials' ? 'بيانات الدخول غير صحيحة' : 'تعذر تسجيل الدخول', 'error');
+        setBusy(false);
+        passInput.select();
+        const msg = err && err.status === 500
+          ? 'الإعدادات ناقصة على الخادم. تواصل مع مالك المتجر.'
+          : 'كلمة المرور غير صحيحة';
+        toast(msg, 'error');
       }
     } });
+
     form.append(
       el('div', { class: 'field' },
-        el('label', null, 'اسم المستخدم'),
-        el('input', { name: 'username', type: 'text', required: true, value: 'admin' }),
+        el('label', { for: 'admin-pass' }, 'كلمة المرور'),
+        passInput,
+        el('div', { class: 'hint' }, 'الدخول للإدارة فقط — لا يوجد تسجيل عام.'),
       ),
-      el('div', { class: 'field' },
-        el('label', null, 'كلمة المرور'),
-        el('input', { name: 'password', type: 'password', required: true, autofocus: true }),
-      ),
-      el('button', { type: 'submit', class: 'btn btn-primary btn-block btn-lg mt-md' },
-        ico('shield'), 'دخول'),
+      submitBtn,
     );
+    // Hidden username field for password-manager UX (kept off-screen).
+    form.prepend(el('input', {
+      type: 'text', name: 'username', value: 'admin', autocomplete: 'username',
+      tabindex: '-1', 'aria-hidden': 'true',
+      style: 'position:absolute; opacity:0; pointer-events:none; height:0; width:0; padding:0; margin:0; border:0;',
+    }));
+
     const wrap = el('div', { class: 'login-wrap' },
       el('div', { class: 'login-card' },
-        el('div', { class: 'title' }, 'دخول الإدارة'),
-        el('div', { class: 'sub' }, 'الوصول مقيّد بالمشرف فقط.'),
+        el('div', { class: 'title' }, ico('shield'), ' دخول الإدارة'),
+        el('div', { class: 'sub' }, 'صفحة مخصصة لمالك المتجر فقط — أدخل كلمة المرور للمتابعة.'),
         form,
       ),
     );
     root.append(wrap);
+    setTimeout(() => passInput.focus(), 0);
   }
 
   async function renderApp() {
@@ -198,12 +236,12 @@
                   el('th', null, 'التنزيلات'), el('th', null, ''),
                 )),
                 el('tbody', null, ...stats.top_apps.map((a) => el('tr', null,
-                  el('td', null, a.icon_url
+                  el('td', { class: 'cell-icon' }, a.icon_url
                     ? el('img', { src: a.icon_url, class: 'ico-sm' })
                     : el('div', { class: 'ico-sm' })),
-                  el('td', null, a.name),
-                  el('td', null, formatNum(a.downloads)),
-                  el('td', null, el('a', { class: 'btn btn-sm btn-secondary', href: `/app?slug=${a.slug}`, target: '_blank' }, ico('external'), 'عرض')),
+                  el('td', { 'data-label': 'الاسم' }, a.name),
+                  el('td', { 'data-label': 'التنزيلات' }, formatNum(a.downloads)),
+                  el('td', { class: 'cell-actions' }, el('a', { class: 'btn btn-sm btn-secondary', href: `/app?slug=${a.slug}`, target: '_blank' }, ico('external'), 'عرض')),
                 ))),
               );
               return t;
@@ -246,18 +284,18 @@
             el('th', null, 'الإجراءات'),
           )),
           el('tbody', null, ...apps.map((a) => el('tr', null,
-            el('td', null, a.icon_url
+            el('td', { class: 'cell-icon' }, a.icon_url
               ? el('img', { src: a.icon_url, class: 'ico-sm' })
               : el('div', { class: 'ico-sm' })),
-            el('td', null,
+            el('td', { 'data-label': 'الاسم' },
               el('div', null, a.name),
-              a.featured ? el('span', { class: 'featured-pin', style: 'position:relative; top:auto; inset-inline-end:auto;' }, ico('star'), 'مميز') : null,
+              a.featured ? el('span', { class: 'featured-pin', style: 'position:relative; top:auto; inset-inline-end:auto; display:inline-flex; margin-top:6px;' }, ico('star'), 'مختار') : null,
             ),
-            el('td', null, cats.find(c => c.slug === a.category)?.name || a.category),
-            el('td', null, a.version_name || '—'),
-            el('td', null, formatBytes(a.size_bytes)),
-            el('td', null, formatNum(a.downloads)),
-            el('td', null, el('div', { class: 'row-actions' },
+            el('td', { 'data-label': 'التصنيف' }, cats.find(c => c.slug === a.category)?.name || a.category),
+            el('td', { 'data-label': 'الإصدار' }, a.version_name || '—'),
+            el('td', { 'data-label': 'الحجم' }, formatBytes(a.size_bytes)),
+            el('td', { 'data-label': 'التنزيلات' }, formatNum(a.downloads)),
+            el('td', { class: 'cell-actions' }, el('div', { class: 'row-actions' },
               el('a', { class: 'btn btn-sm btn-secondary', href: `/app?slug=${a.slug}`, target: '_blank' }, ico('external'), 'عرض'),
               el('button', { class: 'btn btn-sm btn-secondary', onclick: () => { activeTab = `edit:${a.id}`; renderApp(); } }, ico('edit'), 'تعديل'),
               el('button', { class: 'btn btn-sm btn-danger', onclick: async () => {
@@ -358,7 +396,7 @@
           formField('version_code', 'رمز الإصدار (رقم)', 'number', { placeholder: '1' }),
         ),
         formField('min_sdk', 'الحد الأدنى لـ Android SDK', 'number', { placeholder: '21', hint: '21 = أندرويد 5.0' }),
-        formToggle('featured', 'تطبيق مميز', false),
+        formToggle('featured', 'إضافته للمختارات الذهبية', false),
       ),
       el('div', { class: 'panel' },
         el('div', { class: 'panel-head' }, ico('android'), 'ملف APK *'),
@@ -429,7 +467,7 @@
             formField('version_code', 'رمز الإصدار', 'number', { value: app.version_code ?? '' }),
           ),
           formField('min_sdk', 'الحد الأدنى لـ SDK', 'number', { value: app.min_sdk ?? '' }),
-          formToggle('featured', 'تطبيق مميز', !!app.featured),
+          formToggle('featured', 'إضافته للمختارات الذهبية', !!app.featured),
           el('button', { type: 'submit', class: 'btn btn-primary' }, ico('check'), 'حفظ التغييرات'),
         ),
       );

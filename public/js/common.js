@@ -101,7 +101,7 @@ function ico(name, extra = 'icon') {
 // App card builder
 function appCard(a) {
   return el('a', { href: `/app?slug=${encodeURIComponent(a.slug)}`, class: 'app-card' },
-    a.featured ? el('span', { class: 'featured-pin' }, ico('star'), 'مميز') : null,
+    a.featured ? el('span', { class: 'featured-pin' }, ico('star'), 'مختار') : null,
     el('div', { class: 'ico' },
       a.icon_url ? el('img', { src: a.icon_url, alt: a.name, loading: 'lazy' }) : ico('package', 'icon icon-xl')
     ),
@@ -121,10 +121,12 @@ function renderHeader(active = '') {
   if (!h) return;
   h.innerHTML = '';
   const inner = el('div', { class: 'container header-inner' },
-    el('a', { href: '/', class: 'brand' },
+    el('a', { href: '/', class: 'brand', dir: 'ltr' },
       el('img', { src: '/images/logo.png', alt: 'Goldenstore' }),
-      el('span', null, 'Golden'),
-      el('b', null, 'store'),
+      el('span', { class: 'brand-text' },
+        el('span', null, 'Golden'),
+        el('b', null, 'store'),
+      ),
     ),
     el('nav', { class: 'nav' },
       el('a', { href: '/', class: active === 'home' ? 'active' : '' }, 'الرئيسية'),
@@ -138,7 +140,7 @@ function renderHeader(active = '') {
         location.href = `/browse?q=${encodeURIComponent(q)}`;
       } });
       f.append(
-        el('input', { class: 'search-input', type: 'search', name: 'q', placeholder: 'ابحث عن تطبيق…', value: getQuery('q') }),
+        el('input', { class: 'search-input', type: 'search', name: 'q', placeholder: 'ابحث عن تطبيق مهكر…', value: getQuery('q') }),
         el('button', { type: 'submit', class: 'search-btn', 'aria-label': 'بحث' }, ico('search')),
       );
       return f;
@@ -155,8 +157,8 @@ function renderFooter() {
     el('div', { class: 'brand-mark' },
       el('img', { src: '/images/logo.png', alt: '' }),
       el('span', null, '© '),
-      el('b', null, STORE.domain),
-      el('span', null, ' — جميع الحقوق محفوظة'),
+      el('b', { dir: 'ltr' }, STORE.domain),
+      el('span', null, ' — المتجر الذهبي للتطبيقات المهكرة'),
     ),
     el('div', { class: 'footer-links' },
       el('a', { href: '/' }, 'الرئيسية'),

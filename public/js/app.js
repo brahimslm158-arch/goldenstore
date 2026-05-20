@@ -35,7 +35,7 @@
 
   try {
     const { app, screenshots } = await api(`/api/apps/${encodeURIComponent(slug)}`);
-    document.title = `${app.name} — Goldenstore`;
+    document.title = `${app.name} — مهكّر مجاناً — Goldenstore`;
     content.innerHTML = '';
 
     // Hero
@@ -56,8 +56,8 @@
         ),
         el('div', { class: 'download-bar' },
           el('a', { class: 'btn btn-primary btn-lg', href: `/api/apps/${encodeURIComponent(app.slug)}/download` },
-            ico('download'), 'تنزيل APK ', formatBytes(app.size_bytes)),
-          app.featured ? el('span', { class: 'featured-badge' }, ico('star'), 'مميز') : null,
+            ico('download'), 'تنزيل النسخة المهكّرة ', formatBytes(app.size_bytes)),
+          app.featured ? el('span', { class: 'featured-badge' }, ico('star'), 'مختار ذهبي') : null,
         ),
       ),
     ));
@@ -109,7 +109,7 @@
     ));
 
     content.append(el('div', { class: 'muted mt-md', style: 'text-align:center; font-size:13px;' },
-      'ملاحظة: لتثبيت APK خارج Google Play، فعّل «مصادر غير معروفة» من إعدادات الأمان على جهازك.'));
+      'لتثبيت التطبيق المهكّر: فعّل خيار «تثبيت تطبيقات من مصادر غير معروفة» من إعدادات الأمان في جهازك، ثم افتح ملف APK الذي حملّته.'));
 
     function techCell(label, value) {
       return el('div', { class: 'tech-cell' },

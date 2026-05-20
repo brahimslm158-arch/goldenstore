@@ -1,7 +1,7 @@
 {
   "name": "goldenstore",
   "version": "1.0.0",
-  "description": "Goldenstore — متجر تطبيقات الأندرويد (Vercel + Firebase + Cloudflare R2)",
+  "description": "Goldenstore — المتجر الحصري للتطبيقات المهكرة (Vercel + Firebase + Cloudflare R2)",
   "private": true,
   "type": "module",
   "scripts": {

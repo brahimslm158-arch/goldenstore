@@ -24,11 +24,11 @@
 
   function updateTitle() {
     if (state.q) pageTitle.textContent = `نتائج البحث عن «${state.q}»`;
-    else if (state.featured) pageTitle.textContent = 'التطبيقات المميزة';
+    else if (state.featured) pageTitle.textContent = 'المختارات الذهبية';
     else if (state.category) {
       const c = cats.find((x) => x.slug === state.category);
       pageTitle.textContent = c ? c.name : 'تصفّح';
-    } else pageTitle.textContent = 'جميع التطبيقات';
+    } else pageTitle.textContent = 'جميع التطبيقات المهكرة';
   }
 
   function renderChips() {
@@ -91,7 +91,7 @@
         grid.append(el('div', { class: 'empty-state' },
           ico('search', 'icon icon-xxl'),
           el('h3', null, 'لا توجد نتائج'),
-          el('p', null, 'جرّب تغيير الفلاتر أو كلمة البحث.'),
+          el('p', null, 'لم نعثر على تطبيقات تطابق بحثك. جرّب تغيير التصنيف أو كلمة البحث.'),
         ));
         loadMoreBtn.classList.add('hidden');
         return;
@@ -103,7 +103,7 @@
       if (reset) grid.innerHTML = '';
       grid.append(el('div', { class: 'empty-state' },
         ico('info', 'icon icon-xxl'),
-        el('p', null, 'تعذر التحميل. حاول لاحقاً.'),
+        el('p', null, 'تعذّر تحميل التطبيقات. حاول لاحقاً.'),
       ));
     }
   }

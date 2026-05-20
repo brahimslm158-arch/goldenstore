@@ -180,21 +180,39 @@ app.get('/apps/:slug/download', async (c) => {
 
 // ---------------- auth ----------------
 
+function isSecureRequest(c: any): boolean {
+  // Trust Vercel/CDN forwarded headers; fall back to URL scheme.
+  const proto = c.req.header('x-forwarded-proto');
+  if (proto) return proto.split(',')[0].trim() === 'https';
+  try {
+    return new URL(c.req.url).protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
 app.post('/login', async (c) => {
   const body = await c.req.json().catch(() => ({} as any));
-  const username = String(body.username || '');
-  const password = String(body.password || '');
+  // Single-field flow: password only. Username defaults to ADMIN_USERNAME on the server.
   const adminUser = process.env.ADMIN_USERNAME || 'admin';
+  const username = String(body.username ?? adminUser);
+  const password = String(body.password ?? '');
   const adminPass = process.env.ADMIN_PASSWORD || '';
   const secret = process.env.JWT_SECRET || '';
   if (!adminPass || !secret) return c.json({ error: 'server_not_configured' }, 500);
-  if (!constantTimeEqual(username, adminUser) || !constantTimeEqual(password, adminPass)) {
+
+  const userOk = constantTimeEqual(username, adminUser);
+  const passOk = !!password && constantTimeEqual(password, adminPass);
+  if (!userOk || !passOk) {
+    // Small uniform delay to slow brute force; same on every failure.
+    await new Promise((r) => setTimeout(r, 350));
     return c.json({ error: 'invalid_credentials' }, 401);
   }
+
   const token = signJwt({ sub: adminUser, role: 'admin' }, secret);
   setCookie(c, COOKIE_NAME, token, {
     httpOnly: true,
-    secure: true,
+    secure: isSecureRequest(c),
     sameSite: 'Lax',
     path: '/',
     maxAge: 7 * 24 * 60 * 60,
@@ -203,7 +221,13 @@ app.post('/login', async (c) => {
 });
 
 app.post('/logout', (c) => {
-  setCookie(c, COOKIE_NAME, '', { httpOnly: true, path: '/', maxAge: 0 });
+  setCookie(c, COOKIE_NAME, '', {
+    httpOnly: true,
+    secure: isSecureRequest(c),
+    sameSite: 'Lax',
+    path: '/',
+    maxAge: 0,
+  });
   return c.json({ ok: true });
 });
 
