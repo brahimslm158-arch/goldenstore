@@ -101,10 +101,21 @@
       else loadMoreBtn.classList.add('hidden');
     } catch (e) {
       if (reset) grid.innerHTML = '';
+      let title = 'تعذّر تحميل التطبيقات';
+      let detail = 'حاول لاحقاً.';
+      if (e && (e.status === 0 || e.message === 'timeout')) {
+        title = 'تعذّر الاتصال بالخادم';
+        detail = 'تحقّق من اتصالك بالإنترنت ثمّ حدّث الصفحة.';
+      } else if (e && e.status >= 500) {
+        title = 'خدمة المتجر غير متاحة مؤقتاً';
+        detail = 'حاول لاحقاً بعد دقائق قليلة.';
+      }
       grid.append(el('div', { class: 'empty-state' },
         ico('info', 'icon icon-xxl'),
-        el('p', null, 'تعذّر تحميل التطبيقات. حاول لاحقاً.'),
+        el('h3', null, title),
+        el('p', null, detail),
       ));
+      loadMoreBtn.classList.add('hidden');
     }
   }
 

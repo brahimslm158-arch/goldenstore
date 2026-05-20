@@ -147,9 +147,14 @@
       } catch (err) {
         setBusy(false);
         passInput.select();
-        const msg = err && err.status === 500
-          ? 'الإعدادات ناقصة على الخادم. تواصل مع مالك المتجر.'
-          : 'كلمة المرور غير صحيحة';
+        let msg = 'كلمة المرور غير صحيحة';
+        if (err && (err.status === 0 || err.message === 'timeout')) {
+          msg = 'تعذّر الاتصال بالخادم. حدّث الصفحة وحاول من جديد.';
+        } else if (err && err.status === 500) {
+          msg = 'الإعدادات ناقصة على الخادم. تواصل مع مالك المتجر.';
+        } else if (err && err.status >= 502 && err.status <= 504) {
+          msg = 'الخادم لا يستجيب حالياً. حاول لاحقاً.';
+        }
         toast(msg, 'error');
       }
     } });

@@ -3,16 +3,30 @@
 const STORE = { name: 'Goldenstore', domain: 'goldenstore.me' };
 
 async function api(path, opts = {}) {
-  const res = await fetch(path, {
-    credentials: 'include',
-    headers: opts.body && !(opts.body instanceof FormData) && typeof opts.body !== 'string'
-      ? { 'Content-Type': 'application/json' }
-      : opts.headers || {},
-    ...opts,
-    body: opts.body && typeof opts.body !== 'string' && !(opts.body instanceof FormData) && !(opts.body instanceof Blob)
-      ? JSON.stringify(opts.body)
-      : opts.body,
-  });
+  const ctrl = new AbortController();
+  const timeoutMs = typeof opts.timeoutMs === 'number' ? opts.timeoutMs : 15000;
+  const timer = timeoutMs > 0 ? setTimeout(() => ctrl.abort(), timeoutMs) : null;
+  let res;
+  try {
+    res = await fetch(path, {
+      credentials: 'include',
+      headers: opts.body && !(opts.body instanceof FormData) && typeof opts.body !== 'string'
+        ? { 'Content-Type': 'application/json' }
+        : opts.headers || {},
+      ...opts,
+      signal: opts.signal || ctrl.signal,
+      body: opts.body && typeof opts.body !== 'string' && !(opts.body instanceof FormData) && !(opts.body instanceof Blob)
+        ? JSON.stringify(opts.body)
+        : opts.body,
+    });
+  } catch (e) {
+    if (timer) clearTimeout(timer);
+    const err = new Error(e && e.name === 'AbortError' ? 'timeout' : (e && e.message) || 'network_error');
+    err.status = 0;
+    err.cause = e;
+    throw err;
+  }
+  if (timer) clearTimeout(timer);
   let data = null;
   try { data = await res.json(); } catch {}
   if (!res.ok) {

@@ -119,10 +119,19 @@
     }
   } catch (e) {
     content.innerHTML = '';
+    let title = 'تطبيق غير موجود';
+    let detail = 'تأكد من الرابط أو عد للرئيسية.';
+    if (e && (e.status === 0 || e.message === 'timeout')) {
+      title = 'تعذّر الاتصال بالخادم';
+      detail = 'تحقّق من اتصالك بالإنترنت ثمّ حدّث الصفحة.';
+    } else if (e && e.status >= 500) {
+      title = 'خدمة المتجر غير متاحة مؤقتاً';
+      detail = 'حاول لاحقاً بعد دقائق قليلة.';
+    }
     content.append(el('div', { class: 'empty-state' },
       ico('info', 'icon icon-xxl'),
-      el('h3', null, 'تطبيق غير موجود'),
-      el('p', null, 'تأكد من الرابط أو عد للرئيسية.'),
+      el('h3', null, title),
+      el('p', null, detail),
       el('div', { class: 'mt-md' },
         el('a', { class: 'btn btn-primary', href: '/' }, 'العودة للرئيسية'),
       ),

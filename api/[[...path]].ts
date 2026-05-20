@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 import { getCookie, setCookie } from 'hono/cookie';
-import { handle } from 'hono/vercel';
+import { getRequestListener } from '@hono/node-server';
 import crypto from 'node:crypto';
 import { firestore, getFieldValue } from '../lib/firebase.js';
 import {
@@ -532,4 +532,4 @@ app.onError((err, c) => {
   return c.json({ error: 'internal_error', message: err.message }, 500);
 });
 
-export default handle(app);
+export default getRequestListener(app.fetch);

@@ -12,11 +12,22 @@
   // Popular
   const popularGrid = document.getElementById('popular-grid');
 
-  function emptyMsg(text) {
+  function emptyMsg(text, hint) {
     return el('div', { class: 'empty-state' },
       ico('package', 'icon icon-xxl'),
       el('p', null, text),
+      hint ? el('p', { class: 'muted', style: 'font-size:13px; margin-top:4px;' }, hint) : null,
     );
+  }
+
+  function errorMsg(err) {
+    if (err && (err.status === 0 || err.message === 'timeout')) {
+      return emptyMsg('تعذّر الاتصال بالخادم.', 'تحقّق من اتصالك بالإنترنت ثمّ حدّث الصفحة.');
+    }
+    if (err && err.status >= 500) {
+      return emptyMsg('خدمة المتجر غير متاحة مؤقتاً.', 'حاول لاحقاً بعد دقائق قليلة.');
+    }
+    return emptyMsg('تعذّر تحميل البيانات.');
   }
 
   async function loadFeatured() {
@@ -24,13 +35,13 @@
       const { apps } = await api('/api/apps?featured=1&limit=8');
       featuredGrid.innerHTML = '';
       if (!apps.length) {
-        featuredGrid.append(emptyMsg('لا توجد مختارات ذهبية بعد.'));
+        featuredGrid.append(emptyMsg('لا توجد مختارات ذهبية بعد.', 'ستظهر هنا أفضل التطبيقات المهكّرة المختارة.'));
         return;
       }
       apps.forEach((a) => featuredGrid.append(appCard(a)));
-    } catch {
+    } catch (err) {
       featuredGrid.innerHTML = '';
-      featuredGrid.append(emptyMsg('تعذّر تحميل المختارات.'));
+      featuredGrid.append(errorMsg(err));
     }
   }
 
@@ -49,9 +60,9 @@
           ),
         );
       });
-    } catch {
+    } catch (err) {
       categoriesGrid.innerHTML = '';
-      categoriesGrid.append(emptyMsg('تعذّر تحميل التصنيفات.'));
+      categoriesGrid.append(errorMsg(err));
     }
   }
 
@@ -59,18 +70,18 @@
     try {
       const { apps } = await api('/api/apps?sort=recent&limit=8');
       recentGrid.innerHTML = '';
-      if (!apps.length) { recentGrid.append(emptyMsg('لم تُضُف تطبيقات بعد.')); return; }
+      if (!apps.length) { recentGrid.append(emptyMsg('لا توجد تطبيقات بعد.', 'ستظهر هنا تطبيقات المتجر فور إضافتها.')); return; }
       apps.forEach((a) => recentGrid.append(appCard(a)));
-    } catch { recentGrid.innerHTML = ''; recentGrid.append(emptyMsg('تعذّر تحميل التطبيقات.')); }
+    } catch (err) { recentGrid.innerHTML = ''; recentGrid.append(errorMsg(err)); }
   }
 
   async function loadPopular() {
     try {
       const { apps } = await api('/api/apps?sort=popular&limit=8');
       popularGrid.innerHTML = '';
-      if (!apps.length) { popularGrid.append(emptyMsg('لا توجد تنزيلات بعد.')); return; }
+      if (!apps.length) { popularGrid.append(emptyMsg('لا توجد تنزيلات بعد.', 'سنعرض هنا التطبيقات الأكثر طلباً.')); return; }
       apps.forEach((a) => popularGrid.append(appCard(a)));
-    } catch { popularGrid.innerHTML = ''; popularGrid.append(emptyMsg('تعذّر تحميل التطبيقات.')); }
+    } catch (err) { popularGrid.innerHTML = ''; popularGrid.append(errorMsg(err)); }
   }
 
   await Promise.all([loadFeatured(), loadCategories(), loadRecent(), loadPopular()]);
