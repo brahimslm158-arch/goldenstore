@@ -3,22 +3,22 @@ import { cors } from 'hono/cors';
 import { getCookie, setCookie } from 'hono/cookie';
 import { handle } from 'hono/vercel';
 import crypto from 'node:crypto';
-import { firestore, FieldValue } from '../lib/firebase';
+import { firestore, FieldValue } from '../lib/firebase.js';
 import {
   r2PresignPut,
   r2PresignGet,
   r2PublicUrl,
   r2Delete,
   r2Head,
-} from '../lib/r2';
+} from '../lib/r2.js';
 import {
   COOKIE_NAME,
   constantTimeEqual,
   signJwt,
   verifyJwt,
-} from '../lib/auth';
-import { nowSec, randomId, safeExt, searchTerms, slugify } from '../lib/utils';
-import { DEFAULT_CATEGORIES, type App, type Category, type Screenshot } from '../lib/types';
+} from '../lib/auth.js';
+import { nowSec, randomId, safeExt, searchTerms, slugify } from '../lib/utils.js';
+import { DEFAULT_CATEGORIES, type App, type Category, type Screenshot } from '../lib/types.js';
 
 export const config = { runtime: 'nodejs' };
 

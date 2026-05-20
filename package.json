@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Goldenstore — متجر تطبيقات الأندرويد (Vercel + Firebase + Cloudflare R2)",
   "private": true,
+  "type": "module",
   "scripts": {
     "dev": "vercel dev --listen 3000",
     "build": "tsc --noEmit",
