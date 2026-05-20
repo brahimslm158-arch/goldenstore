@@ -3,7 +3,7 @@ import { cors } from 'hono/cors';
 import { getCookie, setCookie } from 'hono/cookie';
 import { handle } from 'hono/vercel';
 import crypto from 'node:crypto';
-import { firestore, FieldValue } from '../lib/firebase.js';
+import { firestore, getFieldValue } from '../lib/firebase.js';
 import {
   r2PresignPut,
   r2PresignGet,
@@ -42,7 +42,8 @@ async function ensureUniqueSlug(base: string): Promise<string> {
   let slug = base;
   let i = 1;
   while (true) {
-    const snap = await firestore().collection('apps').where('slug', '==', slug).limit(1).get();
+    const db = await firestore();
+    const snap = await db.collection('apps').where('slug', '==', slug).limit(1).get();
     if (snap.empty) return slug;
     i++;
     slug = `${base}-${i}`;
@@ -50,7 +51,7 @@ async function ensureUniqueSlug(base: string): Promise<string> {
   }
 }
 
-function appPublic(doc: FirebaseFirestore.DocumentSnapshot): App & { id: string } {
+function appPublic(doc: any): App & { id: string } {
   const d = doc.data() as App;
   return {
     id: doc.id,
@@ -96,9 +97,10 @@ app.get('/store', (c) => {
 
 app.get('/categories', async (c) => {
   // Get app counts per category
-  const snap = await firestore().collection('apps').select('category').get();
+  const db = await firestore();
+  const snap = await db.collection('apps').select('category').get();
   const counts: Record<string, number> = {};
-  snap.forEach((d) => {
+  snap.forEach((d: any) => {
     const cat = (d.data() as any).category || 'other';
     counts[cat] = (counts[cat] || 0) + 1;
   });
@@ -114,7 +116,8 @@ app.get('/apps', async (c) => {
   const limit = Math.min(Number(c.req.query('limit') || '24') || 24, 60);
   const offset = Math.max(Number(c.req.query('offset') || '0') || 0, 0);
 
-  let query: FirebaseFirestore.Query = firestore().collection('apps');
+  const db = await firestore();
+  let query: any = db.collection('apps');
   if (category) query = query.where('category', '==', category);
   if (featuredOnly) query = query.where('featured', '==', true);
   if (q) {
@@ -128,7 +131,7 @@ app.get('/apps', async (c) => {
 
   const total = (await query.count().get()).data().count;
   const snap = await query.limit(limit).offset(offset).get();
-  const apps = snap.docs.map((d) => {
+  const apps = snap.docs.map((d: any) => {
     const a = appPublic(d);
     return { ...a, icon_url: icon_url(a.icon_key) };
   });
@@ -137,17 +140,18 @@ app.get('/apps', async (c) => {
 
 app.get('/apps/:slug', async (c) => {
   const slug = c.req.param('slug');
-  const snap = await firestore().collection('apps').where('slug', '==', slug).limit(1).get();
+  const db = await firestore();
+  const snap = await db.collection('apps').where('slug', '==', slug).limit(1).get();
   if (snap.empty) return c.json({ error: 'not_found' }, 404);
   const doc = snap.docs[0];
   const ap = appPublic(doc);
-  const ssSnap = await firestore()
+  const ssSnap = await db
     .collection('apps')
     .doc(doc.id)
     .collection('screenshots')
     .orderBy('position', 'asc')
     .get();
-  const screenshots = ssSnap.docs.map((s) => {
+  const screenshots = ssSnap.docs.map((s: any) => {
     const sd = s.data() as Screenshot;
     return { id: s.id, position: sd.position, url: icon_url(sd.r2_key) };
   });
@@ -159,12 +163,14 @@ app.get('/apps/:slug', async (c) => {
 
 app.get('/apps/:slug/download', async (c) => {
   const slug = c.req.param('slug');
-  const snap = await firestore().collection('apps').where('slug', '==', slug).limit(1).get();
+  const db = await firestore();
+  const snap = await db.collection('apps').where('slug', '==', slug).limit(1).get();
   if (snap.empty) return c.json({ error: 'not_found' }, 404);
   const doc = snap.docs[0];
   const a = doc.data() as App;
   if (!a.apk_key) return c.json({ error: 'apk_not_available' }, 404);
-  await doc.ref.update({ downloads: FieldValue.increment(1) });
+  const FV = await getFieldValue();
+  await doc.ref.update({ downloads: FV.increment(1) });
   const filename = `${a.slug || 'app'}-${a.version_name || ''}.apk`.replace(/-+/g, '-');
   const url = await r2PresignGet(a.apk_key, 300);
   return c.redirect(`${url}&response-content-disposition=${encodeURIComponent(
@@ -215,11 +221,12 @@ app.get('/me', (c) => {
 app.use('/admin/*', requireAdmin);
 
 app.get('/admin/stats', async (c) => {
-  const snap = await firestore().collection('apps').get();
+  const db = await firestore();
+  const snap = await db.collection('apps').get();
   let totalDownloads = 0;
   let totalSize = 0;
   const apps: any[] = [];
-  snap.forEach((d) => {
+  snap.forEach((d: any) => {
     const a = d.data() as App;
     totalDownloads += a.downloads || 0;
     totalSize += a.size_bytes || 0;
@@ -241,8 +248,9 @@ app.get('/admin/stats', async (c) => {
 });
 
 app.get('/admin/apps', async (c) => {
-  const snap = await firestore().collection('apps').orderBy('created_at', 'desc').get();
-  const apps = snap.docs.map((d) => {
+  const db = await firestore();
+  const snap = await db.collection('apps').orderBy('created_at', 'desc').get();
+  const apps = snap.docs.map((d: any) => {
     const a = appPublic(d);
     return { ...a, icon_url: icon_url(a.icon_key) };
   });
@@ -251,11 +259,12 @@ app.get('/admin/apps', async (c) => {
 
 app.get('/admin/apps/:id', async (c) => {
   const id = c.req.param('id');
-  const doc = await firestore().collection('apps').doc(id).get();
+  const db = await firestore();
+  const doc = await db.collection('apps').doc(id).get();
   if (!doc.exists) return c.json({ error: 'not_found' }, 404);
   const a = appPublic(doc);
   const ssSnap = await doc.ref.collection('screenshots').orderBy('position', 'asc').get();
-  const screenshots = ssSnap.docs.map((s) => {
+  const screenshots = ssSnap.docs.map((s: any) => {
     const sd = s.data() as Screenshot;
     return { id: s.id, position: sd.position, r2_key: sd.r2_key, url: icon_url(sd.r2_key) };
   });
@@ -322,7 +331,8 @@ app.post('/admin/apps', async (c) => {
     updated_at: now,
   };
 
-  const ref = await firestore().collection('apps').add(docData);
+  const db = await firestore();
+  const ref = await db.collection('apps').add(docData);
 
   // Add screenshots if provided
   const screenshotKeys: string[] = Array.isArray(body.screenshot_keys) ? body.screenshot_keys : [];
@@ -343,7 +353,8 @@ app.post('/admin/apps', async (c) => {
 app.patch('/admin/apps/:id', async (c) => {
   const id = c.req.param('id');
   const body = await c.req.json().catch(() => ({} as any));
-  const ref = firestore().collection('apps').doc(id);
+  const db = await firestore();
+  const ref = db.collection('apps').doc(id);
   const snap = await ref.get();
   if (!snap.exists) return c.json({ error: 'not_found' }, 404);
   const update: Partial<App> = { updated_at: nowSec() };
@@ -385,7 +396,8 @@ app.post('/admin/apps/:id/apk', async (c) => {
   const head = await r2Head(newKey);
   if (!head) return c.json({ error: 'apk_not_found' }, 400);
 
-  const ref = firestore().collection('apps').doc(id);
+  const db = await firestore();
+  const ref = db.collection('apps').doc(id);
   const snap = await ref.get();
   if (!snap.exists) return c.json({ error: 'not_found' }, 404);
   const old = snap.data() as App;
@@ -411,7 +423,8 @@ app.post('/admin/apps/:id/icon', async (c) => {
   const newKey = String(body.icon_key || '');
   if (!newKey) return c.json({ error: 'icon_key_required' }, 400);
 
-  const ref = firestore().collection('apps').doc(id);
+  const db = await firestore();
+  const ref = db.collection('apps').doc(id);
   const snap = await ref.get();
   if (!snap.exists) return c.json({ error: 'not_found' }, 404);
   const old = snap.data() as App;
@@ -431,7 +444,8 @@ app.post('/admin/apps/:id/screenshots', async (c) => {
   const keys: string[] = Array.isArray(body.screenshot_keys) ? body.screenshot_keys : [];
   if (keys.length === 0) return c.json({ error: 'no_screenshots' }, 400);
 
-  const ref = firestore().collection('apps').doc(id);
+  const db = await firestore();
+  const ref = db.collection('apps').doc(id);
   const snap = await ref.get();
   if (!snap.exists) return c.json({ error: 'not_found' }, 404);
 
@@ -455,7 +469,8 @@ app.post('/admin/apps/:id/screenshots', async (c) => {
 app.delete('/admin/apps/:id/screenshots/:sid', async (c) => {
   const id = c.req.param('id');
   const sid = c.req.param('sid');
-  const ssRef = firestore().collection('apps').doc(id).collection('screenshots').doc(sid);
+  const db = await firestore();
+  const ssRef = db.collection('apps').doc(id).collection('screenshots').doc(sid);
   const snap = await ssRef.get();
   if (!snap.exists) return c.json({ error: 'not_found' }, 404);
   const ss = snap.data() as Screenshot;
@@ -467,7 +482,8 @@ app.delete('/admin/apps/:id/screenshots/:sid', async (c) => {
 // Delete app
 app.delete('/admin/apps/:id', async (c) => {
   const id = c.req.param('id');
-  const ref = firestore().collection('apps').doc(id);
+  const db = await firestore();
+  const ref = db.collection('apps').doc(id);
   const snap = await ref.get();
   if (!snap.exists) return c.json({ error: 'not_found' }, 404);
   const a = snap.data() as App;

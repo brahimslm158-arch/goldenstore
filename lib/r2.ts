@@ -1,16 +1,8 @@
-import {
-  S3Client,
-  PutObjectCommand,
-  GetObjectCommand,
-  DeleteObjectCommand,
-  HeadObjectCommand,
-} from '@aws-sdk/client-s3';
-import { getSignedUrl } from '@aws-sdk/s3-request-presigner';
+let client: any = null;
 
-let client: S3Client | null = null;
-
-function getClient(): S3Client {
+async function getClient() {
   if (client) return client;
+  const { S3Client } = await import('@aws-sdk/client-s3');
   const accountId = process.env.R2_ACCOUNT_ID;
   const accessKeyId = process.env.R2_ACCESS_KEY_ID;
   const secretAccessKey = process.env.R2_SECRET_ACCESS_KEY;
@@ -44,26 +36,32 @@ export async function r2PresignPut(
   contentType: string,
   expiresInSeconds = 600,
 ): Promise<string> {
+  const { PutObjectCommand } = await import('@aws-sdk/client-s3');
+  const { getSignedUrl } = await import('@aws-sdk/s3-request-presigner');
   const cmd = new PutObjectCommand({
     Bucket: r2Bucket(),
     Key: key,
     ContentType: contentType,
   });
-  return await getSignedUrl(getClient(), cmd, { expiresIn: expiresInSeconds });
+  return await getSignedUrl(await getClient(), cmd, { expiresIn: expiresInSeconds });
 }
 
 export async function r2PresignGet(key: string, expiresInSeconds = 600): Promise<string> {
+  const { GetObjectCommand } = await import('@aws-sdk/client-s3');
+  const { getSignedUrl } = await import('@aws-sdk/s3-request-presigner');
   const cmd = new GetObjectCommand({ Bucket: r2Bucket(), Key: key });
-  return await getSignedUrl(getClient(), cmd, { expiresIn: expiresInSeconds });
+  return await getSignedUrl(await getClient(), cmd, { expiresIn: expiresInSeconds });
 }
 
 export async function r2Delete(key: string): Promise<void> {
-  await getClient().send(new DeleteObjectCommand({ Bucket: r2Bucket(), Key: key }));
+  const { DeleteObjectCommand } = await import('@aws-sdk/client-s3');
+  await (await getClient()).send(new DeleteObjectCommand({ Bucket: r2Bucket(), Key: key }));
 }
 
 export async function r2Head(key: string): Promise<{ size: number; contentType: string } | null> {
   try {
-    const res = await getClient().send(new HeadObjectCommand({ Bucket: r2Bucket(), Key: key }));
+    const { HeadObjectCommand } = await import('@aws-sdk/client-s3');
+    const res = await (await getClient()).send(new HeadObjectCommand({ Bucket: r2Bucket(), Key: key }));
     return {
       size: Number(res.ContentLength || 0),
       contentType: res.ContentType || 'application/octet-stream',

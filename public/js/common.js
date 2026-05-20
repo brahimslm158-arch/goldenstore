@@ -143,7 +143,6 @@ function renderHeader(active = '') {
       );
       return f;
     })(),
-    el('a', { href: '/admin', class: 'admin-link' }, ico('shield'), 'الإدارة'),
   );
   h.append(inner);
 }

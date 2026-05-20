@@ -1,8 +1,5 @@
-import { cert, getApps, initializeApp, type App as FirebaseApp } from 'firebase-admin/app';
-import { getFirestore, Firestore, FieldValue } from 'firebase-admin/firestore';
-
-let app: FirebaseApp | null = null;
-let db: Firestore | null = null;
+let app: any = null;
+let db: any = null;
 
 function getCredentials() {
   const projectId = process.env.FIREBASE_PROJECT_ID;
@@ -13,13 +10,13 @@ function getCredentials() {
       'Firebase credentials missing. Set FIREBASE_PROJECT_ID, FIREBASE_CLIENT_EMAIL, FIREBASE_PRIVATE_KEY',
     );
   }
-  // Support both raw newline and escaped \n in env var
   privateKey = privateKey.replace(/\\n/g, '\n');
   return { projectId, clientEmail, privateKey };
 }
 
-export function firebaseApp(): FirebaseApp {
+export async function firebaseApp() {
   if (app) return app;
+  const { cert, getApps, initializeApp } = await import('firebase-admin/app');
   const existing = getApps();
   if (existing.length > 0) {
     app = existing[0];
@@ -37,11 +34,16 @@ export function firebaseApp(): FirebaseApp {
   return app;
 }
 
-export function firestore(): Firestore {
+export async function firestore() {
   if (db) return db;
-  db = getFirestore(firebaseApp());
-  db.settings({ ignoreUndefinedProperties: true });
+  const { getFirestore } = await import('firebase-admin/firestore');
+  const fbApp = await firebaseApp();
+  db = getFirestore(fbApp);
+  db.settings({ ignoreUndefinedProperties: true, preferRest: true });
   return db;
 }
 
-export { FieldValue };
+export async function getFieldValue() {
+  const { FieldValue } = await import('firebase-admin/firestore');
+  return FieldValue;
+}
