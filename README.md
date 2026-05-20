@@ -61,7 +61,8 @@ cp .env.example .env.local
 | `JWT_SECRET` | نص عشوائي ≥ 32 حرفاً — `openssl rand -hex 32` |
 | `FIREBASE_PROJECT_ID` | من JSON الذي حمّلته |
 | `FIREBASE_CLIENT_EMAIL` | من JSON الذي حمّلته |
-| `FIREBASE_PRIVATE_KEY` | المفتاح كاملاً بين علامتي تنصيص (سيُحوّل `\n` تلقائياً) |
+| `FIREBASE_PRIVATE_KEY` | المفتاح PEM — يقبل أسطر حقيقية أو `\n` المهروبة، باقتباس أو بدونه |
+| `FIREBASE_PRIVATE_KEY_BASE64` | بديل أنظف لـ `FIREBASE_PRIVATE_KEY` — السلسلة بصيغة base64 (انظر القسم 4) |
 | `R2_ACCOUNT_ID` | Account ID من Cloudflare |
 | `R2_ACCESS_KEY_ID` | من R2 API Token |
 | `R2_SECRET_ACCESS_KEY` | من R2 API Token |
@@ -89,7 +90,14 @@ npm run dev
 2. افتح [https://vercel.com/new](https://vercel.com/new) واختر المستودع.
 3. لا تغيّر إعدادات البناء (المشروع جاهز).
 4. في صفحة الإعداد، أضف جميع متغيرات البيئة من `.env.local`.
-   * لـ `FIREBASE_PRIVATE_KEY` — الصق المحتوى كما هو بين علامتي تنصيص.
+   * **مفتاح Firebase** — أسهل طريقة مع Vercel هي استخدام `FIREBASE_PRIVATE_KEY_BASE64`:
+     ```bash
+     # 1) استخرج قيمة private_key من ملف service-account.json
+     # 2) رمّزه إلى base64 (سطر واحد، بدون \n):
+     node -e 'const k = require("./service-account.json").private_key; process.stdout.write(Buffer.from(k).toString("base64"))'
+     ```
+     ثم الصق الناتج في Vercel كقيمة لـ `FIREBASE_PRIVATE_KEY_BASE64` — لن تحتاج إلى التعامل مع `\n` أو الاقتباس.
+   * إن استخدمت `FIREBASE_PRIVATE_KEY` مباشرة، الصق المحتوى كما هو من ملف JSON (مع `\n` المهروبة) — الكود يعالجها تلقائياً. **هام**: لا تحط علامتي تنصيص حول القيمة في واجهة Vercel، فقط الصقها كنص خام.
 5. اضغط **Deploy**.
 
 ### الطريقة الثانية — عبر Vercel CLI
