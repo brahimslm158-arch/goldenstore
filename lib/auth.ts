@@ -43,9 +43,9 @@ export function verifyJwt(token: string, secret: string): Record<string, any> | 
 }
 
 export function constantTimeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  const aBuf = Buffer.from(a);
-  const bBuf = Buffer.from(b);
+  const aBuf = Buffer.from(a, 'utf8');
+  const bBuf = Buffer.from(b, 'utf8');
+  if (aBuf.length !== bBuf.length) return false;
   return crypto.timingSafeEqual(aBuf, bBuf);
 }
 

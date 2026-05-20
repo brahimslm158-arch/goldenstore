@@ -129,8 +129,33 @@ app.get('/apps', async (c) => {
   else if (sort === 'name') query = query.orderBy('name_lower', 'asc');
   else query = query.orderBy('created_at', 'desc');
 
-  const total = (await query.count().get()).data().count;
-  const snap = await query.limit(limit).offset(offset).get();
+  let total: number;
+  let snap: any;
+  try {
+    total = (await query.count().get()).data().count;
+    snap = await query.limit(limit).offset(offset).get();
+  } catch (err: any) {
+    if (err?.code === 9 || err?.code === 3 || /index/i.test(err?.message ?? '')) {
+      // Composite index not yet created — fall back to unordered fetch + in-memory sort
+      let fallback: any = db.collection('apps');
+      if (category) fallback = fallback.where('category', '==', category);
+      if (featuredOnly) fallback = fallback.where('featured', '==', true);
+      if (q) {
+        const token = q.split(/\s+/).filter((w) => w.length >= 2)[0];
+        if (token) fallback = fallback.where('search_terms', 'array-contains', token);
+      }
+      const allSnap = await fallback.get();
+      let docs = allSnap.docs;
+      if (sort === 'popular') docs.sort((a: any, b: any) => (b.data().downloads || 0) - (a.data().downloads || 0));
+      else if (sort === 'name') docs.sort((a: any, b: any) => (a.data().name_lower || '').localeCompare(b.data().name_lower || ''));
+      else docs.sort((a: any, b: any) => (b.data().created_at || 0) - (a.data().created_at || 0));
+      total = docs.length;
+      docs = docs.slice(offset, offset + limit);
+      snap = { docs };
+    } else {
+      throw err;
+    }
+  }
   const apps = snap.docs.map((d: any) => {
     const a = appPublic(d);
     return { ...a, icon_url: icon_url(a.icon_key) };
