@@ -115,7 +115,7 @@ function ico(name, extra = 'icon') {
 // App card builder
 function appCard(a) {
   return el('a', { href: `/app?slug=${encodeURIComponent(a.slug)}`, class: 'app-card' },
-    a.featured ? el('span', { class: 'featured-pin' }, ico('star'), 'مختار') : null,
+    (a.stars > 0) ? el('span', { class: 'star-pin' }, ico('star'), formatNum(a.stars)) : null,
     el('div', { class: 'ico' },
       a.icon_url ? el('img', { src: a.icon_url, alt: a.name, loading: 'lazy' }) : ico('package', 'icon icon-xl')
     ),
@@ -125,6 +125,7 @@ function appCard(a) {
     ),
     el('div', { class: 'stats' },
       el('span', { class: 'size' }, formatBytes(a.size_bytes || 0)),
+      el('span', { class: 'dl' }, ico('star'), formatNum(a.stars || 0)),
       el('span', { class: 'dl' }, ico('download'), formatNum(a.downloads || 0)),
     ),
   );
@@ -175,9 +176,7 @@ function renderFooter() {
       el('span', null, ' — المتجر الذهبي للتطبيقات المهكرة'),
     ),
     el('div', { class: 'footer-links' },
-      el('a', { href: '/' }, 'الرئيسية'),
-      el('a', { href: '/browse' }, 'تصفّح'),
-      el('a', { href: '/categories' }, 'التصنيفات'),
+      el('span', null, 'جميع الحقوق محفوظة'),
     ),
   );
   f.append(inner);

@@ -15,7 +15,7 @@ export interface App {
   size_bytes: number;
   apk_key: string;
   icon_key?: string;
-  featured: boolean;
+  stars: number;
   downloads: number;
   created_at: number;
   updated_at: number;

@@ -347,7 +347,7 @@ section { margin: 56px 0; }
   transform: translateY(-2px);
   background: var(--bg-3);
 }
-.app-card .featured-pin {
+.app-card .star-pin {
   position: absolute;
   top: 10px;
   inset-inline-end: 10px;
@@ -684,17 +684,45 @@ section { margin: 56px 0; }
   align-items: center;
   flex-wrap: wrap;
 }
-.featured-badge {
+.btn-star {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 6px 13px;
-  background: var(--gold-glow);
-  color: var(--gold);
-  border: 1px solid rgba(214,180,106,0.3);
+  padding: 10px 20px;
+  background: transparent;
+  color: var(--text-2);
+  border: 1.5px solid var(--line);
   border-radius: 999px;
-  font-size: 12.5px;
+  font-size: 14px;
   font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+.btn-star:hover {
+  border-color: var(--gold);
+  color: var(--gold);
+  background: var(--gold-glow);
+}
+.btn-star.voted {
+  border-color: var(--gold);
+  color: var(--gold);
+  background: var(--gold-glow);
+}
+.btn-star.voted .icon {
+  fill: var(--gold);
+}
+.btn-star:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+.btn-star .star-count {
+  font-variant-numeric: tabular-nums;
+}
+.btn-star .icon {
+  width: 18px;
+  height: 18px;
+  transition: fill 0.2s;
 }
 
 .panel {

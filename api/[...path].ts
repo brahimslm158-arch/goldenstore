@@ -24,7 +24,64 @@ export const config = { runtime: 'nodejs' };
 
 const app = new Hono().basePath('/api');
 
-app.use('*', cors({ origin: (o) => o ?? '*', credentials: true }));
+// --- Security: restrict CORS to same origin only ---
+const ALLOWED_ORIGINS = (process.env.ALLOWED_ORIGINS || '').split(',').map(s => s.trim()).filter(Boolean);
+app.use('*', cors({
+  origin: (origin) => {
+    if (!origin) return '';
+    if (ALLOWED_ORIGINS.length > 0 && ALLOWED_ORIGINS.includes(origin)) return origin;
+    // Allow same-origin requests from the Vercel deployment
+    if (origin.endsWith('.vercel.app') || origin === 'https://goldenstore.me' || origin === 'https://www.goldenstore.me') return origin;
+    return '';
+  },
+  credentials: true,
+}));
+
+// --- Security: rate limiter (in-memory, per IP) ---
+const rateLimits = new Map<string, { count: number; reset: number }>();
+function rateLimit(ip: string, key: string, maxRequests: number, windowSec: number): boolean {
+  const k = `${key}:${ip}`;
+  const now = Date.now();
+  const entry = rateLimits.get(k);
+  if (!entry || now > entry.reset) {
+    rateLimits.set(k, { count: 1, reset: now + windowSec * 1000 });
+    return true;
+  }
+  entry.count++;
+  if (entry.count > maxRequests) return false;
+  return true;
+}
+// Cleanup stale entries every 5 minutes
+setInterval(() => {
+  const now = Date.now();
+  for (const [k, v] of rateLimits) {
+    if (now > v.reset) rateLimits.delete(k);
+  }
+}, 5 * 60 * 1000);
+
+function getClientIp(c: any): string {
+  return c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ||
+    c.req.header('x-real-ip') || 'unknown';
+}
+
+// --- Security: add security headers to all responses ---
+app.use('*', async (c, next) => {
+  await next();
+  c.header('X-Content-Type-Options', 'nosniff');
+  c.header('X-Frame-Options', 'DENY');
+  c.header('X-XSS-Protection', '1; mode=block');
+  c.header('Referrer-Policy', 'strict-origin-when-cross-origin');
+});
+
+// --- Security: body size limit (1MB) ---
+const MAX_BODY_SIZE = 1024 * 1024;
+app.use('*', async (c, next) => {
+  const cl = c.req.header('content-length');
+  if (cl && Number(cl) > MAX_BODY_SIZE) {
+    return c.json({ error: 'payload_too_large' }, 413);
+  }
+  await next();
+});
 
 // ---------------- helpers ----------------
 
@@ -51,9 +108,9 @@ async function ensureUniqueSlug(base: string): Promise<string> {
   }
 }
 
-function appPublic(doc: any): App & { id: string } {
+function appPublic(doc: any, includeInternalKeys = false): App & { id: string } {
   const d = doc.data() as App;
-  return {
+  const result: any = {
     id: doc.id,
     slug: d.slug,
     name: d.name,
@@ -68,13 +125,16 @@ function appPublic(doc: any): App & { id: string } {
     version_code: d.version_code,
     min_sdk: d.min_sdk,
     size_bytes: d.size_bytes,
-    apk_key: d.apk_key,
-    icon_key: d.icon_key,
-    featured: !!d.featured,
+    stars: d.stars || 0,
     downloads: d.downloads || 0,
     created_at: d.created_at,
     updated_at: d.updated_at,
   };
+  if (includeInternalKeys) {
+    result.apk_key = d.apk_key;
+    result.icon_key = d.icon_key;
+  }
+  return result;
 }
 
 function icon_url(icon_key?: string): string | null {
@@ -112,20 +172,21 @@ app.get('/apps', async (c) => {
   const q = (c.req.query('q') || '').trim().toLowerCase();
   const category = (c.req.query('category') || '').trim();
   const sort = (c.req.query('sort') || 'recent').trim();
-  const featuredOnly = c.req.query('featured') === '1';
+  const starredOnly = c.req.query('starred') === '1';
   const limit = Math.min(Number(c.req.query('limit') || '24') || 24, 60);
   const offset = Math.max(Number(c.req.query('offset') || '0') || 0, 0);
 
   const db = await firestore();
   let query: any = db.collection('apps');
   if (category) query = query.where('category', '==', category);
-  if (featuredOnly) query = query.where('featured', '==', true);
+  if (starredOnly) query = query.where('stars', '>', 0);
   if (q) {
     const token = q.split(/\s+/).filter((w) => w.length >= 2)[0];
     if (token) query = query.where('search_terms', 'array-contains', token);
   }
 
   if (sort === 'popular') query = query.orderBy('downloads', 'desc');
+  else if (sort === 'stars') query = query.orderBy('stars', 'desc');
   else if (sort === 'name') query = query.orderBy('name_lower', 'asc');
   else query = query.orderBy('created_at', 'desc');
 
@@ -139,7 +200,7 @@ app.get('/apps', async (c) => {
       // Composite index not yet created — fall back to unordered fetch + in-memory sort
       let fallback: any = db.collection('apps');
       if (category) fallback = fallback.where('category', '==', category);
-      if (featuredOnly) fallback = fallback.where('featured', '==', true);
+      if (starredOnly) fallback = fallback.where('stars', '>', 0);
       if (q) {
         const token = q.split(/\s+/).filter((w) => w.length >= 2)[0];
         if (token) fallback = fallback.where('search_terms', 'array-contains', token);
@@ -147,6 +208,7 @@ app.get('/apps', async (c) => {
       const allSnap = await fallback.get();
       let docs = allSnap.docs;
       if (sort === 'popular') docs.sort((a: any, b: any) => (b.data().downloads || 0) - (a.data().downloads || 0));
+      else if (sort === 'stars') docs.sort((a: any, b: any) => (b.data().stars || 0) - (a.data().stars || 0));
       else if (sort === 'name') docs.sort((a: any, b: any) => (a.data().name_lower || '').localeCompare(b.data().name_lower || ''));
       else docs.sort((a: any, b: any) => (b.data().created_at || 0) - (a.data().created_at || 0));
       total = docs.length;
@@ -158,7 +220,7 @@ app.get('/apps', async (c) => {
   }
   const apps = snap.docs.map((d: any) => {
     const a = appPublic(d);
-    return { ...a, icon_url: icon_url(a.icon_key) };
+    return { ...a, icon_url: icon_url((d.data() as App).icon_key) };
   });
   return c.json({ apps, total });
 });
@@ -170,6 +232,7 @@ app.get('/apps/:slug', async (c) => {
   if (snap.empty) return c.json({ error: 'not_found' }, 404);
   const doc = snap.docs[0];
   const ap = appPublic(doc);
+  const rawData = doc.data() as App;
   const ssSnap = await db
     .collection('apps')
     .doc(doc.id)
@@ -181,25 +244,141 @@ app.get('/apps/:slug', async (c) => {
     return { id: s.id, position: sd.position, url: icon_url(sd.r2_key) };
   });
   return c.json({
-    app: { ...ap, icon_url: icon_url(ap.icon_key) },
+    app: { ...ap, icon_url: icon_url(rawData.icon_key) },
     screenshots,
   });
 });
 
 app.get('/apps/:slug/download', async (c) => {
+  const ip = getClientIp(c);
   const slug = c.req.param('slug');
+  if (!rateLimit(ip, 'download', 30, 60)) {
+    return c.json({ error: 'rate_limit_exceeded' }, 429);
+  }
   const db = await firestore();
   const snap = await db.collection('apps').where('slug', '==', slug).limit(1).get();
   if (snap.empty) return c.json({ error: 'not_found' }, 404);
   const doc = snap.docs[0];
   const a = doc.data() as App;
   if (!a.apk_key) return c.json({ error: 'apk_not_available' }, 404);
-  const FV = await getFieldValue();
-  await doc.ref.update({ downloads: FV.increment(1) });
+
+  // Rate-limit download counter: max 1 increment per IP per app per 10 min
+  if (rateLimit(ip, `dl-count:${slug}`, 1, 600)) {
+    const FV = await getFieldValue();
+    await doc.ref.update({ downloads: FV.increment(1) });
+  }
+
   const filename = `${a.slug || 'app'}-${a.version_name || ''}.apk`.replace(/-+/g, '-');
   const disposition = `attachment; filename="${filename}"`;
   const url = await r2PresignGet(a.apk_key, 300, disposition);
   return c.redirect(url);
+});
+
+// ---------------- star / vote ----------------
+
+function serverFingerprint(c: any): string {
+  const ip =
+    c.req.header('x-forwarded-for')?.split(',')[0]?.trim() ||
+    c.req.header('x-real-ip') ||
+    'unknown';
+  const ua = c.req.header('user-agent') || '';
+  const lang = c.req.header('accept-language') || '';
+  return `${ip}||${ua}||${lang}`;
+}
+
+function computeVoteHash(clientFp: string, serverFp: string): string {
+  return crypto
+    .createHash('sha256')
+    .update(`${clientFp}::${serverFp}`)
+    .digest('hex');
+}
+
+app.post('/apps/:slug/star', async (c) => {
+  const ip = getClientIp(c);
+  // Rate limit: max 10 star attempts per IP per minute
+  if (!rateLimit(ip, 'star', 10, 60)) {
+    return c.json({ error: 'rate_limit_exceeded' }, 429);
+  }
+  // Additional: max 1 star per IP per app per hour (even with different fingerprints)
+  const slug = c.req.param('slug');
+  if (!rateLimit(ip, `star:${slug}`, 1, 3600)) {
+    return c.json({ error: 'already_voted' }, 409);
+  }
+
+  const body = await c.req.json().catch(() => ({} as any));
+  const clientFp = String(body.fp || '').trim();
+  if (!clientFp || clientFp.length < 16 || clientFp.length > 256) {
+    return c.json({ error: 'invalid_fingerprint' }, 400);
+  }
+
+  const db = await firestore();
+  const snap = await db.collection('apps').where('slug', '==', slug).limit(1).get();
+  if (snap.empty) return c.json({ error: 'not_found' }, 404);
+  const doc = snap.docs[0];
+
+  const sFp = serverFingerprint(c);
+  const voteHash = computeVoteHash(clientFp, sFp);
+  // Also store a server-only hash to prevent same IP+UA from voting with different client FPs
+  const serverOnlyHash = crypto.createHash('sha256').update(sFp).digest('hex');
+
+  const FV = await getFieldValue();
+
+  // Use Firestore transaction to prevent race conditions
+  try {
+    const newStars = await db.runTransaction(async (tx: any) => {
+      const votesRef = doc.ref.collection('star_votes');
+      const existingByHash = await tx.get(votesRef.where('hash', '==', voteHash).limit(1));
+      if (!existingByHash.empty) {
+        throw new Error('ALREADY_VOTED');
+      }
+      const existingByServer = await tx.get(votesRef.where('server_hash', '==', serverOnlyHash).limit(1));
+      if (!existingByServer.empty) {
+        throw new Error('ALREADY_VOTED');
+      }
+
+      const newVoteRef = votesRef.doc();
+      tx.set(newVoteRef, {
+        hash: voteHash,
+        server_hash: serverOnlyHash,
+        ts: nowSec(),
+      });
+      tx.update(doc.ref, { stars: FV.increment(1) });
+
+      const freshDoc = await tx.get(doc.ref);
+      return (freshDoc.data() as App).stars || 0;
+    });
+    return c.json({ ok: true, stars: newStars + 1 });
+  } catch (err: any) {
+    if (err?.message === 'ALREADY_VOTED') {
+      return c.json({ error: 'already_voted', stars: (doc.data() as App).stars || 0 }, 409);
+    }
+    throw err;
+  }
+});
+
+app.post('/apps/:slug/star-check', async (c) => {
+  const slug = c.req.param('slug');
+  const body = await c.req.json().catch(() => ({} as any));
+  const clientFp = String(body.fp || '').trim();
+  if (!clientFp || clientFp.length < 16) {
+    return c.json({ voted: false });
+  }
+
+  const db = await firestore();
+  const snap = await db.collection('apps').where('slug', '==', slug).limit(1).get();
+  if (snap.empty) return c.json({ error: 'not_found' }, 404);
+  const doc = snap.docs[0];
+
+  const sFp = serverFingerprint(c);
+  const voteHash = computeVoteHash(clientFp, sFp);
+
+  const serverOnlyHash = crypto.createHash('sha256').update(sFp).digest('hex');
+  const existingByHash = await doc.ref.collection('star_votes').where('hash', '==', voteHash).limit(1).get();
+  if (!existingByHash.empty) {
+    return c.json({ voted: true, stars: (doc.data() as App).stars || 0 });
+  }
+  const existingByServer = await doc.ref.collection('star_votes').where('server_hash', '==', serverOnlyHash).limit(1).get();
+  return c.json({ voted: !existingByServer.empty, stars: (doc.data() as App).stars || 0 });
 });
 
 // ---------------- auth ----------------
@@ -216,8 +395,13 @@ function isSecureRequest(c: any): boolean {
 }
 
 app.post('/login', async (c) => {
+  const ip = getClientIp(c);
+  // Rate limit: max 5 login attempts per IP per 5 minutes
+  if (!rateLimit(ip, 'login', 5, 300)) {
+    return c.json({ error: 'rate_limit_exceeded' }, 429);
+  }
+
   const body = await c.req.json().catch(() => ({} as any));
-  // Single-field flow: password only. Username defaults to ADMIN_USERNAME on the server.
   const adminUser = process.env.ADMIN_USERNAME || 'admin';
   const username = String(body.username ?? adminUser);
   const password = String(body.password ?? '');
@@ -228,8 +412,7 @@ app.post('/login', async (c) => {
   const userOk = constantTimeEqual(username, adminUser);
   const passOk = !!password && constantTimeEqual(password, adminPass);
   if (!userOk || !passOk) {
-    // Small uniform delay to slow brute force; same on every failure.
-    await new Promise((r) => setTimeout(r, 350));
+    await new Promise((r) => setTimeout(r, 500 + Math.random() * 500));
     return c.json({ error: 'invalid_credentials' }, 401);
   }
 
@@ -299,7 +482,7 @@ app.get('/admin/apps', async (c) => {
   const db = await firestore();
   const snap = await db.collection('apps').orderBy('created_at', 'desc').get();
   const apps = snap.docs.map((d: any) => {
-    const a = appPublic(d);
+    const a = appPublic(d, true);
     return { ...a, icon_url: icon_url(a.icon_key) };
   });
   return c.json({ apps });
@@ -310,7 +493,7 @@ app.get('/admin/apps/:id', async (c) => {
   const db = await firestore();
   const doc = await db.collection('apps').doc(id).get();
   if (!doc.exists) return c.json({ error: 'not_found' }, 404);
-  const a = appPublic(doc);
+  const a = appPublic(doc, true);
   const ssSnap = await doc.ref.collection('screenshots').orderBy('position', 'asc').get();
   const screenshots = ssSnap.docs.map((s: any) => {
     const sd = s.data() as Screenshot;
@@ -327,8 +510,18 @@ app.post('/admin/upload-url', async (c) => {
   const contentType = String(body.content_type || 'application/octet-stream');
   const slugHint = slugify(String(body.slug_hint || 'app'));
 
+  // Validate content-type to prevent serving malicious HTML/JS from R2
+  const ALLOWED_CONTENT_TYPES: Record<string, string[]> = {
+    apk: ['application/vnd.android.package-archive', 'application/octet-stream'],
+    icon: ['image/png', 'image/jpeg', 'image/webp', 'image/gif'],
+    screenshot: ['image/png', 'image/jpeg', 'image/webp', 'image/gif'],
+  };
+
   if (!['apk', 'icon', 'screenshot'].includes(kind)) {
     return c.json({ error: 'invalid_kind' }, 400);
+  }
+  if (ALLOWED_CONTENT_TYPES[kind] && !ALLOWED_CONTENT_TYPES[kind].includes(contentType)) {
+    return c.json({ error: 'invalid_content_type' }, 400);
   }
   const ext = safeExt(filename, kind === 'apk' ? 'apk' : kind === 'icon' ? 'png' : 'jpg');
   const ts = Date.now();
@@ -339,6 +532,12 @@ app.post('/admin/upload-url', async (c) => {
   return c.json({ url, key });
 });
 
+// Validate that R2 keys match expected folder prefixes (prevent path traversal)
+function isValidR2Key(key: string, expectedPrefix: string): boolean {
+  if (!key || key.includes('..') || key.startsWith('/')) return false;
+  return key.startsWith(`${expectedPrefix}/`);
+}
+
 // Step 2: after R2 upload, client posts metadata to create the app
 app.post('/admin/apps', async (c) => {
   const body = await c.req.json().catch(() => ({} as any));
@@ -347,6 +546,19 @@ app.post('/admin/apps', async (c) => {
   const apk_key = String(body.apk_key || '').trim();
   if (!name || !package_name || !apk_key) {
     return c.json({ error: 'name_package_apk_required' }, 400);
+  }
+  // Input length limits to prevent abuse
+  if (name.length > 200 || package_name.length > 200) {
+    return c.json({ error: 'input_too_long' }, 400);
+  }
+  if (String(body.description || '').length > 10000 || String(body.short_description || '').length > 500) {
+    return c.json({ error: 'input_too_long' }, 400);
+  }
+  if (!isValidR2Key(apk_key, 'apk')) {
+    return c.json({ error: 'invalid_apk_key' }, 400);
+  }
+  if (body.icon_key && !isValidR2Key(String(body.icon_key), 'icon')) {
+    return c.json({ error: 'invalid_icon_key' }, 400);
   }
 
   // Verify the file exists in R2 to get size
@@ -373,7 +585,7 @@ app.post('/admin/apps', async (c) => {
     size_bytes: head.size,
     apk_key,
     icon_key: body.icon_key ? String(body.icon_key) : undefined,
-    featured: !!body.featured,
+    stars: 0,
     downloads: 0,
     created_at: now,
     updated_at: now,
@@ -383,10 +595,10 @@ app.post('/admin/apps', async (c) => {
   const ref = await db.collection('apps').add(docData);
 
   // Add screenshots if provided
-  const screenshotKeys: string[] = Array.isArray(body.screenshot_keys) ? body.screenshot_keys : [];
+  const screenshotKeys: string[] = Array.isArray(body.screenshot_keys) ? body.screenshot_keys.slice(0, 20) : [];
   for (let i = 0; i < screenshotKeys.length; i++) {
     const r2_key = String(screenshotKeys[i]);
-    if (!r2_key) continue;
+    if (!r2_key || !isValidR2Key(r2_key, 'ss')) continue;
     await ref.collection('screenshots').add({
       app_id: ref.id,
       r2_key,
@@ -405,6 +617,14 @@ app.patch('/admin/apps/:id', async (c) => {
   const ref = db.collection('apps').doc(id);
   const snap = await ref.get();
   if (!snap.exists) return c.json({ error: 'not_found' }, 404);
+  // Input length limits
+  if (('name' in body && String(body.name).length > 200) ||
+      ('package_name' in body && String(body.package_name).length > 200) ||
+      ('description' in body && String(body.description).length > 10000) ||
+      ('short_description' in body && String(body.short_description).length > 500)) {
+    return c.json({ error: 'input_too_long' }, 400);
+  }
+  // Prevent admin from tampering with stars/downloads via PATCH
   const update: Partial<App> = { updated_at: nowSec() };
   if ('name' in body) {
     update.name = String(body.name);
@@ -418,8 +638,6 @@ app.patch('/admin/apps/:id', async (c) => {
   if ('version_name' in body) update.version_name = String(body.version_name) || undefined;
   if ('version_code' in body) update.version_code = Number(body.version_code) || undefined;
   if ('min_sdk' in body) update.min_sdk = Number(body.min_sdk) || undefined;
-  if ('featured' in body) update.featured = !!body.featured;
-
   // Recompute search terms if relevant fields changed
   if ('name' in body || 'developer' in body || 'short_description' in body || 'package_name' in body) {
     const merged = { ...(snap.data() as App), ...update };
@@ -441,6 +659,7 @@ app.post('/admin/apps/:id/apk', async (c) => {
   const body = await c.req.json().catch(() => ({} as any));
   const newKey = String(body.apk_key || '');
   if (!newKey) return c.json({ error: 'apk_key_required' }, 400);
+  if (!isValidR2Key(newKey, 'apk')) return c.json({ error: 'invalid_apk_key' }, 400);
   const head = await r2Head(newKey);
   if (!head) return c.json({ error: 'apk_not_found' }, 400);
 
@@ -470,6 +689,7 @@ app.post('/admin/apps/:id/icon', async (c) => {
   const body = await c.req.json().catch(() => ({} as any));
   const newKey = String(body.icon_key || '');
   if (!newKey) return c.json({ error: 'icon_key_required' }, 400);
+  if (!isValidR2Key(newKey, 'icon')) return c.json({ error: 'invalid_icon_key' }, 400);
 
   const db = await firestore();
   const ref = db.collection('apps').doc(id);
@@ -489,7 +709,7 @@ app.post('/admin/apps/:id/icon', async (c) => {
 app.post('/admin/apps/:id/screenshots', async (c) => {
   const id = c.req.param('id');
   const body = await c.req.json().catch(() => ({} as any));
-  const keys: string[] = Array.isArray(body.screenshot_keys) ? body.screenshot_keys : [];
+  const keys: string[] = Array.isArray(body.screenshot_keys) ? body.screenshot_keys.slice(0, 20) : [];
   if (keys.length === 0) return c.json({ error: 'no_screenshots' }, 400);
 
   const db = await firestore();
@@ -501,7 +721,7 @@ app.post('/admin/apps/:id/screenshots', async (c) => {
   let pos = existing.size;
   const now = nowSec();
   for (const k of keys) {
-    if (!k) continue;
+    if (!k || !isValidR2Key(String(k), 'ss')) continue;
     await ref.collection('screenshots').add({
       app_id: id,
       r2_key: String(k),
@@ -553,7 +773,7 @@ app.delete('/admin/apps/:id', async (c) => {
 app.notFound((c) => c.json({ error: 'not_found' }, 404));
 app.onError((err, c) => {
   console.error('[api error]', err);
-  return c.json({ error: 'internal_error', message: err.message }, 500);
+  return c.json({ error: 'internal_error' }, 500);
 });
 
 export default getRequestListener(app.fetch);

@@ -3,7 +3,6 @@
   const grid = document.getElementById('grid');
   const chips = document.getElementById('category-chips');
   const sortSelect = document.getElementById('sort-select');
-  const featuredToggle = document.getElementById('featured-toggle');
   const loadMoreBtn = document.getElementById('load-more');
   const pageTitle = document.getElementById('page-title');
   const resultCount = document.getElementById('result-count');
@@ -13,18 +12,16 @@
     q: getQuery('q'),
     category: getQuery('category'),
     sort: getQuery('sort') || 'recent',
-    featured: getQuery('featured') === '1',
     offset: 0,
     limit: 24,
     total: 0,
   };
 
   sortSelect.value = state.sort;
-  featuredToggle.checked = state.featured;
 
   function updateTitle() {
     if (state.q) pageTitle.textContent = `نتائج البحث عن «${state.q}»`;
-    else if (state.featured) pageTitle.textContent = 'المختارات الذهبية';
+    else if (state.sort === 'stars') pageTitle.textContent = 'الأعلى تقييماً';
     else if (state.category) {
       const c = cats.find((x) => x.slug === state.category);
       pageTitle.textContent = c ? c.name : 'تصفّح';
@@ -57,12 +54,6 @@
     state.sort = sortSelect.value;
     state.offset = 0;
     setQuery({ sort: state.sort === 'recent' ? null : state.sort });
-    loadApps(true);
-  });
-  featuredToggle.addEventListener('change', () => {
-    state.featured = featuredToggle.checked;
-    state.offset = 0;
-    setQuery({ featured: state.featured ? '1' : null });
     updateTitle();
     loadApps(true);
   });
@@ -79,7 +70,6 @@
     if (state.q) params.set('q', state.q);
     if (state.category) params.set('category', state.category);
     if (state.sort) params.set('sort', state.sort);
-    if (state.featured) params.set('featured', '1');
     params.set('limit', String(state.limit));
     params.set('offset', String(state.offset));
     try {

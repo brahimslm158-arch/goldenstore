@@ -294,7 +294,7 @@
               : el('div', { class: 'ico-sm' })),
             el('td', { 'data-label': 'الاسم' },
               el('div', null, a.name),
-              a.featured ? el('span', { class: 'featured-pin', style: 'position:relative; top:auto; inset-inline-end:auto; display:inline-flex; margin-top:6px;' }, ico('star'), 'مختار') : null,
+              (a.stars > 0) ? el('span', { class: 'star-pin', style: 'position:relative; top:auto; inset-inline-end:auto; display:inline-flex; margin-top:6px;' }, ico('star'), formatNum(a.stars)) : null,
             ),
             el('td', { 'data-label': 'التصنيف' }, cats.find(c => c.slug === a.category)?.name || a.category),
             el('td', { 'data-label': 'الإصدار' }, a.version_name || '—'),
@@ -335,8 +335,6 @@
       const apkFiles = apkDz.getFiles();
       if (!apkFiles.length) { toast('يجب رفع ملف APK', 'error'); return; }
       const data = Object.fromEntries(new FormData(form).entries());
-      data.featured = form.querySelector('[name=featured]').checked;
-
       const submitBtn = form.querySelector('button[type=submit]');
       submitBtn.disabled = true;
       submitBtn.innerHTML = '';
@@ -368,7 +366,6 @@
           version_name: data.version_name,
           version_code: data.version_code ? Number(data.version_code) : undefined,
           min_sdk: data.min_sdk ? Number(data.min_sdk) : undefined,
-          featured: data.featured,
           apk_key,
           icon_key,
           screenshot_keys,
@@ -401,7 +398,6 @@
           formField('version_code', 'رمز الإصدار (رقم)', 'number', { placeholder: '1' }),
         ),
         formField('min_sdk', 'الحد الأدنى لـ Android SDK', 'number', { placeholder: '21', hint: '21 = أندرويد 5.0' }),
-        formToggle('featured', 'إضافته للمختارات الذهبية', false),
       ),
       el('div', { class: 'panel' },
         el('div', { class: 'panel-head' }, ico('android'), 'ملف APK *'),
@@ -446,7 +442,6 @@
       const form = el('form', { class: 'form', onsubmit: async (e) => {
         e.preventDefault();
         const data = Object.fromEntries(new FormData(form).entries());
-        data.featured = form.querySelector('[name=featured]').checked;
         if (data.version_code === '') delete data.version_code;
         if (data.min_sdk === '') delete data.min_sdk;
         try {
@@ -472,7 +467,6 @@
             formField('version_code', 'رمز الإصدار', 'number', { value: app.version_code ?? '' }),
           ),
           formField('min_sdk', 'الحد الأدنى لـ SDK', 'number', { value: app.min_sdk ?? '' }),
-          formToggle('featured', 'إضافته للمختارات الذهبية', !!app.featured),
           el('button', { type: 'submit', class: 'btn btn-primary' }, ico('check'), 'حفظ التغييرات'),
         ),
       );
