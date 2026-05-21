@@ -113,45 +113,47 @@ function ico(name, extra = 'icon') {
 }
 
 // --- Adsterra Ad helpers ---
-// Set your Adsterra ad keys here after creating ad units at adsterra.com
 const ADSTERRA = {
-  banner_top:    '',  // Banner 728x90 or responsive
-  banner_mid:    '',  // Banner 468x60 or native
-  native_feed:   '',  // Native Banner key
-  banner_bottom: '',  // Banner 300x250 or responsive
+  banner_top:    { key: 'b8c135a7276af2e3469958dc9845accb', w: 728, h: 90 },
+  banner_mid:    { key: 'eebc979505b3004140c9295a5706dc3e', w: 468, h: 60 },
+  native_feed:   { key: '19ab256b6a7282ceb83ef8b4dbf6b582' },
+  banner_bottom: { key: '3da308bf01979306add45ada0c4f4035', w: 300, h: 250 },
 };
 
-function adBanner(key) {
-  if (!key) return el('div');
+function adBanner(cfg) {
+  if (!cfg || !cfg.key) return el('div');
   const wrap = el('div', { class: 'ad-container ad-banner' });
+  const opts = document.createElement('script');
+  opts.textContent = `atOptions = { 'key': '${cfg.key}', 'format': 'iframe', 'height': ${cfg.h}, 'width': ${cfg.w}, 'params': {} };`;
+  const inv = document.createElement('script');
+  inv.src = `//www.highperformanceformat.com/${cfg.key}/invoke.js`;
+  wrap.appendChild(opts);
+  wrap.appendChild(inv);
+  return wrap;
+}
+
+function adNative(cfg) {
+  if (!cfg || !cfg.key) return el('div');
+  const wrap = el('div', { class: 'ad-container ad-native' });
+  const d = el('div', { id: `container-${cfg.key}` });
   const s = document.createElement('script');
   s.async = true;
   s.setAttribute('data-cfasync', 'false');
-  s.src = `//www.highperformanceformat.com/${key}/invoke.js`;
-  const d = el('div', { id: `adsterra-${key}` });
+  s.src = `//pl29515489.effectivecpmnetwork.com/${cfg.key}/invoke.js`;
   wrap.appendChild(d);
   wrap.appendChild(s);
   return wrap;
 }
 
-function adNative(key) {
-  if (!key) return el('div');
-  const wrap = el('div', { class: 'ad-container ad-native' });
-  const s = document.createElement('script');
-  s.async = true;
-  s.setAttribute('data-cfasync', 'false');
-  s.src = `//pl.aibnserv.com/${key}/invoke.js`;
-  wrap.appendChild(s);
-  return wrap;
-}
-
-function adInFeed(key) {
-  if (!key) return el('div');
+function adInFeed(cfg) {
+  if (!cfg || !cfg.key) return el('div');
   const wrap = el('div', { class: 'ad-container ad-in-feed' });
+  const d = el('div', { id: `container-${cfg.key}-${Date.now()}` });
   const s = document.createElement('script');
   s.async = true;
   s.setAttribute('data-cfasync', 'false');
-  s.src = `//pl.aibnserv.com/${key}/invoke.js`;
+  s.src = `//pl29515489.effectivecpmnetwork.com/${cfg.key}/invoke.js`;
+  wrap.appendChild(d);
   wrap.appendChild(s);
   return wrap;
 }
