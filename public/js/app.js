@@ -204,6 +204,9 @@
       ));
     }
 
+    // Ad after screenshots
+    content.append(window.GS.adBanner('APP_MID_SLOT'));
+
     // Full description
     if (app.description) {
       content.append(el('section', { class: 'panel' },
@@ -229,6 +232,9 @@
         techCell('آخر تحديث', formatDate(app.updated_at)),
       ),
     ));
+
+    // Bottom ad
+    content.append(window.GS.adMultiplex('APP_BOTTOM_SLOT'));
 
     content.append(el('div', { class: 'muted mt-md', style: 'text-align:center; font-size:13px;' },
       'لتثبيت التطبيق المهكّر: فعّل خيار «تثبيت تطبيقات من مصادر غير معروفة» من إعدادات الأمان في جهازك، ثم افتح ملف APK الذي حملّته.'));

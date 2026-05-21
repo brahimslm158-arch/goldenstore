@@ -1408,3 +1408,48 @@ section { margin: 56px 0; }
 
   .section-title { font-size: 17px; }
 }
+
+/* =================================================
+   Ads — non-intrusive, blends with dark theme
+   ================================================= */
+.ad-container {
+  margin: 20px auto;
+  text-align: center;
+  overflow: hidden;
+  max-width: 100%;
+}
+.ad-container ins {
+  background: transparent;
+}
+.ad-banner {
+  border-radius: var(--r-md);
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  padding: 8px;
+  min-height: 90px;
+}
+.ad-in-feed {
+  grid-column: 1 / -1;
+  border-radius: var(--r-md);
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  padding: 12px;
+  min-height: 120px;
+}
+.ad-multiplex {
+  border-radius: var(--r-md);
+  background: var(--bg-2);
+  border: 1px solid var(--line);
+  padding: 12px;
+  margin-top: 32px;
+  min-height: 250px;
+}
+#ad-top {
+  margin-top: 8px;
+  margin-bottom: 0;
+}
+@media (max-width: 600px) {
+  .ad-banner { min-height: 50px; padding: 4px; }
+  .ad-in-feed { min-height: 80px; padding: 8px; }
+  .ad-multiplex { min-height: 200px; }
+}

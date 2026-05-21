@@ -112,6 +112,50 @@ function ico(name, extra = 'icon') {
   return window.GSIcons.iconEl(name, extra);
 }
 
+// --- Ad helpers ---
+const AD_CLIENT = 'ca-pub-5684487584672639';
+
+function adBanner(slotId, format = 'auto') {
+  const wrap = el('div', { class: 'ad-container ad-banner' });
+  const ins = document.createElement('ins');
+  ins.className = 'adsbygoogle';
+  ins.style.display = 'block';
+  ins.setAttribute('data-ad-client', AD_CLIENT);
+  ins.setAttribute('data-ad-slot', slotId);
+  ins.setAttribute('data-ad-format', format);
+  ins.setAttribute('data-full-width-responsive', 'true');
+  wrap.appendChild(ins);
+  try { (window.adsbygoogle = window.adsbygoogle || []).push({}); } catch {}
+  return wrap;
+}
+
+function adInFeed(slotId) {
+  const wrap = el('div', { class: 'ad-container ad-in-feed' });
+  const ins = document.createElement('ins');
+  ins.className = 'adsbygoogle';
+  ins.style.display = 'block';
+  ins.setAttribute('data-ad-client', AD_CLIENT);
+  ins.setAttribute('data-ad-slot', slotId);
+  ins.setAttribute('data-ad-format', 'fluid');
+  ins.setAttribute('data-ad-layout-key', '-6t+ed+2i-1n-4w');
+  wrap.appendChild(ins);
+  try { (window.adsbygoogle = window.adsbygoogle || []).push({}); } catch {}
+  return wrap;
+}
+
+function adMultiplex(slotId) {
+  const wrap = el('div', { class: 'ad-container ad-multiplex' });
+  const ins = document.createElement('ins');
+  ins.className = 'adsbygoogle';
+  ins.style.display = 'block';
+  ins.setAttribute('data-ad-client', AD_CLIENT);
+  ins.setAttribute('data-ad-slot', slotId);
+  ins.setAttribute('data-ad-format', 'autorelaxed');
+  wrap.appendChild(ins);
+  try { (window.adsbygoogle = window.adsbygoogle || []).push({}); } catch {}
+  return wrap;
+}
+
 // App card builder
 function appCard(a) {
   return el('a', { href: `/app?slug=${encodeURIComponent(a.slug)}`, class: 'app-card' },
@@ -190,11 +234,26 @@ async function loadStoreInfo() {
   } catch {}
 }
 
+function renderAds() {
+  const page = document.body.dataset.page || '';
+  // Don't show ads on admin page
+  if (page === 'admin') return;
+
+  // Top banner ad (below header, all pages)
+  const adTop = document.getElementById('ad-top');
+  if (adTop) adTop.appendChild(adBanner('TOP_BANNER_SLOT'));
+
+  // Bottom ad (before footer, home & categories)
+  const adBottom = document.getElementById('ad-bottom');
+  if (adBottom) adBottom.appendChild(adMultiplex('BOTTOM_MULTIPLEX_SLOT'));
+}
+
 function init() {
   const active = document.body.dataset.page || '';
   renderHeader(active);
   renderFooter();
   loadStoreInfo().then(() => renderFooter());
+  renderAds();
 }
 
 window.GS = {
@@ -202,6 +261,7 @@ window.GS = {
   formatBytes, formatNum, formatDate,
   getQuery, setQuery,
   init, STORE,
+  adBanner, adInFeed, adMultiplex,
 };
 
 document.addEventListener('DOMContentLoaded', init);

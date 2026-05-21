@@ -86,7 +86,13 @@
         loadMoreBtn.classList.add('hidden');
         return;
       }
-      apps.forEach((a) => grid.append(appCard(a)));
+      apps.forEach((a, i) => {
+        grid.append(appCard(a));
+        // Insert in-feed ad every 8 apps
+        if ((state.offset + i + 1) % 8 === 0) {
+          grid.append(window.GS.adInFeed('IN_FEED_SLOT'));
+        }
+      });
       if (state.offset + apps.length < total) loadMoreBtn.classList.remove('hidden');
       else loadMoreBtn.classList.add('hidden');
     } catch (e) {
