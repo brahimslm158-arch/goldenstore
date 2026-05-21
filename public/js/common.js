@@ -112,52 +112,6 @@ function ico(name, extra = 'icon') {
   return window.GSIcons.iconEl(name, extra);
 }
 
-// --- Adsterra Ad helpers ---
-const ADSTERRA = {
-  banner_top:    { key: 'b8c135a7276af2e3469958dc9845accb', w: 728, h: 90 },
-  banner_mid:    { key: 'eebc979505b3004140c9295a5706dc3e', w: 468, h: 60 },
-  native_feed:   { key: '19ab256b6a7282ceb83ef8b4dbf6b582' },
-  banner_bottom: { key: '3da308bf01979306add45ada0c4f4035', w: 300, h: 250 },
-};
-
-function adBanner(cfg) {
-  if (!cfg || !cfg.key) return el('div');
-  const wrap = el('div', { class: 'ad-container ad-banner' });
-  const opts = document.createElement('script');
-  opts.textContent = `atOptions = { 'key': '${cfg.key}', 'format': 'iframe', 'height': ${cfg.h}, 'width': ${cfg.w}, 'params': {} };`;
-  const inv = document.createElement('script');
-  inv.src = `//www.highperformanceformat.com/${cfg.key}/invoke.js`;
-  wrap.appendChild(opts);
-  wrap.appendChild(inv);
-  return wrap;
-}
-
-function adNative(cfg) {
-  if (!cfg || !cfg.key) return el('div');
-  const wrap = el('div', { class: 'ad-container ad-native' });
-  const d = el('div', { id: `container-${cfg.key}` });
-  const s = document.createElement('script');
-  s.async = true;
-  s.setAttribute('data-cfasync', 'false');
-  s.src = `//pl29515489.effectivecpmnetwork.com/${cfg.key}/invoke.js`;
-  wrap.appendChild(d);
-  wrap.appendChild(s);
-  return wrap;
-}
-
-function adInFeed(cfg) {
-  if (!cfg || !cfg.key) return el('div');
-  const wrap = el('div', { class: 'ad-container ad-in-feed' });
-  const d = el('div', { id: `container-${cfg.key}-${Date.now()}` });
-  const s = document.createElement('script');
-  s.async = true;
-  s.setAttribute('data-cfasync', 'false');
-  s.src = `//pl29515489.effectivecpmnetwork.com/${cfg.key}/invoke.js`;
-  wrap.appendChild(d);
-  wrap.appendChild(s);
-  return wrap;
-}
-
 // App card builder
 function appCard(a) {
   return el('a', { href: `/app?slug=${encodeURIComponent(a.slug)}`, class: 'app-card' },
@@ -236,23 +190,11 @@ async function loadStoreInfo() {
   } catch {}
 }
 
-function renderAds() {
-  const page = document.body.dataset.page || '';
-  if (page === 'admin') return;
-
-  const adTop = document.getElementById('ad-top');
-  if (adTop && ADSTERRA.banner_top) adTop.appendChild(adBanner(ADSTERRA.banner_top));
-
-  const adBottom = document.getElementById('ad-bottom');
-  if (adBottom && ADSTERRA.banner_bottom) adBottom.appendChild(adBanner(ADSTERRA.banner_bottom));
-}
-
 function init() {
   const active = document.body.dataset.page || '';
   renderHeader(active);
   renderFooter();
   loadStoreInfo().then(() => renderFooter());
-  renderAds();
 }
 
 window.GS = {
@@ -260,7 +202,6 @@ window.GS = {
   formatBytes, formatNum, formatDate,
   getQuery, setQuery,
   init, STORE,
-  adBanner, adInFeed, adNative, ADSTERRA,
 };
 
 document.addEventListener('DOMContentLoaded', init);

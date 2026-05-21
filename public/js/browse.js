@@ -86,11 +86,8 @@
         loadMoreBtn.classList.add('hidden');
         return;
       }
-      apps.forEach((a, i) => {
+      apps.forEach((a) => {
         grid.append(appCard(a));
-        if (window.GS.ADSTERRA.native_feed && (state.offset + i + 1) % 8 === 0) {
-          grid.append(window.GS.adInFeed(window.GS.ADSTERRA.native_feed));
-        }
       });
       if (state.offset + apps.length < total) loadMoreBtn.classList.remove('hidden');
       else loadMoreBtn.classList.add('hidden');

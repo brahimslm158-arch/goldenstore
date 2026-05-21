@@ -20,8 +20,7 @@
                         { "key": "X-Frame-Options", "value": "DENY" },
                         { "key": "X-XSS-Protection", "value": "1; mode=block" },
                         { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-                        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" },
-                        { "key": "Content-Security-Policy", "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://*.highperformanceformat.com https://*.effectivecpmnetwork.com https://*.aibnserv.com https://*.adsterra.com https://*.adstera.com https://*.effectivegatetocontent.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://*.highperformanceformat.com https://*.effectivecpmnetwork.com; img-src 'self' https: data:; connect-src 'self' https://*.adsterra.com https://*.highperformanceformat.com https://*.effectivecpmnetwork.com https://*.aibnserv.com; font-src 'self' https://fonts.gstatic.com; frame-src https://*.adsterra.com https://*.highperformanceformat.com https://*.effectivecpmnetwork.com https://*.aibnserv.com https://*.adstera.com https://*.effectivegatetocontent.com; frame-ancestors 'none'; base-uri 'self'; form-action 'self'" }
+                        { "key": "Permissions-Policy", "value": "camera=(), microphone=(), geolocation=()" }
                   ]
           },
           {
