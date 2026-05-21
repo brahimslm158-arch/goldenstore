@@ -1410,16 +1410,13 @@ section { margin: 56px 0; }
 }
 
 /* =================================================
-   Ads — non-intrusive, blends with dark theme
+   Adsterra Ads — non-intrusive, blends with dark theme
    ================================================= */
 .ad-container {
   margin: 20px auto;
   text-align: center;
   overflow: hidden;
   max-width: 100%;
-}
-.ad-container ins {
-  background: transparent;
 }
 .ad-banner {
   border-radius: var(--r-md);
@@ -1434,22 +1431,25 @@ section { margin: 56px 0; }
   background: var(--bg-2);
   border: 1px solid var(--line);
   padding: 12px;
-  min-height: 120px;
+  min-height: 100px;
 }
-.ad-multiplex {
+.ad-native {
   border-radius: var(--r-md);
   background: var(--bg-2);
   border: 1px solid var(--line);
   padding: 12px;
-  margin-top: 32px;
-  min-height: 250px;
+  margin-top: 24px;
+  min-height: 200px;
 }
 #ad-top {
   margin-top: 8px;
   margin-bottom: 0;
 }
+.ad-container:empty {
+  display: none;
+}
 @media (max-width: 600px) {
   .ad-banner { min-height: 50px; padding: 4px; }
   .ad-in-feed { min-height: 80px; padding: 8px; }
-  .ad-multiplex { min-height: 200px; }
+  .ad-native { min-height: 150px; }
 }

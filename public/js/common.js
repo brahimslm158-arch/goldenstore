@@ -112,47 +112,47 @@ function ico(name, extra = 'icon') {
   return window.GSIcons.iconEl(name, extra);
 }
 
-// --- Ad helpers ---
-const AD_CLIENT = 'ca-pub-5684487584672639';
+// --- Adsterra Ad helpers ---
+// Set your Adsterra ad keys here after creating ad units at adsterra.com
+const ADSTERRA = {
+  banner_top:    '',  // Banner 728x90 or responsive
+  banner_mid:    '',  // Banner 468x60 or native
+  native_feed:   '',  // Native Banner key
+  banner_bottom: '',  // Banner 300x250 or responsive
+};
 
-function adBanner(slotId, format = 'auto') {
+function adBanner(key) {
+  if (!key) return el('div');
   const wrap = el('div', { class: 'ad-container ad-banner' });
-  const ins = document.createElement('ins');
-  ins.className = 'adsbygoogle';
-  ins.style.display = 'block';
-  ins.setAttribute('data-ad-client', AD_CLIENT);
-  ins.setAttribute('data-ad-slot', slotId);
-  ins.setAttribute('data-ad-format', format);
-  ins.setAttribute('data-full-width-responsive', 'true');
-  wrap.appendChild(ins);
-  try { (window.adsbygoogle = window.adsbygoogle || []).push({}); } catch {}
+  const s = document.createElement('script');
+  s.async = true;
+  s.setAttribute('data-cfasync', 'false');
+  s.src = `//www.highperformanceformat.com/${key}/invoke.js`;
+  const d = el('div', { id: `adsterra-${key}` });
+  wrap.appendChild(d);
+  wrap.appendChild(s);
   return wrap;
 }
 
-function adInFeed(slotId) {
+function adNative(key) {
+  if (!key) return el('div');
+  const wrap = el('div', { class: 'ad-container ad-native' });
+  const s = document.createElement('script');
+  s.async = true;
+  s.setAttribute('data-cfasync', 'false');
+  s.src = `//pl.aibnserv.com/${key}/invoke.js`;
+  wrap.appendChild(s);
+  return wrap;
+}
+
+function adInFeed(key) {
+  if (!key) return el('div');
   const wrap = el('div', { class: 'ad-container ad-in-feed' });
-  const ins = document.createElement('ins');
-  ins.className = 'adsbygoogle';
-  ins.style.display = 'block';
-  ins.setAttribute('data-ad-client', AD_CLIENT);
-  ins.setAttribute('data-ad-slot', slotId);
-  ins.setAttribute('data-ad-format', 'fluid');
-  ins.setAttribute('data-ad-layout-key', '-6t+ed+2i-1n-4w');
-  wrap.appendChild(ins);
-  try { (window.adsbygoogle = window.adsbygoogle || []).push({}); } catch {}
-  return wrap;
-}
-
-function adMultiplex(slotId) {
-  const wrap = el('div', { class: 'ad-container ad-multiplex' });
-  const ins = document.createElement('ins');
-  ins.className = 'adsbygoogle';
-  ins.style.display = 'block';
-  ins.setAttribute('data-ad-client', AD_CLIENT);
-  ins.setAttribute('data-ad-slot', slotId);
-  ins.setAttribute('data-ad-format', 'autorelaxed');
-  wrap.appendChild(ins);
-  try { (window.adsbygoogle = window.adsbygoogle || []).push({}); } catch {}
+  const s = document.createElement('script');
+  s.async = true;
+  s.setAttribute('data-cfasync', 'false');
+  s.src = `//pl.aibnserv.com/${key}/invoke.js`;
+  wrap.appendChild(s);
   return wrap;
 }
 
@@ -236,16 +236,13 @@ async function loadStoreInfo() {
 
 function renderAds() {
   const page = document.body.dataset.page || '';
-  // Don't show ads on admin page
   if (page === 'admin') return;
 
-  // Top banner ad (below header, all pages)
   const adTop = document.getElementById('ad-top');
-  if (adTop) adTop.appendChild(adBanner('TOP_BANNER_SLOT'));
+  if (adTop && ADSTERRA.banner_top) adTop.appendChild(adBanner(ADSTERRA.banner_top));
 
-  // Bottom ad (before footer, home & categories)
   const adBottom = document.getElementById('ad-bottom');
-  if (adBottom) adBottom.appendChild(adMultiplex('BOTTOM_MULTIPLEX_SLOT'));
+  if (adBottom && ADSTERRA.banner_bottom) adBottom.appendChild(adBanner(ADSTERRA.banner_bottom));
 }
 
 function init() {
@@ -261,7 +258,7 @@ window.GS = {
   formatBytes, formatNum, formatDate,
   getQuery, setQuery,
   init, STORE,
-  adBanner, adInFeed, adMultiplex,
+  adBanner, adInFeed, adNative, ADSTERRA,
 };
 
 document.addEventListener('DOMContentLoaded', init);
