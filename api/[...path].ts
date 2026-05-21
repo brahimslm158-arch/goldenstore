@@ -197,10 +197,9 @@ app.get('/apps/:slug/download', async (c) => {
   const FV = await getFieldValue();
   await doc.ref.update({ downloads: FV.increment(1) });
   const filename = `${a.slug || 'app'}-${a.version_name || ''}.apk`.replace(/-+/g, '-');
-  const url = await r2PresignGet(a.apk_key, 300);
-  return c.redirect(`${url}&response-content-disposition=${encodeURIComponent(
-    `attachment; filename="${filename}"`,
-  )}`);
+  const disposition = `attachment; filename="${filename}"`;
+  const url = await r2PresignGet(a.apk_key, 300, disposition);
+  return c.redirect(url);
 });
 
 // ---------------- auth ----------------

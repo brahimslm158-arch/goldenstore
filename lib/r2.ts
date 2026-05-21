@@ -46,10 +46,18 @@ export async function r2PresignPut(
   return await getSignedUrl(await getClient(), cmd, { expiresIn: expiresInSeconds });
 }
 
-export async function r2PresignGet(key: string, expiresInSeconds = 600): Promise<string> {
+export async function r2PresignGet(
+  key: string,
+  expiresInSeconds = 600,
+  responseContentDisposition?: string,
+): Promise<string> {
   const { GetObjectCommand } = await import('@aws-sdk/client-s3');
   const { getSignedUrl } = await import('@aws-sdk/s3-request-presigner');
-  const cmd = new GetObjectCommand({ Bucket: r2Bucket(), Key: key });
+  const cmd = new GetObjectCommand({
+    Bucket: r2Bucket(),
+    Key: key,
+    ...(responseContentDisposition ? { ResponseContentDisposition: responseContentDisposition } : {}),
+  });
   return await getSignedUrl(await getClient(), cmd, { expiresIn: expiresInSeconds });
 }
 
