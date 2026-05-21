@@ -1,11 +1,19 @@
 (async function () {
   const { api, el, ico, appCard, getQuery, setQuery, formatNum } = window.GS;
+  const { t, catName } = window.GSLang;
   const grid = document.getElementById('grid');
   const chips = document.getElementById('category-chips');
   const sortSelect = document.getElementById('sort-select');
   const loadMoreBtn = document.getElementById('load-more');
   const pageTitle = document.getElementById('page-title');
   const resultCount = document.getElementById('result-count');
+
+  // Translate sort options
+  sortSelect.options[0].text = t('sortRecent');
+  sortSelect.options[1].text = t('sortPopular');
+  sortSelect.options[2].text = t('sortStars');
+  sortSelect.options[3].text = t('sortName');
+  loadMoreBtn.textContent = t('loadMore');
 
   let cats = [];
   let state = {
@@ -20,24 +28,23 @@
   sortSelect.value = state.sort;
 
   function updateTitle() {
-    if (state.q) pageTitle.textContent = `نتائج البحث عن «${state.q}»`;
-    else if (state.sort === 'stars') pageTitle.textContent = 'الأعلى تقييماً';
+    if (state.q) pageTitle.textContent = `${t('searchResults')} «${state.q}»`;
+    else if (state.sort === 'stars') pageTitle.textContent = t('topRated');
     else if (state.category) {
-      const c = cats.find((x) => x.slug === state.category);
-      pageTitle.textContent = c ? c.name : 'تصفّح';
-    } else pageTitle.textContent = 'جميع التطبيقات المهكرة';
+      pageTitle.textContent = catName(state.category);
+    } else pageTitle.textContent = t('allApps');
   }
 
   function renderChips() {
     chips.innerHTML = '';
     const all = el('button', { class: `chip ${!state.category ? 'active' : ''}`, onclick: () => onChip('') },
-      'الكل');
+      t('all'));
     chips.append(all);
     cats.forEach((c) => {
       chips.append(el('button', {
         class: `chip ${state.category === c.slug ? 'active' : ''}`,
         onclick: () => onChip(c.slug),
-      }, ico(c.icon), c.name));
+      }, ico(c.icon), catName(c.slug)));
     });
   }
 
@@ -75,13 +82,13 @@
     try {
       const { apps, total } = await api(`/api/apps?${params}`);
       state.total = total;
-      resultCount.textContent = `${formatNum(total)} تطبيق`;
+      resultCount.textContent = `${formatNum(total)} ${t('appCount')}`;
       if (reset) grid.innerHTML = '';
       if (!apps.length && reset) {
         grid.append(el('div', { class: 'empty-state' },
           ico('search', 'icon icon-xxl'),
-          el('h3', null, 'لا توجد نتائج'),
-          el('p', null, 'لم نعثر على تطبيقات تطابق بحثك. جرّب تغيير التصنيف أو كلمة البحث.'),
+          el('h3', null, t('noResults')),
+          el('p', null, t('noResultsHint')),
         ));
         loadMoreBtn.classList.add('hidden');
         return;
@@ -93,14 +100,14 @@
       else loadMoreBtn.classList.add('hidden');
     } catch (e) {
       if (reset) grid.innerHTML = '';
-      let title = 'تعذّر تحميل التطبيقات';
-      let detail = 'حاول لاحقاً.';
+      let title = t('loadAppsError');
+      let detail = t('retryLater');
       if (e && (e.status === 0 || e.message === 'timeout')) {
-        title = 'تعذّر الاتصال بالخادم';
-        detail = 'تحقّق من اتصالك بالإنترنت ثمّ حدّث الصفحة.';
+        title = t('connError');
+        detail = t('connHint');
       } else if (e && e.status >= 500) {
-        title = 'خدمة المتجر غير متاحة مؤقتاً';
-        detail = 'حاول لاحقاً بعد دقائق قليلة.';
+        title = t('svcError');
+        detail = t('svcHint');
       }
       grid.append(el('div', { class: 'empty-state' },
         ico('info', 'icon icon-xxl'),
