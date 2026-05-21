@@ -323,37 +323,27 @@ app.post('/apps/:slug/star', async (c) => {
 
   const FV = await getFieldValue();
 
-  // Use Firestore transaction to prevent race conditions
-  try {
-    const newStars = await db.runTransaction(async (tx: any) => {
-      const votesRef = doc.ref.collection('star_votes');
-      const existingByHash = await tx.get(votesRef.where('hash', '==', voteHash).limit(1));
-      if (!existingByHash.empty) {
-        throw new Error('ALREADY_VOTED');
-      }
-      const existingByServer = await tx.get(votesRef.where('server_hash', '==', serverOnlyHash).limit(1));
-      if (!existingByServer.empty) {
-        throw new Error('ALREADY_VOTED');
-      }
-
-      const newVoteRef = votesRef.doc();
-      tx.set(newVoteRef, {
-        hash: voteHash,
-        server_hash: serverOnlyHash,
-        ts: nowSec(),
-      });
-      tx.update(doc.ref, { stars: FV.increment(1) });
-
-      const freshDoc = await tx.get(doc.ref);
-      return (freshDoc.data() as App).stars || 0;
-    });
-    return c.json({ ok: true, stars: newStars + 1 });
-  } catch (err: any) {
-    if (err?.message === 'ALREADY_VOTED') {
-      return c.json({ error: 'already_voted', stars: (doc.data() as App).stars || 0 }, 409);
-    }
-    throw err;
+  // Check for duplicate votes before writing
+  const votesRef = doc.ref.collection('star_votes');
+  const existingByHash = await votesRef.where('hash', '==', voteHash).limit(1).get();
+  if (!existingByHash.empty) {
+    return c.json({ error: 'already_voted', stars: (doc.data() as App).stars || 0 }, 409);
   }
+  const existingByServer = await votesRef.where('server_hash', '==', serverOnlyHash).limit(1).get();
+  if (!existingByServer.empty) {
+    return c.json({ error: 'already_voted', stars: (doc.data() as App).stars || 0 }, 409);
+  }
+
+  // Write vote and increment stars atomically
+  await votesRef.add({
+    hash: voteHash,
+    server_hash: serverOnlyHash,
+    ts: nowSec(),
+  });
+  await doc.ref.update({ stars: FV.increment(1) });
+
+  const updated = await doc.ref.get();
+  return c.json({ ok: true, stars: (updated.data() as App).stars || 0 });
 });
 
 app.post('/apps/:slug/star-check', async (c) => {

@@ -69,13 +69,13 @@ function formatBytes(bytes) {
 }
 
 function formatNum(n) {
-  return Number(n || 0).toLocaleString('ar-EG');
+  return Number(n || 0).toLocaleString('en-US');
 }
 
 function formatDate(ts) {
   if (!ts) return '—';
   const d = new Date(ts * 1000);
-  return d.toLocaleDateString('ar-EG', { year: 'numeric', month: 'short', day: 'numeric' });
+  return d.toLocaleDateString('ar', { year: 'numeric', month: 'short', day: 'numeric', numberingSystem: 'latn' });
 }
 
 function getQuery(name) {
