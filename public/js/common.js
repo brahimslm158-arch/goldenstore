@@ -60,9 +60,8 @@ function el(tag, attrs = null, ...children) {
 }
 
 function formatBytes(bytes) {
-  const { t } = window.GSLang;
-  if (!bytes) return '0 ' + t('bytes')[0];
-  const units = t('bytes');
+  if (!bytes) return '0 ب';
+  const units = ['ب', 'ك.ب', 'م.ب', 'ج.ب'];
   let i = 0;
   let v = bytes;
   while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
@@ -76,10 +75,7 @@ function formatNum(n) {
 function formatDate(ts) {
   if (!ts) return '—';
   const d = new Date(ts * 1000);
-  const loc = window.GSLang.getLang() === 'ar' ? 'ar' : 'en-US';
-  const opts = { year: 'numeric', month: 'short', day: 'numeric' };
-  if (loc === 'ar') opts.numberingSystem = 'latn';
-  return d.toLocaleDateString(loc, opts);
+  return d.toLocaleDateString('ar', { year: 'numeric', month: 'short', day: 'numeric', numberingSystem: 'latn' });
 }
 
 function getQuery(name) {
@@ -136,15 +132,9 @@ function appCard(a) {
 }
 
 function renderHeader(active = '') {
-  const { t, getLang, setLang } = window.GSLang;
   const h = document.querySelector('.header');
   if (!h) return;
   h.innerHTML = '';
-  const langBtn = el('button', {
-    class: 'lang-toggle',
-    'aria-label': 'Switch language',
-    onclick: () => setLang(getLang() === 'ar' ? 'en' : 'ar'),
-  }, getLang() === 'ar' ? 'EN' : 'عربي');
   const inner = el('div', { class: 'container header-inner' },
     el('a', { href: '/', class: 'brand', dir: 'ltr' },
       el('img', { src: '/images/logo.png', alt: 'Goldenstore' }),
@@ -154,10 +144,9 @@ function renderHeader(active = '') {
       ),
     ),
     el('nav', { class: 'nav' },
-      el('a', { href: '/', class: active === 'home' ? 'active' : '' }, t('home')),
-      el('a', { href: '/browse', class: active === 'browse' ? 'active' : '' }, t('browse')),
-      el('a', { href: '/categories', class: active === 'categories' ? 'active' : '' }, t('categories')),
-      langBtn,
+      el('a', { href: '/', class: active === 'home' ? 'active' : '' }, 'الرئيسية'),
+      el('a', { href: '/browse', class: active === 'browse' ? 'active' : '' }, 'تصفّح'),
+      el('a', { href: '/categories', class: active === 'categories' ? 'active' : '' }, 'التصنيفات'),
     ),
     (() => {
       const f = el('form', { class: 'search-form', onsubmit: (e) => {
@@ -166,8 +155,8 @@ function renderHeader(active = '') {
         location.href = `/browse?q=${encodeURIComponent(q)}`;
       } });
       f.append(
-        el('input', { class: 'search-input', type: 'search', name: 'q', placeholder: t('searchHint'), value: getQuery('q') }),
-        el('button', { type: 'submit', class: 'search-btn', 'aria-label': t('search') }, ico('search')),
+        el('input', { class: 'search-input', type: 'search', name: 'q', placeholder: 'ابحث عن تطبيق مهكر…', value: getQuery('q') }),
+        el('button', { type: 'submit', class: 'search-btn', 'aria-label': 'بحث' }, ico('search')),
       );
       return f;
     })(),
@@ -176,7 +165,6 @@ function renderHeader(active = '') {
 }
 
 function renderFooter() {
-  const { t } = window.GSLang;
   const f = document.querySelector('.footer');
   if (!f) return;
   f.innerHTML = '';
@@ -185,10 +173,10 @@ function renderFooter() {
       el('img', { src: '/images/logo.png', alt: '' }),
       el('span', null, '© '),
       el('b', { dir: 'ltr' }, STORE.domain),
-      el('span', null, ' ' + t('footerTag')),
+      el('span', null, ' — المتجر الذهبي للتطبيقات المهكرة'),
     ),
     el('div', { class: 'footer-links' },
-      el('span', null, t('allRights')),
+      el('span', null, 'جميع الحقوق محفوظة'),
     ),
   );
   f.append(inner);

@@ -7,8 +7,8 @@
 <link rel="icon" type="image/png" href="/images/logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/style.css?v=13">
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/css/style.css?v=5">
 </head>
 <body data-page="404">
 <header class="header"></header>
@@ -19,24 +19,16 @@
         <circle cx="11" cy="11" r="7" stroke="currentColor" fill="none" stroke-width="1.6"/>
         <path d="m21 21-4.3-4.3" stroke="currentColor" fill="none" stroke-width="1.6" stroke-linecap="round"/>
       </svg>
-      <h3 id="e404-title">404 — الصفحة غير موجودة</h3>
-      <p id="e404-desc">الرابط غير متاح أو أنّ التطبيق حُذف من المتجر.</p>
+      <h3>404 — الصفحة غير موجودة</h3>
+      <p>الرابط غير متاح أو أنّ التطبيق حُذف من المتجر.</p>
       <div class="mt-md">
-        <a class="btn btn-primary" href="/" id="e404-btn">العودة للرئيسية</a>
+        <a class="btn btn-primary" href="/">العودة للرئيسية</a>
       </div>
     </div>
   </div>
 </main>
 <footer class="footer"></footer>
-<script src="/js/icons.js?v=13"></script>
-<script src="/js/lang.js?v=13"></script>
-<script src="/js/common.js?v=13"></script>
-<script>
-  const { t, getLang } = window.GSLang;
-  const isEn = getLang() === 'en';
-  document.getElementById('e404-title').textContent = isEn ? '404 — Page Not Found' : '404 — الصفحة غير موجودة';
-  document.getElementById('e404-desc').textContent = isEn ? 'The link is unavailable or the app has been removed.' : 'الرابط غير متاح أو أنّ التطبيق حُذف من المتجر.';
-  document.getElementById('e404-btn').textContent = t('backHome');
-</script>
+<script src="/js/icons.js?v=5"></script>
+<script src="/js/common.js?v=5"></script>
 </body>
 </html>

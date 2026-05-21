@@ -1,6 +1,5 @@
 (async function () {
   const { api, el, ico, formatBytes, formatNum, formatDate, getQuery, toast } = window.GS;
-  const { t } = window.GSLang;
   const content = document.getElementById('content');
 
   const slug = getQuery('slug');
@@ -8,16 +7,15 @@
     content.innerHTML = '';
     content.append(el('div', { class: 'empty-state' },
       ico('info', 'icon icon-xxl'),
-      el('h3', null, t('noApp')),
-      el('p', null, t('badLink')),
+      el('h3', null, 'لا يوجد تطبيق محدد'),
+      el('p', null, 'الرابط غير صحيح.'),
     ));
     return;
   }
 
   function sdkName(sdk) {
-    const pre = window.GSLang.getLang() === 'ar' ? 'أندرويد' : 'Android';
     const map = {
-      21: pre + ' 5.0', 22: '5.1', 23: '6.0', 24: '7.0', 25: '7.1',
+      21: 'أندرويد 5.0', 22: '5.1', 23: '6.0', 24: '7.0', 25: '7.1',
       26: '8.0', 27: '8.1', 28: '9.0', 29: '10', 30: '11',
       31: '12', 32: '12L', 33: '13', 34: '14', 35: '15',
     };
@@ -26,7 +24,7 @@
 
   function openModal(src) {
     const m = el('div', { class: 'modal open', onclick: (e) => { if (e.target === m) m.remove(); } },
-      el('button', { class: 'close', onclick: () => m.remove(), 'aria-label': t('close') }, ico('close')),
+      el('button', { class: 'close', onclick: () => m.remove(), 'aria-label': 'إغلاق' }, ico('close')),
       el('img', { src }),
     );
     document.body.append(m);
@@ -102,15 +100,14 @@
 
   try {
     const { app, screenshots } = await api(`/api/apps/${encodeURIComponent(slug)}`);
-    const titleSuffix = window.GSLang.getLang() === 'ar' ? 'مهكّر مجاناً' : 'Free Modded';
-    document.title = `${app.name} — ${titleSuffix} — Goldenstore`;
+    document.title = `${app.name} — مهكّر مجاناً — Goldenstore`;
     content.innerHTML = '';
 
     // Star button
     const starCount = el('span', { class: 'star-count' }, formatNum(app.stars || 0));
     const starBtn = el('button', {
       class: 'btn-star',
-      'aria-label': t('giveStar'),
+      'aria-label': 'إعطاء نجمة',
       onclick: handleStar,
     }, ico('star'), starCount);
 
@@ -134,7 +131,7 @@
 
     async function handleStar() {
       if (voted) {
-        toast(t('alreadyVoted'), 'info');
+        toast('لقد أعطيت نجمة لهذا التطبيق مسبقاً', 'info');
         return;
       }
       starBtn.disabled = true;
@@ -147,14 +144,14 @@
         voted = true;
         starBtn.classList.add('voted');
         starCount.textContent = formatNum(res.stars);
-        toast(t('thanksStar'), 'success');
+        toast('شكراً لتقييمك!', 'success');
       } catch (e) {
         if (e && e.status === 409) {
           voted = true;
           starBtn.classList.add('voted');
-          toast(t('alreadyVoted'), 'info');
+          toast('لقد أعطيت نجمة لهذا التطبيق مسبقاً', 'info');
         } else {
-          toast(t('errorRetry'), 'error');
+          toast('حدث خطأ، حاول لاحقاً', 'error');
         }
       } finally {
         starBtn.disabled = false;
@@ -172,15 +169,15 @@
         el('h1', null, app.name),
         app.developer ? el('div', { class: 'dev' }, app.developer) : null,
         el('div', { class: 'quick-stats' },
-          el('div', { class: 'stat' }, el('div', { class: 'v' }, formatNum(app.downloads)), el('div', { class: 'l' }, t('downloads'))),
-          el('div', { class: 'stat' }, el('div', { class: 'v' }, formatNum(app.stars || 0)), el('div', { class: 'l' }, t('stars'))),
-          el('div', { class: 'stat' }, el('div', { class: 'v' }, app.version_name || '—'), el('div', { class: 'l' }, t('version'))),
-          el('div', { class: 'stat' }, el('div', { class: 'v' }, formatBytes(app.size_bytes)), el('div', { class: 'l' }, t('size'))),
-          el('div', { class: 'stat' }, el('div', { class: 'v' }, sdkName(app.min_sdk)), el('div', { class: 'l' }, t('minSdk'))),
+          el('div', { class: 'stat' }, el('div', { class: 'v' }, formatNum(app.downloads)), el('div', { class: 'l' }, 'تنزيلات')),
+          el('div', { class: 'stat' }, el('div', { class: 'v' }, formatNum(app.stars || 0)), el('div', { class: 'l' }, 'نجوم')),
+          el('div', { class: 'stat' }, el('div', { class: 'v' }, app.version_name || '—'), el('div', { class: 'l' }, 'الإصدار')),
+          el('div', { class: 'stat' }, el('div', { class: 'v' }, formatBytes(app.size_bytes)), el('div', { class: 'l' }, 'الحجم')),
+          el('div', { class: 'stat' }, el('div', { class: 'v' }, sdkName(app.min_sdk)), el('div', { class: 'l' }, 'الحد الأدنى')),
         ),
         el('div', { class: 'download-bar' },
           el('a', { class: 'btn btn-primary btn-lg', href: `/api/apps/${encodeURIComponent(app.slug)}/download` },
-            ico('download'), t('downloadBtn') + ' ', formatBytes(app.size_bytes)),
+            ico('download'), 'تنزيل النسخة المهكّرة ', formatBytes(app.size_bytes)),
           starBtn,
         ),
       ),
@@ -189,7 +186,7 @@
     // Short description
     if (app.short_description) {
       content.append(el('section', { class: 'panel' },
-        el('div', { class: 'panel-head' }, ico('info'), t('summary')),
+        el('div', { class: 'panel-head' }, ico('info'), 'نبذة'),
         el('p', null, app.short_description),
       ));
     }
@@ -202,7 +199,7 @@
         row.append(el('img', { src: ss.url, alt: '', onclick: () => openModal(ss.url) }));
       });
       content.append(el('section', { class: 'panel' },
-        el('div', { class: 'panel-head' }, ico('image'), t('screenshots')),
+        el('div', { class: 'panel-head' }, ico('image'), 'لقطات الشاشة'),
         row,
       ));
     }
@@ -210,31 +207,31 @@
     // Full description
     if (app.description) {
       content.append(el('section', { class: 'panel' },
-        el('div', { class: 'panel-head' }, ico('book'), t('description')),
+        el('div', { class: 'panel-head' }, ico('book'), 'الوصف'),
         el('p', { class: 'desc' }, app.description),
       ));
     }
 
     // Tech info
     content.append(el('section', { class: 'panel' },
-      el('div', { class: 'panel-head' }, ico('android'), t('techInfo')),
+      el('div', { class: 'panel-head' }, ico('android'), 'معلومات تقنية'),
       el('div', { class: 'tech-grid' },
-        techCell(t('pkgName'), app.package_name || '—'),
-        techCell(t('version'), app.version_name || '—'),
-        techCell(t('versionCode'), app.version_code != null ? String(app.version_code) : '—'),
-        techCell(t('minAndroid'), sdkName(app.min_sdk)),
-        techCell(t('size'), formatBytes(app.size_bytes)),
-        techCell(t('dlCount'), formatNum(app.downloads)),
-        techCell(t('starsCount'), formatNum(app.stars || 0)),
-        techCell(t('developer'), app.developer || '—'),
-        techCell(t('category'), app.category || '—'),
-        techCell(t('publishDate'), formatDate(app.created_at)),
-        techCell(t('lastUpdate'), formatDate(app.updated_at)),
+        techCell('اسم الحزمة', app.package_name || '—'),
+        techCell('الإصدار', app.version_name || '—'),
+        techCell('رمز الإصدار', app.version_code != null ? String(app.version_code) : '—'),
+        techCell('الحد الأدنى لأندرويد', sdkName(app.min_sdk)),
+        techCell('الحجم', formatBytes(app.size_bytes)),
+        techCell('عدد التنزيلات', formatNum(app.downloads)),
+        techCell('النجوم', formatNum(app.stars || 0)),
+        techCell('المطوّر', app.developer || '—'),
+        techCell('التصنيف', app.category || '—'),
+        techCell('تاريخ النشر', formatDate(app.created_at)),
+        techCell('آخر تحديث', formatDate(app.updated_at)),
       ),
     ));
 
     content.append(el('div', { class: 'muted mt-md', style: 'text-align:center; font-size:13px;' },
-      t('installHint')));
+      'لتثبيت التطبيق المهكّر: فعّل خيار «تثبيت تطبيقات من مصادر غير معروفة» من إعدادات الأمان في جهازك، ثم افتح ملف APK الذي حملّته.'));
 
     function techCell(label, value) {
       return el('div', { class: 'tech-cell' },
@@ -244,21 +241,21 @@
     }
   } catch (e) {
     content.innerHTML = '';
-    let title = t('appNotFound');
-    let detail = t('checkLink');
+    let title = 'تطبيق غير موجود';
+    let detail = 'تأكد من الرابط أو عد للرئيسية.';
     if (e && (e.status === 0 || e.message === 'timeout')) {
-      title = t('connError');
-      detail = t('connHint');
+      title = 'تعذّر الاتصال بالخادم';
+      detail = 'تحقّق من اتصالك بالإنترنت ثمّ حدّث الصفحة.';
     } else if (e && e.status >= 500) {
-      title = t('svcError');
-      detail = t('svcHint');
+      title = 'خدمة المتجر غير متاحة مؤقتاً';
+      detail = 'حاول لاحقاً بعد دقائق قليلة.';
     }
     content.append(el('div', { class: 'empty-state' },
       ico('info', 'icon icon-xxl'),
       el('h3', null, title),
       el('p', null, detail),
       el('div', { class: 'mt-md' },
-        el('a', { class: 'btn btn-primary', href: '/' }, t('backHome')),
+        el('a', { class: 'btn btn-primary', href: '/' }, 'العودة للرئيسية'),
       ),
     ));
   }
