@@ -3,13 +3,13 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="theme-color" content="#1b1b1b">
-<title>تصنيفات التطبيقات — Goldenstore</title>
+<meta name="theme-color" content="#000000">
+<title>تصنيفات التطبيقات المهكرة — Goldenstore</title>
 <link rel="icon" type="image/png" href="/images/logo.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/style.css?v=6">
+<link rel="stylesheet" href="/css/style.css?v=5">
 </head>
 <body data-page="categories">
 
@@ -17,21 +17,17 @@
 
 <main>
   <div class="container">
-    <div class="section-head" style="margin-top:20px;">
-      <h2 class="section-title">التصنيفات</h2>
+    <div class="section-head">
+      <h2 class="section-title">تصفّح حسب التصنيف</h2>
     </div>
     <div id="grid" class="categories-grid"><div class="center-spinner"><div class="spinner"></div></div></div>
   </div>
 </main>
 
 <footer class="footer"></footer>
-<nav class="bottom-nav"></nav>
 
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-<script src="/js/icons.js?v=6"></script>
-<script src="/js/firebase-auth.js?v=6"></script>
-<script src="/js/common.js?v=6"></script>
+<script src="/js/icons.js?v=5"></script>
+<script src="/js/common.js?v=5"></script>
 <script>
 (async function () {
   const { api, el, ico } = window.GS;
@@ -40,11 +36,11 @@
     const { categories } = await api('/api/categories');
     grid.innerHTML = '';
     categories.forEach((c) => {
-      grid.append(el('a', { href: '/browse?category=' + c.slug, class: 'category-card' },
+      grid.append(el('a', { href: `/browse?category=${c.slug}`, class: 'category-card' },
         el('div', { class: 'category-icon' }, ico(c.icon)),
         el('div', { class: 'category-info' },
           el('div', { class: 'category-name' }, c.name),
-          el('div', { class: 'category-count' }, (c.count || 0) + ' تطبيق'),
+          el('div', { class: 'category-count' }, `${c.count || 0} تطبيق`),
         ),
       ));
     });
@@ -52,7 +48,7 @@
     grid.innerHTML = '';
     grid.append(el('div', { class: 'empty-state' },
       ico('info', 'icon icon-xxl'),
-      el('p', null, 'تعذّر تحميل التصنيفات.'),
+      el('p', null, 'تعذّر تحميل التصنيفات. حاول لاحقاً.'),
     ));
   }
 })();

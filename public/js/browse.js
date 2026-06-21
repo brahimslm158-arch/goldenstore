@@ -20,23 +20,23 @@
   sortSelect.value = state.sort;
 
   function updateTitle() {
-    if (state.q) pageTitle.textContent = 'نتائج البحث عن «' + state.q + '»';
+    if (state.q) pageTitle.textContent = `نتائج البحث عن «${state.q}»`;
     else if (state.sort === 'stars') pageTitle.textContent = 'الأعلى تقييماً';
     else if (state.category) {
-      var c = cats.find(function(x) { return x.slug === state.category; });
+      const c = cats.find((x) => x.slug === state.category);
       pageTitle.textContent = c ? c.name : 'تصفّح';
-    } else pageTitle.textContent = 'جميع التطبيقات';
+    } else pageTitle.textContent = 'جميع التطبيقات المهكرة';
   }
 
   function renderChips() {
     chips.innerHTML = '';
-    var all = el('button', { class: 'chip' + (!state.category ? ' active' : ''), onclick: function() { onChip(''); } },
+    const all = el('button', { class: `chip ${!state.category ? 'active' : ''}`, onclick: () => onChip('') },
       'الكل');
     chips.append(all);
-    cats.forEach(function(c) {
+    cats.forEach((c) => {
       chips.append(el('button', {
-        class: 'chip' + (state.category === c.slug ? ' active' : ''),
-        onclick: function() { onChip(c.slug); },
+        class: `chip ${state.category === c.slug ? 'active' : ''}`,
+        onclick: () => onChip(c.slug),
       }, ico(c.icon), c.name));
     });
   }
@@ -50,14 +50,14 @@
     loadApps(true);
   }
 
-  sortSelect.addEventListener('change', function() {
+  sortSelect.addEventListener('change', () => {
     state.sort = sortSelect.value;
     state.offset = 0;
     setQuery({ sort: state.sort === 'recent' ? null : state.sort });
     updateTitle();
     loadApps(true);
   });
-  loadMoreBtn.addEventListener('click', function() {
+  loadMoreBtn.addEventListener('click', () => {
     state.offset += state.limit;
     loadApps(false);
   });
@@ -66,41 +66,39 @@
     if (reset) {
       grid.innerHTML = '<div class="center-spinner"><div class="spinner"></div></div>';
     }
-    var params = new URLSearchParams();
+    const params = new URLSearchParams();
     if (state.q) params.set('q', state.q);
     if (state.category) params.set('category', state.category);
     if (state.sort) params.set('sort', state.sort);
     params.set('limit', String(state.limit));
     params.set('offset', String(state.offset));
     try {
-      var data = await api('/api/apps?' + params);
-      var apps = data.apps;
-      var total = data.total;
+      const { apps, total } = await api(`/api/apps?${params}`);
       state.total = total;
-      resultCount.textContent = formatNum(total) + ' تطبيق';
+      resultCount.textContent = `${formatNum(total)} تطبيق`;
       if (reset) grid.innerHTML = '';
       if (!apps.length && reset) {
         grid.append(el('div', { class: 'empty-state' },
           ico('search', 'icon icon-xxl'),
           el('h3', null, 'لا توجد نتائج'),
-          el('p', null, 'لم نعثر على تطبيقات تطابق بحثك.'),
+          el('p', null, 'لم نعثر على تطبيقات تطابق بحثك. جرّب تغيير التصنيف أو كلمة البحث.'),
         ));
         loadMoreBtn.classList.add('hidden');
         return;
       }
-      apps.forEach(function(a) { grid.append(appCard(a)); });
+      apps.forEach((a) => grid.append(appCard(a)));
       if (state.offset + apps.length < total) loadMoreBtn.classList.remove('hidden');
       else loadMoreBtn.classList.add('hidden');
     } catch (e) {
       if (reset) grid.innerHTML = '';
-      var title = 'تعذّر تحميل التطبيقات';
-      var detail = 'حاول لاحقاً.';
+      let title = 'تعذّر تحميل التطبيقات';
+      let detail = 'حاول لاحقاً.';
       if (e && (e.status === 0 || e.message === 'timeout')) {
         title = 'تعذّر الاتصال بالخادم';
-        detail = 'تحقّق من اتصالك بالإنترنت.';
+        detail = 'تحقّق من اتصالك بالإنترنت ثمّ حدّث الصفحة.';
       } else if (e && e.status >= 500) {
         title = 'خدمة المتجر غير متاحة مؤقتاً';
-        detail = 'حاول لاحقاً.';
+        detail = 'حاول لاحقاً بعد دقائق قليلة.';
       }
       grid.append(el('div', { class: 'empty-state' },
         ico('info', 'icon icon-xxl'),
@@ -111,10 +109,11 @@
     }
   }
 
+  // Initial load
   try {
-    var data = await api('/api/categories');
-    cats = data.categories;
-  } catch(e) {}
+    const { categories } = await api('/api/categories');
+    cats = categories;
+  } catch {}
   updateTitle();
   renderChips();
   loadApps(true);
