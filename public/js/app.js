@@ -1,5 +1,5 @@
 (async function () {
-  const { api, el, ico, formatBytes, formatNum, formatDate, getQuery, toast } = window.GS;
+  const { api, el, ico, formatBytes, formatNum, formatDate, getQuery, toast, requireAuth } = window.GS;
   const content = document.getElementById('content');
 
   const slug = getQuery('slug');
@@ -14,18 +14,18 @@
   }
 
   function sdkName(sdk) {
-    const map = {
+    var map = {
       21: 'أندرويد 5.0', 22: '5.1', 23: '6.0', 24: '7.0', 25: '7.1',
       26: '8.0', 27: '8.1', 28: '9.0', 29: '10', 30: '11',
       31: '12', 32: '12L', 33: '13', 34: '14', 35: '15',
     };
-    return map[sdk] || (sdk ? `SDK ${sdk}` : '—');
+    return map[sdk] || (sdk ? 'SDK ' + sdk : '\u2014');
   }
 
   function openModal(src) {
-    const m = el('div', { class: 'modal open', onclick: (e) => { if (e.target === m) m.remove(); } },
-      el('button', { class: 'close', onclick: () => m.remove(), 'aria-label': 'إغلاق' }, ico('close')),
-      el('img', { src }),
+    var m = el('div', { class: 'modal open', onclick: function(e) { if (e.target === m) m.remove(); } },
+      el('button', { class: 'close', onclick: function() { m.remove(); }, 'aria-label': 'إغلاق' }, ico('close')),
+      el('img', { src: src }),
     );
     document.body.append(m);
     document.addEventListener('keydown', function esc(e) {
@@ -33,15 +33,21 @@
     });
   }
 
-  // Browser fingerprint — combines multiple signals into a single hash
-  async function getFingerprint() {
-    const parts = [];
+  function starSvg(filled) {
+    var s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    s.setAttribute('class', 'star' + (filled ? ' filled' : ''));
+    s.setAttribute('viewBox', '0 0 24 24');
+    s.innerHTML = '<path d="m12 2 3.1 6.3 7 1-5 5 1.2 6.9L12 17.7 5.8 21l1.2-6.9-5-5 7-1z"/>';
+    return s;
+  }
 
-    // Canvas fingerprint
+  // Browser fingerprint
+  async function getFingerprint() {
+    var parts = [];
     try {
-      const cv = document.createElement('canvas');
+      var cv = document.createElement('canvas');
       cv.width = 256; cv.height = 64;
-      const ctx = cv.getContext('2d');
+      var ctx = cv.getContext('2d');
       ctx.textBaseline = 'top';
       ctx.font = '14px Arial';
       ctx.fillStyle = '#f60';
@@ -51,187 +57,208 @@
       ctx.fillStyle = 'rgba(102,204,0,0.7)';
       ctx.fillText('GoldenStore\uD83D\uDE00fp', 4, 8);
       parts.push(cv.toDataURL());
-    } catch { parts.push('no-canvas'); }
-
-    // WebGL fingerprint
+    } catch(e) { parts.push('no-canvas'); }
     try {
-      const cv2 = document.createElement('canvas');
-      const gl = cv2.getContext('webgl') || cv2.getContext('experimental-webgl');
+      var cv2 = document.createElement('canvas');
+      var gl = cv2.getContext('webgl') || cv2.getContext('experimental-webgl');
       if (gl) {
-        const dbg = gl.getExtension('WEBGL_debug_renderer_info');
+        var dbg = gl.getExtension('WEBGL_debug_renderer_info');
         parts.push(gl.getParameter(gl.RENDERER));
         parts.push(dbg ? gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) : '');
         parts.push(dbg ? gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL) : '');
       }
-    } catch { parts.push('no-webgl'); }
-
-    // Screen + hardware
-    parts.push(`${screen.width}x${screen.height}x${screen.colorDepth}`);
+    } catch(e) { parts.push('no-webgl'); }
+    parts.push(screen.width + 'x' + screen.height + 'x' + screen.colorDepth);
     parts.push(String(navigator.hardwareConcurrency || 0));
     parts.push(String(navigator.maxTouchPoints || 0));
     parts.push(Intl.DateTimeFormat().resolvedOptions().timeZone || '');
     parts.push(navigator.language || '');
     parts.push(String(navigator.deviceMemory || 0));
     parts.push(navigator.platform || '');
-
-    // Audio fingerprint
     try {
-      const actx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, 5000, 44100);
-      const osc = actx.createOscillator();
-      osc.type = 'triangle';
-      osc.frequency.value = 10000;
-      const comp = actx.createDynamicsCompressor();
-      osc.connect(comp);
-      comp.connect(actx.destination);
+      var actx = new (window.OfflineAudioContext || window.webkitOfflineAudioContext)(1, 5000, 44100);
+      var osc = actx.createOscillator();
+      osc.type = 'triangle'; osc.frequency.value = 10000;
+      var comp = actx.createDynamicsCompressor();
+      osc.connect(comp); comp.connect(actx.destination);
       osc.start(0);
-      const buf = await actx.startRendering();
-      const data = buf.getChannelData(0);
-      let sum = 0;
-      for (let i = 4500; i < 5000; i++) sum += Math.abs(data[i]);
+      var buf = await actx.startRendering();
+      var data = buf.getChannelData(0);
+      var sum = 0;
+      for (var i = 4500; i < 5000; i++) sum += Math.abs(data[i]);
       parts.push(sum.toFixed(6));
-    } catch { parts.push('no-audio'); }
-
-    // Hash all parts
-    const raw = parts.join('|||');
-    const encoder = new TextEncoder();
-    const hash = await crypto.subtle.digest('SHA-256', encoder.encode(raw));
-    return Array.from(new Uint8Array(hash)).map(b => b.toString(16).padStart(2, '0')).join('');
+    } catch(e) { parts.push('no-audio'); }
+    var raw = parts.join('|||');
+    var encoder = new TextEncoder();
+    var hash = await crypto.subtle.digest('SHA-256', encoder.encode(raw));
+    return Array.from(new Uint8Array(hash)).map(function(b) { return b.toString(16).padStart(2, '0'); }).join('');
   }
 
   try {
-    const { app, screenshots } = await api(`/api/apps/${encodeURIComponent(slug)}`);
-    document.title = `${app.name} — مهكّر مجاناً — Goldenstore`;
+    var result = await api('/api/apps/' + encodeURIComponent(slug));
+    var app = result.app;
+    var screenshots = result.screenshots;
+    document.title = app.name + ' \u2014 Goldenstore';
     content.innerHTML = '';
 
-    // Star button
-    const starCount = el('span', { class: 'star-count' }, formatNum(app.stars || 0));
-    const starBtn = el('button', {
-      class: 'btn-star',
-      'aria-label': 'إعطاء نجمة',
-      onclick: handleStar,
-    }, ico('star'), starCount);
+    // --- Header section (icon + title + developer) ---
+    content.append(el('div', { class: 'app-detail-header' },
+      el('div', { class: 'app-icon-big' },
+        app.icon_url
+          ? el('img', { src: app.icon_url, alt: app.name })
+          : ico('package', 'icon icon-xxl')
+      ),
+      el('div', { class: 'app-title-area' },
+        el('h1', null, app.name),
+        app.developer ? el('div', { class: 'app-developer' }, app.developer) : null,
+        app.category ? el('div', { class: 'app-category-tag' }, app.category) : null,
+      ),
+    ));
 
-    let voted = false;
-    let fingerprint = null;
+    // --- Stats bar ---
+    var starIcon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    starIcon.setAttribute('class', 'star-icon-sm');
+    starIcon.setAttribute('viewBox', '0 0 24 24');
+    starIcon.innerHTML = '<path d="m12 2 3.1 6.3 7 1-5 5 1.2 6.9L12 17.7 5.8 21l1.2-6.9-5-5 7-1z"/>';
 
-    // Check if already voted (async)
-    (async () => {
+    content.append(el('div', { class: 'app-stats-bar' },
+      el('div', { class: 'app-stat-item' },
+        el('div', { class: 'stat-value' }, formatNum(app.stars || 0), starIcon),
+        el('div', { class: 'stat-label' }, 'التقييم'),
+      ),
+      el('div', { class: 'app-stat-item' },
+        el('div', { class: 'stat-value' }, formatNum(app.downloads)),
+        el('div', { class: 'stat-label' }, 'تنزيلات'),
+      ),
+      el('div', { class: 'app-stat-item' },
+        el('div', { class: 'stat-value' }, formatBytes(app.size_bytes)),
+        el('div', { class: 'stat-label' }, 'الحجم'),
+      ),
+      el('div', { class: 'app-stat-item' },
+        el('div', { class: 'stat-value' }, app.version_name || '\u2014'),
+        el('div', { class: 'stat-label' }, 'الإصدار'),
+      ),
+    ));
+
+    // --- Install button ---
+    var downloadBtn = el('a', {
+      class: 'btn-install',
+      href: '#',
+      onclick: function(e) {
+        e.preventDefault();
+        if (!requireAuth('download')) return;
+        window.location.href = '/api/apps/' + encodeURIComponent(app.slug) + '/download';
+      }
+    }, 'تثبيت');
+
+    content.append(el('div', { class: 'app-action-bar' }, downloadBtn));
+
+    // --- Screenshots ---
+    if (screenshots && screenshots.length) {
+      var row = el('div', { class: 'screenshots' });
+      screenshots.forEach(function(ss) {
+        if (!ss.url) return;
+        row.append(el('img', { src: ss.url, alt: '', loading: 'lazy', onclick: function() { openModal(ss.url); } }));
+      });
+      content.append(el('div', { class: 'screenshots-section' }, row));
+    }
+
+    // --- About this app ---
+    if (app.short_description || app.description) {
+      content.append(el('div', { class: 'detail-section' },
+        el('div', { class: 'detail-section-title' }, 'لمحة عن هذا التطبيق'),
+        app.short_description ? el('p', null, app.short_description) : null,
+        app.description ? el('p', { class: 'desc', style: 'margin-top:8px;' }, app.description) : null,
+      ));
+    }
+
+    // --- Rating section ---
+    var starCount = el('span', null, formatNum(app.stars || 0));
+    var voted = false;
+    var fingerprint = null;
+    var starsWrap = el('div', { class: 'rating-stars' });
+
+    function renderStars(v) {
+      starsWrap.innerHTML = '';
+      for (var i = 1; i <= 5; i++) {
+        (function(idx) {
+          var s = starSvg(idx <= (v ? 1 : 0));
+          s.onclick = function() { handleStar(); };
+          starsWrap.append(s);
+        })(i);
+      }
+    }
+    renderStars(voted);
+
+    content.append(el('div', { class: 'rating-section' },
+      el('div', { class: 'rating-header' },
+        el('h3', null, 'تقييم هذا التطبيق'),
+      ),
+      el('p', { style: 'color:var(--text-2); margin-bottom:12px; font-size:13px;' }, 'إخبار الآخرين برأيك'),
+      starsWrap,
+    ));
+
+    // Check vote status
+    (async function() {
       try {
         fingerprint = await getFingerprint();
-        const res = await api(`/api/apps/${encodeURIComponent(app.slug)}/star-check`, {
+        var res = await api('/api/apps/' + encodeURIComponent(app.slug) + '/star-check', {
           method: 'POST',
           body: { fp: fingerprint },
         });
         if (res.voted) {
           voted = true;
-          starBtn.classList.add('voted');
+          renderStars(true);
         }
-      } catch {}
+      } catch(e) {}
     })();
 
     async function handleStar() {
+      if (!requireAuth('rate')) return;
       if (voted) {
         toast('لقد أعطيت نجمة لهذا التطبيق مسبقاً', 'info');
         return;
       }
-      starBtn.disabled = true;
       try {
         if (!fingerprint) fingerprint = await getFingerprint();
-        const res = await api(`/api/apps/${encodeURIComponent(app.slug)}/star`, {
+        var res = await api('/api/apps/' + encodeURIComponent(app.slug) + '/star', {
           method: 'POST',
           body: { fp: fingerprint },
         });
         voted = true;
-        starBtn.classList.add('voted');
+        renderStars(true);
         starCount.textContent = formatNum(res.stars);
         toast('شكراً لتقييمك!', 'success');
       } catch (e) {
         if (e && e.status === 409) {
           voted = true;
-          starBtn.classList.add('voted');
-          toast('لقد أعطيت نجمة لهذا التطبيق مسبقاً', 'info');
+          renderStars(true);
+          toast('لقد أعطيت نجمة مسبقاً', 'info');
         } else {
           toast('حدث خطأ، حاول لاحقاً', 'error');
         }
-      } finally {
-        starBtn.disabled = false;
       }
     }
 
-    // Hero
-    content.append(el('section', { class: 'app-hero' },
-      el('div', { class: 'icon-big' },
-        app.icon_url
-          ? el('img', { src: app.icon_url, alt: app.name })
-          : ico('package', 'icon icon-xxl')
-      ),
-      el('div', null,
-        el('h1', null, app.name),
-        app.developer ? el('div', { class: 'dev' }, app.developer) : null,
-        el('div', { class: 'quick-stats' },
-          el('div', { class: 'stat' }, el('div', { class: 'v' }, formatNum(app.downloads)), el('div', { class: 'l' }, 'تنزيلات')),
-          el('div', { class: 'stat' }, el('div', { class: 'v' }, formatNum(app.stars || 0)), el('div', { class: 'l' }, 'نجوم')),
-          el('div', { class: 'stat' }, el('div', { class: 'v' }, app.version_name || '—'), el('div', { class: 'l' }, 'الإصدار')),
-          el('div', { class: 'stat' }, el('div', { class: 'v' }, formatBytes(app.size_bytes)), el('div', { class: 'l' }, 'الحجم')),
-          el('div', { class: 'stat' }, el('div', { class: 'v' }, sdkName(app.min_sdk)), el('div', { class: 'l' }, 'الحد الأدنى')),
-        ),
-        el('div', { class: 'download-bar' },
-          el('a', { class: 'btn btn-primary btn-lg', href: `/api/apps/${encodeURIComponent(app.slug)}/download` },
-            ico('download'), 'تنزيل النسخة المهكّرة ', formatBytes(app.size_bytes)),
-          starBtn,
-        ),
-      ),
-    ));
-
-    // Short description
-    if (app.short_description) {
-      content.append(el('section', { class: 'panel' },
-        el('div', { class: 'panel-head' }, ico('info'), 'نبذة'),
-        el('p', null, app.short_description),
-      ));
-    }
-
-    // Screenshots
-    if (screenshots && screenshots.length) {
-      const row = el('div', { class: 'screenshots' });
-      screenshots.forEach((ss) => {
-        if (!ss.url) return;
-        row.append(el('img', { src: ss.url, alt: '', onclick: () => openModal(ss.url) }));
-      });
-      content.append(el('section', { class: 'panel' },
-        el('div', { class: 'panel-head' }, ico('image'), 'لقطات الشاشة'),
-        row,
-      ));
-    }
-
-    // Full description
-    if (app.description) {
-      content.append(el('section', { class: 'panel' },
-        el('div', { class: 'panel-head' }, ico('book'), 'الوصف'),
-        el('p', { class: 'desc' }, app.description),
-      ));
-    }
-
-    // Tech info
-    content.append(el('section', { class: 'panel' },
-      el('div', { class: 'panel-head' }, ico('android'), 'معلومات تقنية'),
+    // --- Technical info ---
+    content.append(el('div', { class: 'detail-section' },
+      el('div', { class: 'detail-section-title' }, 'معلومات تقنية'),
       el('div', { class: 'tech-grid' },
-        techCell('اسم الحزمة', app.package_name || '—'),
-        techCell('الإصدار', app.version_name || '—'),
-        techCell('رمز الإصدار', app.version_code != null ? String(app.version_code) : '—'),
-        techCell('الحد الأدنى لأندرويد', sdkName(app.min_sdk)),
+        techCell('اسم الحزمة', app.package_name || '\u2014'),
+        techCell('الإصدار', app.version_name || '\u2014'),
+        techCell('رمز الإصدار', app.version_code != null ? String(app.version_code) : '\u2014'),
+        techCell('الحد الأدنى', sdkName(app.min_sdk)),
         techCell('الحجم', formatBytes(app.size_bytes)),
-        techCell('عدد التنزيلات', formatNum(app.downloads)),
-        techCell('النجوم', formatNum(app.stars || 0)),
-        techCell('المطوّر', app.developer || '—'),
-        techCell('التصنيف', app.category || '—'),
+        techCell('التنزيلات', formatNum(app.downloads)),
+        techCell('المطوّر', app.developer || '\u2014'),
+        techCell('التصنيف', app.category || '\u2014'),
         techCell('تاريخ النشر', formatDate(app.created_at)),
         techCell('آخر تحديث', formatDate(app.updated_at)),
       ),
     ));
 
-    content.append(el('div', { class: 'muted mt-md', style: 'text-align:center; font-size:13px;' },
-      'لتثبيت التطبيق المهكّر: فعّل خيار «تثبيت تطبيقات من مصادر غير معروفة» من إعدادات الأمان في جهازك، ثم افتح ملف APK الذي حملّته.'));
+    content.append(el('div', { class: 'muted mt-md', style: 'text-align:center; font-size:13px; padding-bottom:16px;' },
+      'لتثبيت التطبيق: فعّل خيار «تثبيت تطبيقات من مصادر غير معروفة» من إعدادات الأمان في جهازك.'));
 
     function techCell(label, value) {
       return el('div', { class: 'tech-cell' },
@@ -241,8 +268,8 @@
     }
   } catch (e) {
     content.innerHTML = '';
-    let title = 'تطبيق غير موجود';
-    let detail = 'تأكد من الرابط أو عد للرئيسية.';
+    var title = 'تطبيق غير موجود';
+    var detail = 'تأكد من الرابط أو عد للرئيسية.';
     if (e && (e.status === 0 || e.message === 'timeout')) {
       title = 'تعذّر الاتصال بالخادم';
       detail = 'تحقّق من اتصالك بالإنترنت ثمّ حدّث الصفحة.';
