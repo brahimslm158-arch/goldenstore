@@ -16,12 +16,12 @@
   --gold-2: #ffd34d;
   --gold-ink: #1a1500;
   /* Google Play palette */
-  --primary: #00a173;          /* green — primary actions (Install / View) */
+  --primary: #a8c7fa;          /* blue — primary actions (Install) — Play Material You */
   --primary-2: #01875f;
-  --on-primary: #052e22;
+  --on-primary: #062e6f;       /* dark navy text on blue button */
   --nav: #a8c7fa;              /* blue — selected nav / tabs / links */
   --nav-bg: rgba(168,199,250,0.16);
-  --star: #00c389;            /* rating star (Play green) */
+  --star: #a8c7fa;            /* rating star (Play blue) */
   --accent: #a8c7fa;
   --green: #00a173;
   --radius: 18px;
@@ -75,10 +75,10 @@ input, select { font-family: inherit; }
 }
 /* Play-style home header: logo (start) ........ bell + avatar (end) */
 .topbar { padding: 10px 16px 8px; }
-.topbar-home { display: flex; align-items: center; gap: 6px; height: 44px; }
+.topbar-home { display: flex; align-items: center; gap: 6px; height: 48px; }
 .topbar-home .tb-spacer { flex: 1; }
-.brand { flex-shrink: 0; height: 30px; display: flex; align-items: center; }
-.brand img { height: 30px; width: auto; object-fit: contain; }
+.brand { flex-shrink: 0; height: 40px; display: flex; align-items: center; }
+.brand img { height: 40px; width: auto; object-fit: contain; }
 .bell-btn { position: relative; }
 .bell-btn .icon { width: 24px; height: 24px; color: var(--text); }
 .bell-dot {
@@ -140,7 +140,7 @@ input, select { font-family: inherit; }
   padding: 4px 12px 0;
   overflow-x: auto; scrollbar-width: none;
   border-bottom: 1px solid var(--line);
-  position: sticky; top: 62px; z-index: 35; background: var(--bg);
+  position: sticky; top: 66px; z-index: 35; background: var(--bg);
 }
 .tabs::-webkit-scrollbar { display: none; }
 .tab {
@@ -222,7 +222,7 @@ input, select { font-family: inherit; }
 }
 .feature h3 { font-size: 18px; font-weight: 700; }
 .feature p { color: var(--text-2); font-size: 13px; margin-top: 4px; }
-.feature .ftbtn { margin-top: 12px; }
+.feature .ftbtn { margin-top: 12px; background: var(--green); color: #fff; }
 
 /* ---------- Buttons ---------- */
 .btn {
@@ -231,7 +231,7 @@ input, select { font-family: inherit; }
   transition: transform .06s ease, filter .15s ease;
 }
 .btn:active { transform: scale(.98); }
-.btn-primary { background: var(--primary); color: #fff; }
+.btn-primary { background: var(--primary); color: var(--on-primary); }
 .btn-primary:hover { filter: brightness(1.05); }
 .btn-outline { border: 1px solid var(--line); color: var(--nav); background: transparent; }
 .btn-text { color: var(--nav); font-weight: 700; padding: 8px 14px; }
