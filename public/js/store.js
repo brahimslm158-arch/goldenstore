@@ -84,12 +84,18 @@ function formatDate(ts) {
   return new Date(ts * 1000).toLocaleDateString('ar', { year: 'numeric', month: 'short', day: 'numeric', numberingSystem: 'latn' });
 }
 
-// Deterministic cosmetic rating (4.0–4.9) for Google Play–style display.
+// Real rating helpers — based on actual user votes from the backend.
+// rating = average (0–5), rating_count/stars = number of ratings.
+function ratingCountOf(app) {
+  return Number((app && (app.rating_count != null ? app.rating_count : app.stars)) || 0);
+}
+function ratingValue(app) {
+  return Number((app && app.rating) || 0);
+}
+// Formatted average for display, or null when the app has no ratings yet.
 function ratingOf(app) {
-  const s = (app && (app.slug || app.id || app.name)) || 'x';
-  let h = 0;
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
-  return (4 + (h % 10) / 10).toFixed(1);
+  if (ratingCountOf(app) <= 0) return null;
+  return ratingValue(app).toFixed(1);
 }
 
 function getQuery(name) { return new URLSearchParams(location.search).get(name) || ''; }
@@ -109,26 +115,28 @@ function toast(msg, type = 'info', ms = 3000) {
 /* ----------------------------- Cards ----------------------------- */
 // Square poster card (horizontal rows)
 function posterCard(a) {
+  const rt = ratingOf(a);
   return el('a', { href: `/app?slug=${encodeURIComponent(a.slug)}`, class: 'poster' },
     el('div', { class: 'art' }, a.icon_url ? el('img', { src: a.icon_url, alt: a.name, loading: 'lazy' }) : ico('package', 'icon icon-lg')),
     el('div', { class: 'nm' }, a.name),
-    el('div', { class: 'rt' }, ratingNum(a), ico('star', 'icon fill')),
+    rt
+      ? el('div', { class: 'rt' }, el('span', null, rt), ico('star', 'icon fill'))
+      : el('div', { class: 'rt' }, el('span', null, 'جديد')),
   );
 }
-
-function ratingNum(a) { return el('span', null, ratingOf(a)); }
 
 // Full-width list row (recommended / search results)
 function listRow(a, opts = {}) {
   const cat = categoryName(a.category);
+  const rt = ratingOf(a);
   return el('a', { href: `/app?slug=${encodeURIComponent(a.slug)}`, class: 'approw' },
     el('div', { class: 'art' }, a.icon_url ? el('img', { src: a.icon_url, alt: a.name, loading: 'lazy' }) : ico('package', 'icon icon-lg')),
     el('div', { class: 'info' },
       el('div', { class: 'nm' }, a.name),
       el('div', { class: 'sub' }, a.developer || cat || STORE.name),
       el('div', { class: 'meta-line' },
-        el('span', null, ratingOf(a)),
-        ico('star', 'icon fill'),
+        rt ? el('span', null, rt) : el('span', null, 'جديد'),
+        rt ? ico('star', 'icon fill') : null,
         el('span', null, '•'),
         el('span', null, formatBytes(a.size_bytes || 0)),
       ),
@@ -190,8 +198,7 @@ function topbarNav(title = '', actions = []) {
 }
 
 const NAV_ITEMS = [
-  { key: 'games', label: 'الألعاب', icon: 'gamepad', href: '/?tab=games' },
-  { key: 'apps', label: 'التطبيقات', icon: 'apps', href: '/?tab=apps' },
+  { key: 'apps', label: 'كل التطبيقات', icon: 'apps', href: '/' },
   { key: 'search', label: 'بحث', icon: 'search', href: '/search' },
   { key: 'featured', label: 'المميّزة', icon: 'award', href: '/featured' },
   { key: 'account', label: 'أنت', icon: 'user', href: '/account' },
@@ -343,7 +350,7 @@ function boot() { initAuth(); }
 
 window.Store = {
   STORE, api, el, ico,
-  formatBytes, formatCount, formatNum, formatDate, ratingOf, getQuery, toast,
+  formatBytes, formatCount, formatNum, formatDate, ratingOf, ratingValue, ratingCountOf, getQuery, toast,
   posterCard, listRow, categoryName,
   spinner, emptyState, errorState,
   topbarSearch, topbarNav, bottomNav, avatarEl,

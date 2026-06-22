@@ -1,12 +1,10 @@
-// Home page — Games / Apps tabs with Play-style top tabs (For you / Top charts / Categories).
+// Home page — single "All apps" feed with Play-style top tabs (For you / Top charts / Categories).
 (function () {
   const S = window.Store;
   const { el, ico, api, getQuery } = S;
   const root = document.getElementById('root');
 
-  const tab = getQuery('tab') === 'apps' ? 'apps' : 'games';
-  const isGames = tab === 'games';
-  S.bottomNav(tab);
+  S.bottomNav('apps');
 
   const TOP_TABS = [
     { key: 'foryou', label: 'محتوى يهمّك' },
@@ -36,7 +34,8 @@
     renderTabs();
     renderContent();
 
-    function baseQuery() { return isGames ? 'category=games' : ''; }
+    function baseQuery() { return ''; }
+    function filt(apps) { return apps || []; }
 
     async function renderContent() {
       content.innerHTML = '';
@@ -58,32 +57,36 @@
 
     async function renderForYou() {
       const [recent, popular, top] = await Promise.all([
-        api(q('sort=recent&limit=20')).catch(() => ({ apps: [] })),
-        api(q('sort=popular&limit=20')).catch(() => ({ apps: [] })),
-        api(q('sort=stars&limit=20')).catch(() => ({ apps: [] })),
+        api(q('sort=recent&limit=30')).catch(() => ({ apps: [] })),
+        api(q('sort=popular&limit=30')).catch(() => ({ apps: [] })),
+        api(q('sort=rating&limit=30')).catch(() => ({ apps: [] })),
       ]);
       content.innerHTML = '';
 
-      const all = recent.apps || [];
-      if (!all.length && !(popular.apps || []).length) {
+      const recentApps = filt(recent.apps);
+      const popularApps = filt(popular.apps);
+      const topApps = filt(top.apps);
+
+      if (!recentApps.length && !popularApps.length) {
         content.append(S.emptyState('لا توجد تطبيقات بعد', 'ستظهر هنا تطبيقات المتجر فور إضافتها من لوحة الإدارة.'));
         return;
       }
 
-      // Featured banner from top app
-      const feat = (top.apps && top.apps[0]) || (popular.apps && popular.apps[0]) || all[0];
+      // Featured banner from the top-rated app
+      const feat = topApps[0] || popularApps[0] || recentApps[0];
       if (feat) content.append(featureBanner(feat));
 
-      content.append(posterSection(isGames ? 'ألعاب مقترحة لك' : 'موصى به لك', recent.apps));
-      content.append(posterSection('الأكثر رواجًا', popular.apps));
-      if ((top.apps || []).length) content.append(posterSection('الأعلى تقييماً', top.apps));
+      content.append(posterSection('موصى به لك', recentApps));
+      content.append(posterSection('الأكثر رواجًا', popularApps));
+      if (topApps.length) content.append(posterSection('الأعلى تقييماً', topApps));
 
       // Recommended list
-      content.append(listSection('قد يعجبك أيضاً', (popular.apps || []).slice(0, 8)));
+      content.append(listSection('قد يعجبك أيضاً', popularApps.slice(0, 8)));
     }
 
     async function renderTop() {
-      const { apps } = await api(q('sort=popular&limit=50'));
+      const res = await api(q('sort=popular&limit=60'));
+      const apps = filt(res.apps).slice(0, 50);
       content.innerHTML = '';
       if (!apps.length) { content.append(S.emptyState('لا توجد تطبيقات بعد')); return; }
       const list = el('div', { class: 'applist' });
@@ -100,7 +103,7 @@
       const { categories } = await api('/api/categories');
       content.innerHTML = '';
       const list = el('div', { class: 'applist', style: { marginTop: '8px' } });
-      categories.filter((c) => isGames ? c.slug === 'games' : c.slug !== 'games').forEach((c) => {
+      categories.forEach((c) => {
         list.append(el('a', { href: `/search?category=${c.slug}`, class: 'approw' },
           el('div', { class: 'art', style: { background: 'var(--surface-2)' } }, ico(c.icon, 'icon icon-lg')),
           el('div', { class: 'info' },
@@ -118,7 +121,7 @@
     return el('a', { href: `/app?slug=${encodeURIComponent(a.slug)}`, class: 'feature' },
       el('div', { class: 'ftimg', style: {
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: 'linear-gradient(135deg, #2b2410, #0d0d0f 70%)',
+        background: 'linear-gradient(135deg, #10233f, #0d0d0f 70%)',
       } },
         a.icon_url
           ? el('img', { src: a.icon_url, alt: '', style: { width: '120px', height: '120px', borderRadius: '28px', boxShadow: '0 16px 40px rgba(0,0,0,.5)' } })

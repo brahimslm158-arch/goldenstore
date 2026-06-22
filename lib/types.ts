@@ -15,7 +15,11 @@ export interface App {
   size_bytes: number;
   apk_key: string;
   icon_key?: string;
-  stars: number;
+  // Ratings (real, computed from user votes)
+  stars: number;          // total number of ratings (kept in sync with rating_count)
+  rating_sum?: number;    // sum of all 1–5 star ratings
+  rating_count?: number;  // number of ratings received
+  rating?: number;        // denormalized average rating (0–5) for sorting/display
   downloads: number;
   created_at: number;
   updated_at: number;

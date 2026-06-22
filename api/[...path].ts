@@ -108,8 +108,16 @@ async function ensureUniqueSlug(base: string): Promise<string> {
   }
 }
 
+function ratingAverage(d: any): number {
+  const count = Number(d.rating_count || 0);
+  const sum = Number(d.rating_sum || 0);
+  if (count <= 0) return 0;
+  return Math.round((sum / count) * 10) / 10;
+}
+
 function appPublic(doc: any, includeInternalKeys = false): App & { id: string } {
   const d = doc.data() as App;
+  const ratingCount = Number((d as any).rating_count || 0);
   const result: any = {
     id: doc.id,
     slug: d.slug,
@@ -125,7 +133,9 @@ function appPublic(doc: any, includeInternalKeys = false): App & { id: string } 
     version_code: d.version_code,
     min_sdk: d.min_sdk,
     size_bytes: d.size_bytes,
-    stars: d.stars || 0,
+    rating: ratingAverage(d),
+    rating_count: ratingCount,
+    stars: ratingCount,
     downloads: d.downloads || 0,
     created_at: d.created_at,
     updated_at: d.updated_at,
@@ -186,7 +196,7 @@ app.get('/apps', async (c) => {
   }
 
   if (sort === 'popular') query = query.orderBy('downloads', 'desc');
-  else if (sort === 'stars') query = query.orderBy('stars', 'desc');
+  else if (sort === 'stars' || sort === 'rating') query = query.orderBy('rating', 'desc');
   else if (sort === 'name') query = query.orderBy('name_lower', 'asc');
   else query = query.orderBy('created_at', 'desc');
 
@@ -207,8 +217,10 @@ app.get('/apps', async (c) => {
       }
       const allSnap = await fallback.get();
       let docs = allSnap.docs;
-      if (sort === 'popular') docs.sort((a: any, b: any) => (b.data().downloads || 0) - (a.data().downloads || 0));
-      else if (sort === 'stars') docs.sort((a: any, b: any) => (b.data().stars || 0) - (a.data().stars || 0));
+      if (sort === 'popular') docs.sort((a: any, b: any) =>
+        ((b.data().downloads || 0) - (a.data().downloads || 0)) || (ratingAverage(b.data()) - ratingAverage(a.data())));
+      else if (sort === 'stars' || sort === 'rating') docs.sort((a: any, b: any) =>
+        (ratingAverage(b.data()) - ratingAverage(a.data())) || ((b.data().rating_count || 0) - (a.data().rating_count || 0)));
       else if (sort === 'name') docs.sort((a: any, b: any) => (a.data().name_lower || '').localeCompare(b.data().name_lower || ''));
       else docs.sort((a: any, b: any) => (b.data().created_at || 0) - (a.data().created_at || 0));
       total = docs.length;
@@ -310,6 +322,10 @@ app.post('/apps/:slug/star', async (c) => {
   if (!clientFp || clientFp.length < 16 || clientFp.length > 256) {
     return c.json({ error: 'invalid_fingerprint' }, 400);
   }
+  const rating = Math.round(Number(body.rating));
+  if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
+    return c.json({ error: 'invalid_rating' }, 400);
+  }
 
   const db = await firestore();
   const snap = await db.collection('apps').where('slug', '==', slug).limit(1).get();
@@ -321,29 +337,40 @@ app.post('/apps/:slug/star', async (c) => {
   // Also store a server-only hash to prevent same IP+UA from voting with different client FPs
   const serverOnlyHash = crypto.createHash('sha256').update(sFp).digest('hex');
 
-  const FV = await getFieldValue();
-
   // Check for duplicate votes before writing
   const votesRef = doc.ref.collection('star_votes');
   const existingByHash = await votesRef.where('hash', '==', voteHash).limit(1).get();
   if (!existingByHash.empty) {
-    return c.json({ error: 'already_voted', stars: (doc.data() as App).stars || 0 }, 409);
+    return c.json({ error: 'already_voted', rating: ratingAverage(doc.data()), rating_count: Number((doc.data() as any).rating_count || 0) }, 409);
   }
   const existingByServer = await votesRef.where('server_hash', '==', serverOnlyHash).limit(1).get();
   if (!existingByServer.empty) {
-    return c.json({ error: 'already_voted', stars: (doc.data() as App).stars || 0 }, 409);
+    return c.json({ error: 'already_voted', rating: ratingAverage(doc.data()), rating_count: Number((doc.data() as any).rating_count || 0) }, 409);
   }
 
-  // Write vote and increment stars atomically
+  // Write the vote and update the running average atomically.
   await votesRef.add({
     hash: voteHash,
     server_hash: serverOnlyHash,
+    rating,
     ts: nowSec(),
   });
-  await doc.ref.update({ stars: FV.increment(1) });
+  const result = await db.runTransaction(async (tx: any) => {
+    const fresh = await tx.get(doc.ref);
+    const data = (fresh.data() || {}) as any;
+    const newSum = Number(data.rating_sum || 0) + rating;
+    const newCount = Number(data.rating_count || 0) + 1;
+    const avg = Math.round((newSum / newCount) * 10) / 10;
+    tx.update(doc.ref, {
+      rating_sum: newSum,
+      rating_count: newCount,
+      rating: avg,
+      stars: newCount,
+    });
+    return { rating: avg, rating_count: newCount };
+  });
 
-  const updated = await doc.ref.get();
-  return c.json({ ok: true, stars: (updated.data() as App).stars || 0 });
+  return c.json({ ok: true, ...result });
 });
 
 app.post('/apps/:slug/star-check', async (c) => {
@@ -363,12 +390,16 @@ app.post('/apps/:slug/star-check', async (c) => {
   const voteHash = computeVoteHash(clientFp, sFp);
 
   const serverOnlyHash = crypto.createHash('sha256').update(sFp).digest('hex');
+  const ratingAvg = ratingAverage(doc.data());
+  const ratingCount = Number((doc.data() as any).rating_count || 0);
   const existingByHash = await doc.ref.collection('star_votes').where('hash', '==', voteHash).limit(1).get();
   if (!existingByHash.empty) {
-    return c.json({ voted: true, stars: (doc.data() as App).stars || 0 });
+    const myRating = Number((existingByHash.docs[0].data() as any).rating || 0);
+    return c.json({ voted: true, my_rating: myRating, rating: ratingAvg, rating_count: ratingCount });
   }
   const existingByServer = await doc.ref.collection('star_votes').where('server_hash', '==', serverOnlyHash).limit(1).get();
-  return c.json({ voted: !existingByServer.empty, stars: (doc.data() as App).stars || 0 });
+  const myRating = existingByServer.empty ? 0 : Number((existingByServer.docs[0].data() as any).rating || 0);
+  return c.json({ voted: !existingByServer.empty, my_rating: myRating, rating: ratingAvg, rating_count: ratingCount });
 });
 
 // ---------------- auth ----------------
@@ -576,6 +607,9 @@ app.post('/admin/apps', async (c) => {
     apk_key,
     icon_key: body.icon_key ? String(body.icon_key) : undefined,
     stars: 0,
+    rating_sum: 0,
+    rating_count: 0,
+    rating: 0,
     downloads: 0,
     created_at: now,
     updated_at: now,

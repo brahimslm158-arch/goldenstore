@@ -19,7 +19,7 @@
   async function render(content) {
     try {
       const [top, popular, recent] = await Promise.all([
-        api('/api/apps?sort=stars&limit=20').catch(() => ({ apps: [] })),
+        api('/api/apps?sort=rating&limit=20').catch(() => ({ apps: [] })),
         api('/api/apps?sort=popular&limit=20').catch(() => ({ apps: [] })),
         api('/api/apps?sort=recent&limit=20').catch(() => ({ apps: [] })),
       ]);
@@ -50,7 +50,7 @@
     return el('a', { href: `/app?slug=${encodeURIComponent(a.slug)}`, class: 'feature' },
       el('div', { class: 'ftimg', style: {
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: 'linear-gradient(135deg, #103024, #0d0d0f 70%)',
+        background: 'linear-gradient(135deg, #10233f, #0d0d0f 70%)',
       } },
         a.icon_url
           ? el('img', { src: a.icon_url, alt: '', style: { width: '120px', height: '120px', borderRadius: '28px', boxShadow: '0 16px 40px rgba(0,0,0,.5)' } })

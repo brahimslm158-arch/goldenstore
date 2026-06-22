@@ -17,13 +17,13 @@
   --gold-ink: #1a1500;
   /* Google Play palette */
   --primary: #a8c7fa;          /* blue — primary actions (Install) — Play Material You */
-  --primary-2: #01875f;
+  --primary-2: #a8c7fa;        /* light Play blue — pills / accents */
   --on-primary: #062e6f;       /* dark navy text on blue button */
   --nav: #a8c7fa;              /* blue — selected nav / tabs / links */
   --nav-bg: rgba(168,199,250,0.16);
   --star: #a8c7fa;            /* rating star (Play blue) */
   --accent: #a8c7fa;
-  --green: #00a173;
+  --blue: #a8c7fa;            /* light Play blue accent (matches Install button) */
   --radius: 18px;
   --radius-sm: 12px;
   --maxw: 720px;
@@ -218,11 +218,11 @@ input, select { font-family: inherit; }
 .feature .pill {
   position: absolute; top: 12px; inset-inline-start: 12px;
   background: var(--primary-2);
-  color: #fff; font-size: 12px; font-weight: 700; padding: 6px 13px; border-radius: 999px;
+  color: var(--on-primary); font-size: 12px; font-weight: 700; padding: 6px 13px; border-radius: 999px;
 }
 .feature h3 { font-size: 18px; font-weight: 700; }
 .feature p { color: var(--text-2); font-size: 13px; margin-top: 4px; }
-.feature .ftbtn { margin-top: 12px; background: var(--green); color: #fff; }
+.feature .ftbtn { margin-top: 12px; background: var(--blue); color: var(--on-primary); }
 
 /* ---------- Buttons ---------- */
 .btn {
@@ -286,7 +286,15 @@ input, select { font-family: inherit; }
 .rate-big { font-size: 44px; font-weight: 700; line-height: 1; }
 .rate-stars { display: flex; gap: 2px; color: var(--star); }
 .rate-stars .icon { width: 16px; height: 16px; }
+.rate-stars .icon.empty { fill: var(--surface-3); stroke: none; }
 .rate-meta { color: var(--text-2); font-size: 13px; margin-top: 6px; }
+/* interactive star picker (rating input) */
+.rate-input { gap: 8px; }
+.rate-input .icon { width: 34px; height: 34px; transition: transform .08s ease; }
+.rate-input .icon.empty { fill: none; stroke: var(--text-3); stroke-width: 1.6; }
+.rate-input .icon.fill { fill: var(--star); stroke: none; }
+.rate-input .icon:active { transform: scale(.9); }
+.rate-input.voted .icon { cursor: default; }
 
 .chip-row { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
 .chip {
