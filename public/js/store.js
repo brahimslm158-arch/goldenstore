@@ -169,17 +169,12 @@ function initials(user) {
   return n.trim().charAt(0).toUpperCase();
 }
 
-// Google Play–style home header: brand logo (start), notifications bell + avatar (end).
+// Google Play–style home header: brand logo (start), user avatar (end).
 function topbarSearch(user) {
-  const bell = el('button', { class: 'icon-btn bell-btn', 'aria-label': 'الإشعارات', onclick: () => toast('لا توجد إشعارات جديدة', 'info') },
-    ico('bell'),
-    el('span', { class: 'bell-dot' }),
-  );
   return el('div', { class: 'topbar' },
     el('div', { class: 'topbar-home' },
       el('a', { href: '/', class: 'brand', 'aria-label': 'Golden Store' }, el('img', { src: '/images/logo.png', alt: 'Golden Store' })),
       el('div', { class: 'tb-spacer' }),
-      bell,
       avatarEl(user),
     ),
   );
