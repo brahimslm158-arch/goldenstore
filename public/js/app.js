@@ -158,57 +158,34 @@
       }
     }
 
-    // Play Store style: icon + info side by side at top
+    // Hero
     content.append(el('section', { class: 'app-hero' },
       el('div', { class: 'icon-big' },
         app.icon_url
           ? el('img', { src: app.icon_url, alt: app.name })
           : ico('package', 'icon icon-xxl')
       ),
-      el('div', { style: 'flex:1; min-width:0;' },
+      el('div', null,
         el('h1', null, app.name),
         app.developer ? el('div', { class: 'dev' }, app.developer) : null,
+        el('div', { class: 'quick-stats' },
+          el('div', { class: 'stat' }, el('div', { class: 'v' }, formatNum(app.downloads)), el('div', { class: 'l' }, 'تنزيلات')),
+          el('div', { class: 'stat' }, el('div', { class: 'v' }, formatNum(app.stars || 0)), el('div', { class: 'l' }, 'نجوم')),
+          el('div', { class: 'stat' }, el('div', { class: 'v' }, app.version_name || '—'), el('div', { class: 'l' }, 'الإصدار')),
+          el('div', { class: 'stat' }, el('div', { class: 'v' }, formatBytes(app.size_bytes)), el('div', { class: 'l' }, 'الحجم')),
+          el('div', { class: 'stat' }, el('div', { class: 'v' }, sdkName(app.min_sdk)), el('div', { class: 'l' }, 'الحد الأدنى')),
+        ),
+        el('div', { class: 'download-bar' },
+          el('a', { class: 'btn btn-primary btn-lg', href: `/api/apps/${encodeURIComponent(app.slug)}/download` },
+            ico('download'), 'تنزيل النسخة المهكّرة ', formatBytes(app.size_bytes)),
+          starBtn,
+        ),
       ),
-    ));
-
-    // Quick stats row — Play Store divider style
-    content.append(el('div', { class: 'quick-stats', style: 'display:flex; gap:20px; padding:16px 0; border-top:1px solid var(--line); border-bottom:1px solid var(--line); margin-bottom:16px;' },
-      el('div', { class: 'stat', style: 'display:flex; flex-direction:column; align-items:center;' },
-        el('div', { class: 'v', style: 'font-size:15px; font-weight:600; color:var(--text-1);' }, formatNum(app.downloads)),
-        el('div', { class: 'l', style: 'font-size:11px; color:var(--text-3);' }, 'تنزيلات'),
-      ),
-      el('div', { style: 'width:1px; background:var(--line);' }),
-      el('div', { class: 'stat', style: 'display:flex; flex-direction:column; align-items:center;' },
-        el('div', { class: 'v', style: 'font-size:15px; font-weight:600; color:var(--text-1);' }, formatNum(app.stars || 0)),
-        el('div', { class: 'l', style: 'font-size:11px; color:var(--text-3);' }, 'نجوم'),
-      ),
-      el('div', { style: 'width:1px; background:var(--line);' }),
-      el('div', { class: 'stat', style: 'display:flex; flex-direction:column; align-items:center;' },
-        el('div', { class: 'v', style: 'font-size:15px; font-weight:600; color:var(--text-1);' }, app.version_name || '—'),
-        el('div', { class: 'l', style: 'font-size:11px; color:var(--text-3);' }, 'الإصدار'),
-      ),
-      el('div', { style: 'width:1px; background:var(--line);' }),
-      el('div', { class: 'stat', style: 'display:flex; flex-direction:column; align-items:center;' },
-        el('div', { class: 'v', style: 'font-size:15px; font-weight:600; color:var(--text-1);' }, formatBytes(app.size_bytes)),
-        el('div', { class: 'l', style: 'font-size:11px; color:var(--text-3);' }, 'الحجم'),
-      ),
-      el('div', { style: 'width:1px; background:var(--line);' }),
-      el('div', { class: 'stat', style: 'display:flex; flex-direction:column; align-items:center;' },
-        el('div', { class: 'v', style: 'font-size:15px; font-weight:600; color:var(--text-1);' }, sdkName(app.min_sdk)),
-        el('div', { class: 'l', style: 'font-size:11px; color:var(--text-3);' }, 'الحد الأدنى'),
-      ),
-    ));
-
-    // Download + star buttons — Play Store "Install" style
-    content.append(el('div', { class: 'download-bar' },
-      el('a', { class: 'btn-install', href: `/api/apps/${encodeURIComponent(app.slug)}/download` },
-        ico('download'), 'تنزيل النسخة المهكّرة ', formatBytes(app.size_bytes)),
-      starBtn,
     ));
 
     // Short description
     if (app.short_description) {
-      content.append(el('section', { class: 'panel', style: 'margin-top:20px;' },
+      content.append(el('section', { class: 'panel' },
         el('div', { class: 'panel-head' }, ico('info'), 'نبذة'),
         el('p', null, app.short_description),
       ));
@@ -227,10 +204,10 @@
       ));
     }
 
-    // Full description — "لمحة عن هذا التطبيق" like Play Store
+    // Full description
     if (app.description) {
       content.append(el('section', { class: 'panel' },
-        el('div', { class: 'panel-head' }, ico('book'), 'لمحة عن هذا التطبيق'),
+        el('div', { class: 'panel-head' }, ico('book'), 'الوصف'),
         el('p', { class: 'desc' }, app.description),
       ));
     }
