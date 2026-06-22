@@ -112,7 +112,7 @@ function ico(name, extra = 'icon') {
   return window.GSIcons.iconEl(name, extra);
 }
 
-// App card builder
+// App card builder — Play Store style
 function appCard(a) {
   return el('a', { href: `/app?slug=${encodeURIComponent(a.slug)}`, class: 'app-card' },
     (a.stars > 0) ? el('span', { class: 'star-pin' }, ico('star'), formatNum(a.stars)) : null,
@@ -131,6 +131,7 @@ function appCard(a) {
   );
 }
 
+// Play Store style header with tabs
 function renderHeader(active = '') {
   const h = document.querySelector('.header');
   if (!h) return;
@@ -144,8 +145,8 @@ function renderHeader(active = '') {
       ),
     ),
     el('nav', { class: 'nav' },
-      el('a', { href: '/', class: active === 'home' ? 'active' : '' }, 'الرئيسية'),
-      el('a', { href: '/browse', class: active === 'browse' ? 'active' : '' }, 'تصفّح'),
+      el('a', { href: '/', class: active === 'home' ? 'active' : '' }, 'محتوى يهمّك'),
+      el('a', { href: '/browse?sort=popular', class: active === 'browse' ? 'active' : '' }, 'قائمة الأكثر رواجاً'),
       el('a', { href: '/categories', class: active === 'categories' ? 'active' : '' }, 'التصنيفات'),
     ),
     (() => {
@@ -155,13 +156,42 @@ function renderHeader(active = '') {
         location.href = `/browse?q=${encodeURIComponent(q)}`;
       } });
       f.append(
-        el('input', { class: 'search-input', type: 'search', name: 'q', placeholder: 'ابحث عن تطبيق مهكر…', value: getQuery('q') }),
+        el('input', { class: 'search-input', type: 'search', name: 'q', placeholder: 'ابحث في التطبيقات والألعاب', value: getQuery('q') }),
         el('button', { type: 'submit', class: 'search-btn', 'aria-label': 'بحث' }, ico('search')),
       );
       return f;
     })(),
   );
   h.append(inner);
+}
+
+// Play Store style bottom navigation bar
+function renderBottomNav(active = '') {
+  const nav = document.getElementById('bottom-nav');
+  if (!nav) return;
+  nav.innerHTML = '';
+
+  const items = [
+    { href: '/', icon: 'gamepad', label: 'الألعاب', key: 'home' },
+    { href: '/browse', icon: 'apps', label: 'التطبيقات', key: 'browse' },
+    { href: '/browse?q=', icon: 'search', label: 'بحث', key: 'search' },
+    { href: '/categories', icon: 'layers', label: 'التصنيفات', key: 'categories' },
+    { href: '#', icon: 'user', label: 'أنت', key: 'user' },
+  ];
+
+  const inner = el('div', { class: 'bottom-nav-inner' });
+  items.forEach((item) => {
+    const isActive = item.key === active;
+    const link = el('a', {
+      href: item.href,
+      class: `bottom-nav-item${isActive ? ' active' : ''}`,
+    },
+      el('span', { class: isActive ? 'nav-indicator' : '' }, ico(item.icon)),
+      el('span', null, item.label),
+    );
+    inner.append(link);
+  });
+  nav.append(inner);
 }
 
 function renderFooter() {
@@ -193,6 +223,7 @@ async function loadStoreInfo() {
 function init() {
   const active = document.body.dataset.page || '';
   renderHeader(active);
+  renderBottomNav(active);
   renderFooter();
   loadStoreInfo().then(() => renderFooter());
 }
