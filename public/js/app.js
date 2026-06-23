@@ -149,9 +149,9 @@
 
   // Static 5-star bar reflecting an average value (filled vs empty).
   function starBar(value) {
-    const wrap = el('div', { class: 'rate-stars', style: { marginTop: '4px' } });
+    const wrap = el('div', { class: 'rate-static', style: { marginTop: '4px' } });
     const rounded = Math.round(Number(value) || 0);
-    for (let i = 1; i <= 5; i++) wrap.append(ico('star', `icon ${i <= rounded ? 'fill' : 'empty'}`));
+    for (let i = 1; i <= 5; i++) wrap.append(el('span', { class: `star ${i <= rounded ? 'on' : ''}` }, i <= rounded ? '★' : '☆'));
     return wrap;
   }
 
@@ -173,26 +173,26 @@
       count.textContent = ratingCount > 0 ? `${formatNum(ratingCount)} شخص قيّم هذا التطبيق` : 'كن أول من يقيّم هذا التطبيق';
     }
 
-    // Interactive star picker (1–5).
+    // Interactive star picker (1–5). Uses text glyphs so stars are always
+    // clearly visible and tappable on every device (no hover needed on mobile).
     const icons = [];
-    const picker = el('div', { class: 'rate-stars rate-input' });
+    const picker = el('div', { class: 'rate-input' });
     function paint(n) {
-      icons.forEach((ic, idx) => {
+      icons.forEach((sp, idx) => {
         const on = idx < n;
-        ic.classList.toggle('fill', on);
-        ic.classList.toggle('empty', !on);
+        sp.classList.toggle('on', on);
+        sp.textContent = on ? '★' : '☆';
       });
     }
     for (let i = 1; i <= 5; i++) {
-      const sIco = ico('star', 'icon empty');
-      sIco.style.cursor = 'pointer';
-      sIco.setAttribute('role', 'button');
-      sIco.setAttribute('aria-label', `${i} نجوم`);
-      sIco.addEventListener('mouseenter', () => { if (!voted) paint(i); });
-      sIco.addEventListener('mouseleave', () => paint(myRating));
-      sIco.addEventListener('click', () => vote(i));
-      icons.push(sIco);
-      picker.append(sIco);
+      const sp = el('span', { class: 'star-pick' }, '☆');
+      sp.setAttribute('role', 'button');
+      sp.setAttribute('aria-label', `${i} نجوم`);
+      sp.addEventListener('mouseenter', () => { if (!voted) paint(i); });
+      sp.addEventListener('mouseleave', () => paint(myRating));
+      sp.addEventListener('click', () => vote(i));
+      icons.push(sp);
+      picker.append(sp);
     }
     const pickerHint = el('div', { style: { fontSize: '14px', marginBottom: '8px' } }, 'قيّم هذا التطبيق');
 
