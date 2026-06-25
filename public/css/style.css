@@ -1461,3 +1461,27 @@ section { margin: 56px 0; }
 
   .section-title { font-size: 17px; }
 }
+
+/* ---- language switcher (admin) ---- */
+.admin-tabs .lang-switch { position: relative; display: inline-flex; }
+.lang-switch .lang-btn {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: transparent; color: var(--text-2); border: 0; cursor: pointer;
+  padding: 8px 10px; border-radius: 10px; font: inherit;
+}
+.lang-switch .lang-btn:hover { color: var(--gold); background: var(--bg-3); }
+.lang-switch .lang-btn .icon { width: 20px; height: 20px; }
+.lang-switch .lang-code { font-size: 12px; font-weight: 700; letter-spacing: .4px; }
+.lang-menu {
+  position: absolute; top: calc(100% + 6px); inset-inline-end: 0;
+  background: var(--bg-2); border: 1px solid var(--line); border-radius: 14px;
+  box-shadow: 0 12px 32px rgba(0,0,0,.4); padding: 6px; min-width: 150px; z-index: 80;
+  display: none; flex-direction: column; gap: 2px;
+}
+.lang-switch.open .lang-menu { display: flex; }
+.lang-item {
+  text-align: start; padding: 9px 12px; border-radius: 9px; font-size: 14px;
+  color: var(--text-1); font-weight: 600; background: transparent; border: 0; cursor: pointer;
+}
+.lang-item:hover { background: var(--bg-3); }
+.lang-item.on { color: var(--gold); background: var(--gold-glow); }

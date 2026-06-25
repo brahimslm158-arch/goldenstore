@@ -5,6 +5,10 @@
   const root = document.getElementById('root');
   S.bottomNav('');
 
+  // Localize a known UI string synchronously (used for the rapidly-updating
+  // install button so we don't spam the translator with each progress percent).
+  const tr = (s) => { try { return (window.GSI18N && window.GSI18N.t) ? window.GSI18N.t(s) : s; } catch (e) { return s; } };
+
   const slug = getQuery('slug');
 
   function sdkName(sdk) {
@@ -297,7 +301,7 @@
   // reporting genuine progress, saves the file to the device, then settles into
   // an "installed" state ("التطبيق لديك").
   function installControl(app) {
-    const label = el('span', { class: 'install-label' }, 'تثبيت');
+    const label = el('span', { class: 'install-label', 'data-noi18n': '' }, tr('تثبيت'));
     const fill = el('span', { class: 'install-fill' });
     const btn = el('button', { class: 'btn btn-primary btn-lg install-btn', type: 'button' }, fill, label);
 
@@ -305,11 +309,11 @@
       const pct = Math.max(0, Math.min(100, Math.round(ratio * 100)));
       fill.style.transition = 'width .15s linear';
       fill.style.width = pct + '%';
-      label.textContent = `جارٍ التحميل… ${pct}%`;
+      label.textContent = `${tr('جارٍ التحميل…')} ${pct}%`;
     }
     function setIndeterminate() {
       btn.classList.add('indeterminate');
-      label.textContent = 'جارٍ التحميل…';
+      label.textContent = tr('جارٍ التحميل…');
     }
     function resetBar() {
       btn.classList.remove('installing', 'indeterminate');
@@ -321,13 +325,13 @@
       btn.classList.add('installed');
       btn.disabled = false;
       label.innerHTML = '';
-      label.append(ico('check', 'icon'), document.createTextNode('تم التثبيت'));
+      label.append(ico('check', 'icon'), document.createTextNode(tr('تم التثبيت')));
     }
     function showIdle() {
       resetBar();
       btn.classList.remove('installed');
       btn.disabled = false;
-      label.textContent = 'تثبيت';
+      label.textContent = tr('تثبيت');
     }
 
     const filename = `${app.slug || 'app'}-${app.version_name || ''}.apk`.replace(/-+/g, '-');
@@ -341,7 +345,7 @@
       btn.disabled = true;
       fill.style.transition = 'none';
       fill.style.width = '0%';
-      label.textContent = 'جارٍ التحميل… 0%';
+      label.textContent = `${tr('جارٍ التحميل…')} 0%`;
 
       try {
         const res = await fetch(`/api/apps/${encodeURIComponent(app.slug)}/download?stream=1`, { credentials: 'include' });

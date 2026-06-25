@@ -201,6 +201,7 @@
       tabBtn('new', 'plus', 'تطبيق جديد'),
       tabBtn('requests', 'flag', 'الطلبات والبلاغات'),
       el('span', { class: 'tab-spacer' }),
+      (window.GSI18N && window.GSI18N.switcherEl ? window.GSI18N.switcherEl() : document.createComment('lang')),
       themeToggleBtn(),
       el('button', { class: 'tab', onclick: async () => {
         await api('/api/logout', { method: 'POST' });

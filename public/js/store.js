@@ -28,6 +28,10 @@ function themeToggleBtn() {
   syncThemeBtn(btn, currentTheme());
   return btn;
 }
+function langSwitcherEl() {
+  try { if (window.GSI18N && window.GSI18N.switcherEl) return window.GSI18N.switcherEl(); } catch (e) {}
+  return document.createComment('lang');
+}
 // Apply persisted theme as early as possible.
 applyTheme(currentTheme());
 
@@ -92,24 +96,30 @@ function el(tag, attrs = null, ...children) {
 function ico(name, extra = 'icon') { return window.GSIcons.iconEl(name, extra); }
 
 /* --------------------------- Formatters --------------------------- */
+function i18nUnits(kind) {
+  try { const u = window.GSI18N && window.GSI18N.units(kind); if (u && u.length) return u; } catch (e) {}
+  return kind === 'count' ? ['', 'ألف', 'مليون', 'مليار'] : ['ب', 'ك.ب', 'م.ب', 'ج.ب'];
+}
 function formatBytes(bytes) {
-  if (!bytes) return '0 ب';
-  const units = ['ب', 'ك.ب', 'م.ب', 'ج.ب'];
+  const units = i18nUnits('bytes');
+  if (!bytes) return `0 ${units[0]}`;
   let i = 0, v = bytes;
   while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
   return `${v.toFixed(v < 10 && i > 0 ? 1 : 0)} ${units[i]}`;
 }
 function formatCount(n) {
   n = Number(n || 0);
-  if (n >= 1e9) return (n / 1e9).toFixed(1).replace(/\.0$/, '') + ' مليار';
-  if (n >= 1e6) return (n / 1e6).toFixed(1).replace(/\.0$/, '') + ' مليون';
-  if (n >= 1e3) return (n / 1e3).toFixed(1).replace(/\.0$/, '') + ' ألف';
+  const u = i18nUnits('count');
+  if (n >= 1e9) return (n / 1e9).toFixed(1).replace(/\.0$/, '') + ' ' + u[3];
+  if (n >= 1e6) return (n / 1e6).toFixed(1).replace(/\.0$/, '') + ' ' + u[2];
+  if (n >= 1e3) return (n / 1e3).toFixed(1).replace(/\.0$/, '') + ' ' + u[1];
   return String(n);
 }
 function formatNum(n) { return Number(n || 0).toLocaleString('en-US'); }
 function formatDate(ts) {
   if (!ts) return '—';
-  return new Date(ts * 1000).toLocaleDateString('ar', { year: 'numeric', month: 'short', day: 'numeric', numberingSystem: 'latn' });
+  const lang = (window.GSI18N && window.GSI18N.lang) || 'ar';
+  return new Date(ts * 1000).toLocaleDateString(lang, { year: 'numeric', month: 'short', day: 'numeric', numberingSystem: 'latn' });
 }
 
 // Real rating helpers — based on actual user votes from the backend.
@@ -273,6 +283,7 @@ function topbarSearch(user) {
     el('div', { class: 'topbar-home' },
       el('a', { href: '/', class: 'brand', 'aria-label': 'Golden Store' }, el('img', { src: '/images/logo.png', alt: 'Golden Store' })),
       el('div', { class: 'tb-spacer' }),
+      langSwitcherEl(),
       themeToggleBtn(),
       avatarEl(user),
     ),
@@ -285,6 +296,7 @@ function topbarNav(title = '', actions = []) {
     el('button', { class: 'icon-btn', 'aria-label': 'رجوع', onclick: () => history.length > 1 ? history.back() : (location.href = '/') }, ico('chevronEnd')),
     title ? el('div', { class: 'title' }, title) : el('div', { class: 'spacer' }),
     ...actions,
+    langSwitcherEl(),
     themeToggleBtn(),
   );
 }
@@ -446,7 +458,7 @@ window.Store = {
   formatBytes, formatCount, formatNum, formatDate, ratingOf, ratingValue, ratingCountOf, getQuery, toast,
   posterCard, listRow, featureCarousel, categoryName,
   spinner, emptyState, errorState,
-  topbarSearch, topbarNav, bottomNav, avatarEl, themeToggleBtn, toggleTheme, currentTheme,
+  topbarSearch, topbarNav, bottomNav, avatarEl, themeToggleBtn, langSwitcherEl, toggleTheme, currentTheme,
   ready, signOut, getUser: () => _user,
 };
 

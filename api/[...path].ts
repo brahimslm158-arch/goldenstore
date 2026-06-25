@@ -177,6 +177,75 @@ app.get('/store', (c) => {
   });
 });
 
+// ---------------- i18n machine translation (free MT + Firestore cache) ----------------
+const SUPPORTED_TL = new Set(['en', 'fr', 'es']);
+const memTranslate = new Map<string, string>();
+
+async function mtOne(text: string, target: string): Promise<string> {
+  const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${encodeURIComponent(target)}&dt=t&q=${encodeURIComponent(text)}`;
+  const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+  if (!res.ok) throw new Error('mt_failed');
+  const data = (await res.json()) as any;
+  const segs = Array.isArray(data) && Array.isArray(data[0]) ? data[0] : [];
+  let out = '';
+  for (const s of segs) if (s && typeof s[0] === 'string') out += s[0];
+  return out || text;
+}
+
+app.post('/translate', async (c) => {
+  const ip = getClientIp(c);
+  if (!rateLimit(ip, 'translate', 120, 60)) return c.json({ error: 'rate_limit_exceeded' }, 429);
+  const body = await c.req.json().catch(() => ({} as any));
+  const target = String(body.target || '').trim().toLowerCase();
+  const q: string[] = Array.isArray(body.q) ? body.q.slice(0, 60).map((x: any) => String(x == null ? '' : x)) : [];
+  if (!SUPPORTED_TL.has(target)) return c.json({ t: q });
+  if (!q.length) return c.json({ t: [] });
+
+  const db = await firestore().catch(() => null);
+  const out: (string | null)[] = new Array(q.length).fill(null);
+  const toFetch: { i: number; text: string; id: string }[] = [];
+
+  for (let i = 0; i < q.length; i++) {
+    const text = q[i];
+    if (!text || text.length > 5000) { out[i] = text; continue; }
+    const id = crypto.createHash('sha1').update(target + '::' + text).digest('hex');
+    const mem = memTranslate.get(id);
+    if (mem != null) { out[i] = mem; continue; }
+    toFetch.push({ i, text, id });
+  }
+
+  if (db && toFetch.length) {
+    await Promise.all(toFetch.map(async (item) => {
+      try {
+        const doc = await db.collection('i18n_cache').doc(item.id).get();
+        if (doc.exists) {
+          const v = (doc.data() as any).out;
+          if (typeof v === 'string') { out[item.i] = v; memTranslate.set(item.id, v); }
+        }
+      } catch {}
+    }));
+  }
+
+  const remaining = toFetch.filter((it) => out[it.i] == null);
+  const CONCURRENCY = 6;
+  for (let k = 0; k < remaining.length; k += CONCURRENCY) {
+    const batch = remaining.slice(k, k + CONCURRENCY);
+    await Promise.all(batch.map(async (item) => {
+      try {
+        const tr = await mtOne(item.text, target);
+        out[item.i] = tr;
+        memTranslate.set(item.id, tr);
+        if (db) db.collection('i18n_cache').doc(item.id).set({ target, src: item.text, out: tr, ts: nowSec() }).catch(() => {});
+      } catch {
+        out[item.i] = item.text;
+      }
+    }));
+  }
+
+  for (let i = 0; i < q.length; i++) if (out[i] == null) out[i] = q[i];
+  return c.json({ t: out });
+});
+
 app.get('/categories', async (c) => {
   // Get app counts per category
   const db = await firestore();

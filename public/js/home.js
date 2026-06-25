@@ -88,7 +88,13 @@
       const usedSlugs = new Set(recommended.map((a) => a.slug));
       carouselApps.forEach((a) => usedSlugs.add(a.slug));
       const rest = recentApps.filter((a) => !usedSlugs.has(a.slug));
-      content.append(listSection('قد يعجبك أيضاً', rest));
+
+      // "قد يعجبك أيضاً" — a short curated taste of the rest.
+      content.append(listSection('قد يعجبك أيضاً', rest.slice(0, 5)));
+
+      // "تطبيقات أخرى" — every remaining app, with a vertical/horizontal toggle.
+      const others = rest.slice(5);
+      if (others.length) content.append(toggleSection('تطبيقات أخرى', others));
     }
 
     async function renderTop() {
@@ -170,6 +176,44 @@
     return el('div', { class: 'section' },
       el('div', { class: 'section-head' }, el('h2', null, title)),
       list,
+    );
+  }
+
+  // Section with a vertical (list) / horizontal (grid) view switch.
+  const VIEW_KEY = 'gs_home_view';
+  function toggleSection(title, apps) {
+    if (!apps || !apps.length) return el('span');
+    let mode = localStorage.getItem(VIEW_KEY) === 'grid' ? 'grid' : 'list';
+
+    const body = el('div');
+    const listBtn = el('button', { type: 'button', 'aria-label': 'عرض عمودي', title: 'عرض عمودي' }, ico('list', 'icon'));
+    const gridBtn = el('button', { type: 'button', 'aria-label': 'عرض أفقي', title: 'عرض أفقي' }, ico('grid', 'icon'));
+
+    function render() {
+      body.innerHTML = '';
+      listBtn.classList.toggle('on', mode === 'list');
+      gridBtn.classList.toggle('on', mode === 'grid');
+      if (mode === 'grid') {
+        const grid = el('div', { class: 'poster-grid' });
+        apps.forEach((a) => grid.append(window.Store.posterCard(a)));
+        body.append(grid);
+      } else {
+        const list = el('div', { class: 'applist' });
+        apps.forEach((a) => list.append(window.Store.listRow(a)));
+        body.append(list);
+      }
+    }
+    function setMode(m) { if (m === mode) return; mode = m; try { localStorage.setItem(VIEW_KEY, m); } catch (e) {} render(); }
+    listBtn.onclick = () => setMode('list');
+    gridBtn.onclick = () => setMode('grid');
+
+    render();
+    return el('div', { class: 'section' },
+      el('div', { class: 'section-head' },
+        el('h2', null, title),
+        el('div', { class: 'view-toggle' }, listBtn, gridBtn),
+      ),
+      body,
     );
   }
 })();

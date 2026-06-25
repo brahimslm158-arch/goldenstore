@@ -1,148 +1,356 @@
-// i18n – bilingual AR / EN support
+// Goldenstore i18n — Arabic (source) + English / French / Spanish.
+// UI strings are translated instantly from a curated dictionary; everything
+// else (descriptions, dynamic content) is auto-translated via /api/translate
+// and cached permanently, so there is no flicker or language mixing.
 (function () {
-  const T = {
-    // Header & nav
-    home:          { ar: 'الرئيسية',       en: 'Home' },
-    browse:        { ar: 'تصفّح',          en: 'Browse' },
-    categories:    { ar: 'التصنيفات',      en: 'Categories' },
-    searchHint:    { ar: 'ابحث عن تطبيق مهكر…', en: 'Search modded apps…' },
-    search:        { ar: 'بحث',            en: 'Search' },
+  'use strict';
 
-    // Hero
-    heroEyebrow:   { ar: 'المتجر الحصري للتطبيقات المهكرة', en: 'The Exclusive Modded Apps Store' },
-    heroTitle1:    { ar: 'كل التطبيقات المدفوعة،',         en: 'All Paid Apps,' },
-    heroTitle2:    { ar: 'مفتوحة بالكامل ومجاناً.',        en: 'Fully Unlocked & Free.' },
-    heroDesc:      { ar: 'تشكيلة منتقاة من أفضل التطبيقات والألعاب المهكرة. ميزات Premium مفتوحة، بدون إعلانات، بدون اشتراكات، وبدون دفع.',
-                     en: 'A curated collection of the best modded apps and games. Premium features unlocked, no ads, no subscriptions, no payments.' },
-    browseStore:   { ar: 'تصفّح المتجر',     en: 'Browse Store' },
-    topRated:      { ar: 'الأعلى تقييماً',   en: 'Top Rated' },
-    viewAll:       { ar: 'عرض جميع التطبيقات ←', en: '← View All Apps' },
+  var LANGS = [
+    { code: 'ar', label: 'العربية', dir: 'rtl' },
+    { code: 'en', label: 'English', dir: 'ltr' },
+    { code: 'fr', label: 'Français', dir: 'ltr' },
+    { code: 'es', label: 'Español', dir: 'ltr' },
+  ];
 
-    // Browse page
-    allApps:       { ar: 'جميع التطبيقات المهكرة', en: 'All Modded Apps' },
-    searchResults: { ar: 'نتائج البحث عن',   en: 'Search results for' },
-    all:           { ar: 'الكل',             en: 'All' },
-    sortRecent:    { ar: 'الأحدث',           en: 'Recent' },
-    sortPopular:   { ar: 'الأكثر تنزيلاً',   en: 'Most Downloaded' },
-    sortStars:     { ar: 'الأعلى تقييماً',   en: 'Top Rated' },
-    sortName:      { ar: 'حسب الاسم',        en: 'By Name' },
-    loadMore:      { ar: 'عرض المزيد',       en: 'Load More' },
-    appCount:      { ar: 'تطبيق',            en: 'apps' },
-    noResults:     { ar: 'لا توجد نتائج',    en: 'No Results' },
-    noResultsHint: { ar: 'لم نعثر على تطبيقات تطابق بحثك. جرّب تغيير التصنيف أو كلمة البحث.', en: 'No apps match your search. Try a different category or keyword.' },
+  function readLang() {
+    try { var l = localStorage.getItem('gs_lang'); } catch (e) { l = null; }
+    return LANGS.some(function (x) { return x.code === l; }) ? l : 'ar';
+  }
+  var lang = readLang();
+  var dir = lang === 'ar' ? 'rtl' : 'ltr';
+  document.documentElement.lang = lang;
+  document.documentElement.dir = dir;
 
-    // App page
-    noApp:         { ar: 'لا يوجد تطبيق محدد', en: 'No app specified' },
-    badLink:       { ar: 'الرابط غير صحيح.',   en: 'Invalid link.' },
-    giveStar:      { ar: 'إعطاء نجمة',        en: 'Give a Star' },
-    alreadyVoted:  { ar: 'لقد أعطيت نجمة لهذا التطبيق مسبقاً', en: 'You already rated this app' },
-    thanksStar:    { ar: 'شكراً لتقييمك!',    en: 'Thanks for your rating!' },
-    errorRetry:    { ar: 'حدث خطأ، حاول لاحقاً', en: 'An error occurred, try again later' },
-    downloads:     { ar: 'تنزيلات',           en: 'Downloads' },
-    stars:         { ar: 'نجوم',              en: 'Stars' },
-    version:       { ar: 'الإصدار',           en: 'Version' },
-    size:          { ar: 'الحجم',             en: 'Size' },
-    minSdk:        { ar: 'الحد الأدنى',       en: 'Min Android' },
-    downloadBtn:   { ar: 'تنزيل النسخة المهكّرة', en: 'Download Modded Version' },
-    summary:       { ar: 'نبذة',              en: 'Summary' },
-    screenshots:   { ar: 'لقطات الشاشة',      en: 'Screenshots' },
-    description:   { ar: 'الوصف',             en: 'Description' },
-    techInfo:      { ar: 'معلومات تقنية',      en: 'Technical Info' },
-    pkgName:       { ar: 'اسم الحزمة',         en: 'Package Name' },
-    versionCode:   { ar: 'رمز الإصدار',        en: 'Version Code' },
-    minAndroid:    { ar: 'الحد الأدنى لأندرويد', en: 'Min Android' },
-    dlCount:       { ar: 'عدد التنزيلات',      en: 'Downloads' },
-    starsCount:    { ar: 'النجوم',             en: 'Stars' },
-    developer:     { ar: 'المطوّر',            en: 'Developer' },
-    category:      { ar: 'التصنيف',            en: 'Category' },
-    publishDate:   { ar: 'تاريخ النشر',        en: 'Published' },
-    lastUpdate:    { ar: 'آخر تحديث',          en: 'Last Updated' },
-    installHint:   { ar: 'لتثبيت التطبيق المهكّر: فعّل خيار «تثبيت تطبيقات من مصادر غير معروفة» من إعدادات الأمان في جهازك، ثم افتح ملف APK الذي حملّته.',
-                     en: 'To install: Enable "Install from Unknown Sources" in your device\'s security settings, then open the downloaded APK file.' },
-    appNotFound:   { ar: 'تطبيق غير موجود',    en: 'App Not Found' },
-    checkLink:     { ar: 'تأكد من الرابط أو عد للرئيسية.', en: 'Check the link or go back to the homepage.' },
-    backHome:      { ar: 'العودة للرئيسية',    en: 'Back to Home' },
-    close:         { ar: 'إغلاق',             en: 'Close' },
+  // ---- Curated overrides: exact Arabic text -> per-language translation. ----
+  // Used for short UI terms where machine translation is ambiguous/risky.
+  var O = {
+    // bottom nav / chrome
+    'التطبيقات': { en: 'Apps', fr: 'Applications', es: 'Aplicaciones' },
+    'الألعاب': { en: 'Games', fr: 'Jeux', es: 'Juegos' },
+    'بحث': { en: 'Search', fr: 'Recherche', es: 'Buscar' },
+    'المميزة': { en: 'Featured', fr: 'En vedette', es: 'Destacados' },
+    'أنت': { en: 'You', fr: 'Vous', es: 'Tú' },
+    'الفئات': { en: 'Categories', fr: 'Catégories', es: 'Categorías' },
+    'التصنيفات': { en: 'Categories', fr: 'Catégories', es: 'Categorías' },
+    'تصفح': { en: 'Browse', fr: 'Parcourir', es: 'Explorar' },
+    'تصفّح': { en: 'Browse', fr: 'Parcourir', es: 'Explorar' },
+    'تصفح حسب الفئة': { en: 'Browse by category', fr: 'Parcourir par catégorie', es: 'Explorar por categoría' },
+    'الإعدادات': { en: 'Settings', fr: 'Paramètres', es: 'Ajustes' },
+    'تسجيل الخروج': { en: 'Sign out', fr: 'Se déconnecter', es: 'Cerrar sesión' },
+    'رجوع': { en: 'Back', fr: 'Retour', es: 'Atrás' },
+    'إغلاق': { en: 'Close', fr: 'Fermer', es: 'Cerrar' },
+    'مسح': { en: 'Clear', fr: 'Effacer', es: 'Borrar' },
+    'حذف': { en: 'Delete', fr: 'Supprimer', es: 'Eliminar' },
+    'إلغاء': { en: 'Cancel', fr: 'Annuler', es: 'Cancelar' },
+    'إرسال': { en: 'Send', fr: 'Envoyer', es: 'Enviar' },
+    'جديد': { en: 'New', fr: 'Nouveau', es: 'Nuevo' },
 
-    // Categories page
-    browseByCategory: { ar: 'تصفّح حسب التصنيف', en: 'Browse by Category' },
-    catAppCount:      { ar: 'تطبيق',             en: 'app(s)' },
-    catLoadError:     { ar: 'تعذّر تحميل التصنيفات. حاول لاحقاً.', en: 'Failed to load categories. Try again later.' },
+    // actions (machine translation gets these wrong, e.g. تثبيت -> "stabilisation")
+    'تثبيت': { en: 'Install', fr: 'Installer', es: 'Instalar' },
+    'تم التثبيت': { en: 'Installed', fr: 'Installé', es: 'Instalado' },
+    'مثبت': { en: 'Installed', fr: 'Installé', es: 'Instalado' },
+    'مثبّت': { en: 'Installed', fr: 'Installé', es: 'Instalado' },
+    'فتح': { en: 'Open', fr: 'Ouvrir', es: 'Abrir' },
+    'عرض': { en: 'View', fr: 'Voir', es: 'Ver' },
+    'تنزيل': { en: 'Download', fr: 'Télécharger', es: 'Descargar' },
+    'جارٍ التحميل…': { en: 'Downloading…', fr: 'Téléchargement…', es: 'Descargando…' },
+    'طلب تحديث': { en: 'Request update', fr: 'Demander une mise à jour', es: 'Solicitar actualización' },
+    'إرسال الطلب': { en: 'Send request', fr: 'Envoyer la demande', es: 'Enviar solicitud' },
+    'إبلاغ': { en: 'Report', fr: 'Signaler', es: 'Reportar' },
+    'إبلاغ عن مشكلة': { en: 'Report a problem', fr: 'Signaler un problème', es: 'Reportar un problema' },
+    'إبلاغ عن التطبيق': { en: 'Report app', fr: 'Signaler l’application', es: 'Reportar la aplicación' },
+    'إرسال البلاغ': { en: 'Send report', fr: 'Envoyer le signalement', es: 'Enviar reporte' },
 
-    // Errors
-    connError:     { ar: 'تعذّر الاتصال بالخادم.',     en: 'Could not connect to the server.' },
-    connHint:      { ar: 'تحقّق من اتصالك بالإنترنت ثمّ حدّث الصفحة.', en: 'Check your internet connection and refresh.' },
-    svcError:      { ar: 'خدمة المتجر غير متاحة مؤقتاً.', en: 'Store service is temporarily unavailable.' },
-    svcHint:       { ar: 'حاول لاحقاً بعد دقائق قليلة.',  en: 'Please try again in a few minutes.' },
-    loadError:     { ar: 'تعذّر تحميل البيانات.',       en: 'Failed to load data.' },
-    loadAppsError: { ar: 'تعذّر تحميل التطبيقات',      en: 'Failed to load apps' },
-    retryLater:    { ar: 'حاول لاحقاً.',               en: 'Try again later.' },
+    // home sections / tabs
+    'محتوى يهمك': { en: 'For you', fr: 'Pour vous', es: 'Para ti' },
+    'الأكثر رواجا': { en: 'Trending', fr: 'Tendances', es: 'Tendencias' },
+    'الأعلى تقييما': { en: 'Top rated', fr: 'Les mieux notés', es: 'Mejor valorados' },
+    'موصى به لك': { en: 'Recommended for you', fr: 'Recommandé pour vous', es: 'Recomendado para ti' },
+    'قد يعجبك أيضا': { en: 'You may also like', fr: 'Vous aimerez aussi', es: 'También te puede gustar' },
+    'تطبيقات أخرى': { en: 'Other apps', fr: 'Autres applications', es: 'Otras aplicaciones' },
+    'اختيارات المحررين': { en: 'Editors’ choice', fr: 'Choix de la rédaction', es: 'Selección del editor' },
+    'ألعاب موصى بها': { en: 'Recommended games', fr: 'Jeux recommandés', es: 'Juegos recomendados' },
+    'نتائج البحث': { en: 'Search results', fr: 'Résultats de recherche', es: 'Resultados de búsqueda' },
 
-    // Home
-    noAppsYet:     { ar: 'لا توجد تطبيقات بعد.',        en: 'No apps yet.' },
-    noAppsHint:    { ar: 'ستظهر هنا تطبيقات المتجر فور إضافتها.', en: 'Store apps will appear here once added.' },
+    // app detail labels
+    'نبذة': { en: 'Overview', fr: 'Aperçu', es: 'Resumen' },
+    'الوصف': { en: 'Description', fr: 'Description', es: 'Descripción' },
+    'لقطات الشاشة': { en: 'Screenshots', fr: 'Captures d’écran', es: 'Capturas de pantalla' },
+    'معلومات تقنية': { en: 'Technical info', fr: 'Informations techniques', es: 'Información técnica' },
+    'المطور': { en: 'Developer', fr: 'Développeur', es: 'Desarrollador' },
+    'المطوّر': { en: 'Developer', fr: 'Développeur', es: 'Desarrollador' },
+    'التصنيف': { en: 'Category', fr: 'Catégorie', es: 'Categoría' },
+    'الإصدار': { en: 'Version', fr: 'Version', es: 'Versión' },
+    'الإصدار الحالي': { en: 'Current version', fr: 'Version actuelle', es: 'Versión actual' },
+    'الإصدار الجديد': { en: 'New version', fr: 'Nouvelle version', es: 'Nueva versión' },
+    'رابط المصدر': { en: 'Source link', fr: 'Lien source', es: 'Enlace de origen' },
+    'سبب البلاغ': { en: 'Reason', fr: 'Motif', es: 'Motivo' },
+    'تفاصيل إضافية': { en: 'Additional details', fr: 'Détails supplémentaires', es: 'Detalles adicionales' },
+    'الحجم': { en: 'Size', fr: 'Taille', es: 'Tamaño' },
+    'آخر تحديث': { en: 'Last updated', fr: 'Dernière mise à jour', es: 'Última actualización' },
+    'عدد التنزيلات': { en: 'Downloads', fr: 'Téléchargements', es: 'Descargas' },
+    'اسم الحزمة': { en: 'Package name', fr: 'Nom du package', es: 'Nombre del paquete' },
 
-    // Footer
-    footerTag:     { ar: '— المتجر الذهبي للتطبيقات المهكرة', en: '— The Golden Modded Apps Store' },
-    allRights:     { ar: 'جميع الحقوق محفوظة', en: 'All Rights Reserved' },
+    // account / misc
+    'تطبيقاتي وألعابي': { en: 'My apps & games', fr: 'Mes applis et jeux', es: 'Mis apps y juegos' },
+    'إدارة التنزيلات': { en: 'Manage downloads', fr: 'Gérer les téléchargements', es: 'Gestionar descargas' },
+    'الوضع الفاتح': { en: 'Light mode', fr: 'Mode clair', es: 'Modo claro' },
+    'الوضع الغامق': { en: 'Dark mode', fr: 'Mode sombre', es: 'Modo oscuro' },
+    'اللغة': { en: 'Language', fr: 'Langue', es: 'Idioma' },
 
-    // Category names
-    catGames:        { ar: 'ألعاب',             en: 'Games' },
-    catSocial:       { ar: 'تواصل اجتماعي',     en: 'Social' },
-    catTools:        { ar: 'أدوات',             en: 'Tools' },
-    catProductivity: { ar: 'إنتاجية',           en: 'Productivity' },
-    catEntertainment:{ ar: 'ترفيه',             en: 'Entertainment' },
-    catEducation:    { ar: 'تعليم',             en: 'Education' },
-    catPhotography:  { ar: 'تصوير',             en: 'Photography' },
-    catMusic:        { ar: 'موسيقى',            en: 'Music' },
-    catFinance:      { ar: 'مالية',             en: 'Finance' },
-    catShopping:     { ar: 'تسوق',              en: 'Shopping' },
-    catNews:         { ar: 'أخبار',             en: 'News' },
-    catHealth:       { ar: 'صحة ولياقة',         en: 'Health & Fitness' },
-    catTravel:       { ar: 'سفر',               en: 'Travel' },
-    catOther:        { ar: 'أخرى',              en: 'Other' },
+    // category names
+    'ألعاب': { en: 'Games', fr: 'Jeux', es: 'Juegos' },
+    'تواصل اجتماعي': { en: 'Social', fr: 'Social', es: 'Social' },
+    'أدوات': { en: 'Tools', fr: 'Outils', es: 'Herramientas' },
+    'إنتاجية': { en: 'Productivity', fr: 'Productivité', es: 'Productividad' },
+    'ترفيه': { en: 'Entertainment', fr: 'Divertissement', es: 'Entretenimiento' },
+    'تعليم': { en: 'Education', fr: 'Éducation', es: 'Educación' },
+    'تصوير': { en: 'Photography', fr: 'Photographie', es: 'Fotografía' },
+    'موسيقى': { en: 'Music', fr: 'Musique', es: 'Música' },
+    'مالية': { en: 'Finance', fr: 'Finance', es: 'Finanzas' },
+    'تسوق': { en: 'Shopping', fr: 'Achats', es: 'Compras' },
+    'أخبار': { en: 'News', fr: 'Actualités', es: 'Noticias' },
+    'صحة ولياقة': { en: 'Health & Fitness', fr: 'Santé et remise en forme', es: 'Salud y bienestar' },
+    'سفر': { en: 'Travel', fr: 'Voyage', es: 'Viajes' },
+    'أخرى': { en: 'Other', fr: 'Autres', es: 'Otros' },
 
-    // Units
-    bytes:  { ar: ['ب', 'ك.ب', 'م.ب', 'ج.ب'], en: ['B', 'KB', 'MB', 'GB'] },
+    // empty / status
+    'لا توجد نتائج': { en: 'No results', fr: 'Aucun résultat', es: 'Sin resultados' },
+    'لا توجد تطبيقات بعد': { en: 'No apps yet', fr: 'Aucune application pour l’instant', es: 'Aún no hay aplicaciones' },
+    'لا توجد ألعاب بعد': { en: 'No games yet', fr: 'Aucun jeu pour l’instant', es: 'Aún no hay juegos' },
   };
 
-  // Category slug → key map
-  const catMap = {
-    games: 'catGames', social: 'catSocial', tools: 'catTools',
-    productivity: 'catProductivity', entertainment: 'catEntertainment',
-    education: 'catEducation', photography: 'catPhotography', music: 'catMusic',
-    finance: 'catFinance', shopping: 'catShopping', news: 'catNews',
-    health: 'catHealth', travel: 'catTravel', other: 'catOther',
+  // Number/size unit labels per language.
+  var UNITS = {
+    bytes: { ar: ['ب', 'ك.ب', 'م.ب', 'ج.ب'], en: ['B', 'KB', 'MB', 'GB'], fr: ['o', 'Ko', 'Mo', 'Go'], es: ['B', 'KB', 'MB', 'GB'] },
+    count: { ar: ['', 'ألف', 'مليون', 'مليار'], en: ['', 'K', 'M', 'B'], fr: ['', 'K', 'M', 'Md'], es: ['', 'K', 'M', 'MM'] },
   };
+  function units(kind) { var u = UNITS[kind]; return (u && (u[lang] || u.ar)) || []; }
 
-  let lang = localStorage.getItem('gs_lang') || 'ar';
+  var AR = /[\u0600-\u06FF]/;
+  var SKIP_TAGS = { SCRIPT: 1, STYLE: 1, NOSCRIPT: 1, CODE: 1, PRE: 1 };
 
-  function t(key) {
-    const entry = T[key];
-    if (!entry) return key;
-    return entry[lang] || entry.ar;
+  // ---- translation cache (per-language, persisted) ----
+  var cacheKey = 'gs_tr_' + lang;
+  var cache = {};
+  try { cache = JSON.parse(localStorage.getItem(cacheKey) || '{}') || {}; } catch (e) { cache = {}; }
+  var cacheDirty = false;
+  function saveCache() {
+    if (!cacheDirty) return;
+    try { localStorage.setItem(cacheKey, JSON.stringify(cache)); cacheDirty = false; } catch (e) {}
+  }
+  setInterval(saveCache, 2000);
+  window.addEventListener('beforeunload', saveCache);
+
+  // Normalized override lookup (ignore Arabic diacritics / tatweel) so that
+  // "الأعلى تقييماً" and "الأعلى تقييما" both resolve to the same entry.
+  function norm(s) { return s.replace(/[\u064B-\u0652\u0670\u0640]/g, ''); }
+  var ON = {};
+  Object.keys(O).forEach(function (k) { ON[norm(k)] = O[k]; });
+
+  function known(core) {
+    var ov = ON[norm(core)];
+    if (ov && ov[lang]) return ov[lang];
+    if (cache[core] != null) return cache[core];
+    return null;
   }
 
-  function getLang() { return lang; }
-  function isRTL() { return lang === 'ar'; }
+  // pending: core text -> list of apply callbacks
+  var pending = {};
+  var pendingKeys = [];
+  var scheduled = false;
+  var applying = false;
+
+  function queue(core, applyFn) {
+    if (!pending[core]) { pending[core] = []; pendingKeys.push(core); }
+    pending[core].push(applyFn);
+    if (!scheduled) { scheduled = true; setTimeout(flush, 80); }
+  }
+
+  function flush() {
+    scheduled = false;
+    var keys = pendingKeys, map = pending;
+    pendingKeys = []; pending = {};
+    if (!keys.length) return;
+    var todo = keys.filter(function (k) { return cache[k] == null; });
+    var applyAll = function () {
+      keys.forEach(function (core) {
+        var v = known(core);
+        if (v == null) return;
+        map[core].forEach(function (fn) { applying = true; try { fn(v); } finally { applying = false; } });
+      });
+    };
+    if (!todo.length) { applyAll(); return; }
+    fetch('/api/translate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ target: lang, q: todo }),
+    }).then(function (r) { return r.json(); }).then(function (data) {
+      var t = (data && data.t) || [];
+      todo.forEach(function (core, i) {
+        var v = t[i];
+        // Cache any non-empty string (even if unchanged) so we never re-request
+        // it and never blank out content. Empty results are ignored.
+        if (typeof v === 'string' && v) { cache[core] = v; cacheDirty = true; }
+      });
+      applyAll();
+      saveCache();
+    }).catch(function () { applyAll(); });
+  }
+
+  // Replace the meaningful (trimmed) part of a string, preserving surrounding whitespace.
+  function reflow(raw, translated) {
+    var core = raw.trim();
+    if (!core) return raw;
+    var idx = raw.indexOf(core);
+    return raw.slice(0, idx) + translated + raw.slice(idx + core.length);
+  }
+
+  function doTextNode(node) {
+    var raw = node.nodeValue;
+    if (!raw || !AR.test(raw)) return;
+    var core = raw.trim();
+    if (!core) return;
+    var hit = known(core);
+    if (hit != null) {
+      var out = reflow(raw, hit);
+      if (out !== node.nodeValue) { applying = true; node.nodeValue = out; applying = false; }
+      return;
+    }
+    queue(core, function (v) {
+      // re-read raw in case the node text changed meanwhile
+      var cur = node.nodeValue;
+      if (cur && AR.test(cur)) node.nodeValue = reflow(cur, v);
+    });
+  }
+
+  function doAttr(elm, attr) {
+    if (!elm.getAttribute) return;
+    var raw = elm.getAttribute(attr);
+    if (!raw || !AR.test(raw)) return;
+    var core = raw.trim();
+    if (!core) return;
+    var hit = known(core);
+    if (hit != null) { applying = true; elm.setAttribute(attr, reflow(raw, hit)); applying = false; return; }
+    queue(core, function (v) { applying = true; elm.setAttribute(attr, reflow(raw, v)); applying = false; });
+  }
+
+  var ATTRS = ['placeholder', 'title', 'aria-label', 'alt'];
+
+  function walk(root) {
+    if (lang === 'ar' || !root) return;
+    if (root.nodeType === 3) { doTextNode(root); return; }
+    if (root.nodeType !== 1) return;
+    if (root.closest && root.closest('[data-noi18n]')) return;
+
+    var tw = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {
+      acceptNode: function (n) {
+        if (!n.nodeValue || !AR.test(n.nodeValue)) return NodeFilter.FILTER_REJECT;
+        var p = n.parentNode;
+        while (p && p.nodeType === 1) {
+          if (SKIP_TAGS[p.tagName] || (p.hasAttribute && p.hasAttribute('data-noi18n'))) return NodeFilter.FILTER_REJECT;
+          p = p.parentNode;
+        }
+        return NodeFilter.FILTER_ACCEPT;
+      },
+    });
+    var nodes = [], cur;
+    while ((cur = tw.nextNode())) nodes.push(cur);
+    nodes.forEach(doTextNode);
+
+    var elems = [root];
+    var all = root.querySelectorAll('*');
+    for (var i = 0; i < all.length; i++) elems.push(all[i]);
+    elems.forEach(function (e) {
+      if (e.closest && e.closest('[data-noi18n]')) return;
+      for (var a = 0; a < ATTRS.length; a++) if (e.hasAttribute && e.hasAttribute(ATTRS[a])) doAttr(e, ATTRS[a]);
+    });
+  }
+
+  var observer = new MutationObserver(function (muts) {
+    if (applying || lang === 'ar') return;
+    for (var i = 0; i < muts.length; i++) {
+      var m = muts[i];
+      if (m.type === 'characterData') { doTextNode(m.target); }
+      else if (m.addedNodes) {
+        for (var j = 0; j < m.addedNodes.length; j++) {
+          var n = m.addedNodes[j];
+          if (n.nodeType === 1) walk(n);
+          else if (n.nodeType === 3) doTextNode(n);
+        }
+      }
+    }
+  });
+
+  function start() {
+    if (lang === 'ar') return;
+    walk(document.body);
+    observer.observe(document.documentElement, { subtree: true, childList: true, characterData: true });
+    if (document.title && AR.test(document.title)) {
+      var ttl = document.title, core = ttl.trim();
+      var hit = known(core);
+      if (hit != null) document.title = reflow(ttl, hit);
+      else queue(core, function (v) { document.title = reflow(ttl, v); });
+    }
+  }
 
   function setLang(l) {
-    lang = l;
-    localStorage.setItem('gs_lang', l);
-    document.documentElement.lang = l;
-    document.documentElement.dir = l === 'ar' ? 'rtl' : 'ltr';
-    // Reload page to apply
+    if (!LANGS.some(function (x) { return x.code === l; }) || l === lang) return;
+    try { localStorage.setItem('gs_lang', l); } catch (e) {}
     location.reload();
   }
 
-  function catName(slug) {
-    const key = catMap[slug];
-    return key ? t(key) : slug;
+  // Language switcher button (globe + menu). Self-contained DOM.
+  function switcherEl() {
+    var wrap = document.createElement('div');
+    wrap.className = 'lang-switch';
+    wrap.setAttribute('data-noi18n', '');
+
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'icon-btn lang-btn';
+    btn.setAttribute('aria-label', 'Language');
+    try { btn.appendChild(window.GSIcons.iconEl('globe', 'icon')); } catch (e) {}
+    var code = document.createElement('span');
+    code.className = 'lang-code';
+    code.textContent = lang.toUpperCase();
+    btn.appendChild(code);
+
+    var menu = document.createElement('div');
+    menu.className = 'lang-menu';
+    LANGS.forEach(function (l) {
+      var it = document.createElement('button');
+      it.type = 'button';
+      it.className = 'lang-item' + (l.code === lang ? ' on' : '');
+      it.textContent = l.label;
+      it.onclick = function () { setLang(l.code); };
+      menu.appendChild(it);
+    });
+
+    btn.onclick = function (e) { e.stopPropagation(); wrap.classList.toggle('open'); };
+    document.addEventListener('click', function (e) { if (!wrap.contains(e.target)) wrap.classList.remove('open'); });
+
+    wrap.appendChild(btn);
+    wrap.appendChild(menu);
+    return wrap;
   }
 
-  // Apply dir/lang on load
-  document.documentElement.lang = lang;
-  document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+  function t(arText) {
+    if (lang === 'ar') return arText;
+    var hit = known((arText || '').trim());
+    return hit != null ? hit : arText;
+  }
 
-  window.GSLang = { t, getLang, setLang, isRTL, catName, T };
+  window.GSI18N = {
+    lang: lang,
+    isRTL: dir === 'rtl',
+    setLang: setLang,
+    switcherEl: switcherEl,
+    units: units,
+    t: t,
+    translate: walk,
+  };
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+  else start();
 })();
