@@ -8,7 +8,8 @@
 
   const TOP_TABS = [
     { key: 'foryou', label: 'محتوى يهمّك' },
-    { key: 'top', label: 'قائمة الأكثر رواجًا' },
+    { key: 'top', label: 'الأكثر رواجًا' },
+    { key: 'rated', label: 'الأعلى تقييماً' },
     { key: 'categories', label: 'الفئات' },
   ];
 
@@ -43,6 +44,7 @@
       try {
         if (topTab === 'categories') return renderCategories();
         if (topTab === 'top') return renderTop();
+        if (topTab === 'rated') return renderTopRated();
         return renderForYou();
       } catch (err) {
         content.innerHTML = '';
@@ -57,7 +59,7 @@
 
     async function renderForYou() {
       const [recent, popular, top] = await Promise.all([
-        api(q('sort=recent&limit=30')).catch(() => ({ apps: [] })),
+        api(q('sort=recent&limit=60')).catch(() => ({ apps: [] })),
         api(q('sort=popular&limit=30')).catch(() => ({ apps: [] })),
         api(q('sort=rating&limit=30')).catch(() => ({ apps: [] })),
       ]);
@@ -72,16 +74,20 @@
         return;
       }
 
-      // Featured banner from the top-rated app
+      // Featured banner from the top-rated (then popular, then recent) app.
       const feat = topApps[0] || popularApps[0] || recentApps[0];
       if (feat) content.append(featureBanner(feat));
 
-      content.append(posterSection('موصى به لك', recentApps));
-      content.append(posterSection('الأكثر رواجًا', popularApps));
-      if (topApps.length) content.append(posterSection('الأعلى تقييماً', topApps));
+      // "موصى به لك" — a curated horizontal row (most popular picks).
+      const recommended = (popularApps.length ? popularApps : recentApps).slice(0, 12);
+      content.append(posterSection('موصى به لك', recommended));
 
-      // Recommended list
-      content.append(listSection('قد يعجبك أيضاً', popularApps.slice(0, 8)));
+      // "قد يعجبك أيضاً" — every other app not already shown above
+      // (الأكثر رواجًا / الأعلى تقييماً now live in their own tabs).
+      const usedSlugs = new Set(recommended.map((a) => a.slug));
+      if (feat) usedSlugs.add(feat.slug);
+      const rest = recentApps.filter((a) => !usedSlugs.has(a.slug));
+      content.append(listSection('قد يعجبك أيضاً', rest));
     }
 
     async function renderTop() {
@@ -89,6 +95,21 @@
       const apps = filt(res.apps).slice(0, 50);
       content.innerHTML = '';
       if (!apps.length) { content.append(S.emptyState('لا توجد تطبيقات بعد')); return; }
+      const list = el('div', { class: 'applist' });
+      apps.forEach((a, i) => {
+        const row = S.listRow(a);
+        const rank = el('div', { style: { width: '24px', textAlign: 'center', fontWeight: '700', color: 'var(--text-2)', fontSize: '15px', flexShrink: '0' } }, String(i + 1));
+        row.insertBefore(rank, row.firstChild);
+        list.append(row);
+      });
+      content.append(el('div', { class: 'section' }, list));
+    }
+
+    async function renderTopRated() {
+      const res = await api(q('sort=rating&limit=60'));
+      const apps = filt(res.apps).filter((a) => S.ratingCountOf(a) > 0).slice(0, 50);
+      content.innerHTML = '';
+      if (!apps.length) { content.append(S.emptyState('لا توجد تطبيقات مقيّمة بعد', 'قيّم التطبيقات لتظهر هنا الأعلى تقييماً.')); return; }
       const list = el('div', { class: 'applist' });
       apps.forEach((a, i) => {
         const row = S.listRow(a);
