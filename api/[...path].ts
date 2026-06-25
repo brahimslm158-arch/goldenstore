@@ -298,6 +298,23 @@ app.get('/apps/:slug/download', async (c) => {
   const filename = `${a.slug || 'app'}-${a.version_name || ''}.apk`.replace(/-+/g, '-');
   const disposition = `attachment; filename="${filename}"`;
   const url = await r2PresignGet(a.apk_key, 300, disposition);
+
+  // Same-origin streaming mode: proxy the bytes through this function so the
+  // browser can read a real Content-Length and report genuine download progress.
+  if (c.req.query('stream') === '1') {
+    const upstream = await fetch(url);
+    if (!upstream.ok || !upstream.body) {
+      return c.json({ error: 'download_failed' }, 502);
+    }
+    const headers = new Headers();
+    headers.set('Content-Type', 'application/vnd.android.package-archive');
+    headers.set('Content-Disposition', disposition);
+    const len = upstream.headers.get('content-length');
+    if (len) headers.set('Content-Length', len);
+    headers.set('Cache-Control', 'no-store');
+    return new Response(upstream.body, { headers });
+  }
+
   return c.redirect(url);
 });
 

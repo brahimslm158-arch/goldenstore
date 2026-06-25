@@ -520,16 +520,25 @@ input, select { font-family: inherit; }
 }
 .fc-dot.on { width: 20px; background: var(--gold); }
 
-/* ---------- Install button + progress sweep ---------- */
+/* ---------- Install button + real download progress ---------- */
 .install-btn { position: relative; overflow: hidden; isolation: isolate; }
-.install-btn .install-label { position: relative; z-index: 2; display: inline-flex; align-items: center; gap: 8px; }
+.install-btn .install-label { position: relative; z-index: 2; display: inline-flex; align-items: center; gap: 8px; font-variant-numeric: tabular-nums; }
 .install-fill {
   position: absolute; inset-inline-start: 0; top: 0; bottom: 0; width: 0%;
-  background: linear-gradient(90deg, var(--gold-2), var(--gold));
-  z-index: 1; border-radius: inherit;
+  background: linear-gradient(90deg, #2f7bff, #4f93ff);
+  z-index: 1;
 }
-.install-btn.installing { background: var(--surface-3); color: var(--gold-ink); cursor: progress; }
-.install-btn.installing .install-label { color: #fff; mix-blend-mode: difference; }
+.install-btn.installing { background: #16365f; color: #fff; cursor: progress; }
+.install-btn.installing .install-label { color: #fff; }
+/* Indeterminate sweep when the file size is unknown */
+.install-btn.indeterminate .install-fill {
+  width: 40% !important; border-radius: 999px;
+  animation: dl-indet 1.1s ease-in-out infinite;
+}
+@keyframes dl-indet {
+  0%   { inset-inline-start: -40%; }
+  100% { inset-inline-start: 100%; }
+}
 .install-btn.installed { background: var(--surface-2); color: var(--gold); border: 1px solid var(--gold); }
 .install-btn.installed .icon { color: var(--gold); }
 

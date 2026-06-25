@@ -193,49 +193,102 @@
   function markInstalledStored(slug) {
     try { const s = installedSet(); s.add(slug); localStorage.setItem(INSTALL_KEY, JSON.stringify([...s])); } catch {}
   }
-  // Trigger the APK download without navigating away from the page.
-  function beginDownload(slug) {
-    const frame = el('iframe', { src: `/api/apps/${encodeURIComponent(slug)}/download`, style: { display: 'none' } });
-    document.body.append(frame);
-    setTimeout(() => frame.remove(), 60000);
+  // Save a downloaded blob to the user's device.
+  function saveBlob(blob, filename) {
+    const url = URL.createObjectURL(blob);
+    const a = el('a', { href: url, download: filename, style: { display: 'none' } });
+    document.body.append(a);
+    a.click();
+    setTimeout(() => { a.remove(); URL.revokeObjectURL(url); }, 30000);
   }
 
-  // The install button + sliding progress bar. Animates on click, then settles
-  // into an "installed" state ("التطبيق لديك").
+  // Fallback: plain navigation download (browser's own download UI) when the
+  // streaming fetch isn't possible.
+  function fallbackDownload(slug) {
+    const a = el('a', { href: `/api/apps/${encodeURIComponent(slug)}/download`, download: '', style: { display: 'none' } });
+    document.body.append(a);
+    a.click();
+    setTimeout(() => a.remove(), 30000);
+  }
+
+  // The install button + REAL download progress bar. Streams the APK while
+  // reporting genuine progress, saves the file to the device, then settles into
+  // an "installed" state ("التطبيق لديك").
   function installControl(app) {
     const label = el('span', { class: 'install-label' }, 'تثبيت');
     const fill = el('span', { class: 'install-fill' });
     const btn = el('button', { class: 'btn btn-primary btn-lg install-btn', type: 'button' }, fill, label);
 
-    function showInstalled() {
-      btn.classList.remove('installing');
-      btn.classList.add('installed');
-      btn.disabled = false;
+    function setProgress(ratio) {
+      const pct = Math.max(0, Math.min(100, Math.round(ratio * 100)));
+      fill.style.transition = 'width .15s linear';
+      fill.style.width = pct + '%';
+      label.textContent = `جارٍ التحميل… ${pct}%`;
+    }
+    function setIndeterminate() {
+      btn.classList.add('indeterminate');
+      label.textContent = 'جارٍ التحميل…';
+    }
+    function resetBar() {
+      btn.classList.remove('installing', 'indeterminate');
       fill.style.transition = 'none';
       fill.style.width = '0%';
+    }
+    function showInstalled() {
+      resetBar();
+      btn.classList.add('installed');
+      btn.disabled = false;
       label.innerHTML = '';
       label.append(ico('check', 'icon'), document.createTextNode('التطبيق لديك'));
     }
+    function showIdle() {
+      resetBar();
+      btn.classList.remove('installed');
+      btn.disabled = false;
+      label.textContent = 'تثبيت';
+    }
 
-    function runInstall() {
-      if (btn.classList.contains('installed')) { beginDownload(app.slug); return; }
+    const filename = `${app.slug || 'app'}-${app.version_name || ''}.apk`.replace(/-+/g, '-');
+
+    async function runInstall() {
       if (btn.classList.contains('installing')) return;
-      beginDownload(app.slug);
+      if (btn.classList.contains('installed')) { fallbackDownload(app.slug); return; }
+
       btn.classList.add('installing');
       btn.disabled = true;
-      label.textContent = 'جارٍ التثبيت…';
-      // Smooth, professional sweep from 0 → 100%.
       fill.style.transition = 'none';
       fill.style.width = '0%';
-      requestAnimationFrame(() => {
-        fill.style.transition = 'width 3.1s cubic-bezier(.25,.8,.3,1)';
-        fill.style.width = '100%';
-      });
-      setTimeout(() => {
+      label.textContent = 'جارٍ التحميل… 0%';
+
+      try {
+        const res = await fetch(`/api/apps/${encodeURIComponent(app.slug)}/download?stream=1`, { credentials: 'include' });
+        if (!res.ok || !res.body) throw new Error('http_' + res.status);
+
+        const total = Number(res.headers.get('Content-Length') || 0);
+        const reader = res.body.getReader();
+        const chunks = [];
+        let received = 0;
+        if (!total) setIndeterminate();
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          chunks.push(value);
+          received += value.length;
+          if (total) setProgress(received / total);
+        }
+        const blob = new Blob(chunks, { type: 'application/vnd.android.package-archive' });
+        if (total) setProgress(1);
+        saveBlob(blob, filename);
         markInstalledStored(app.slug);
         showInstalled();
-        toast('تم التثبيت بنجاح', 'success');
-      }, 3200);
+        toast('اكتمل التحميل وحُفظ الملف في جهازك', 'success');
+      } catch (e) {
+        // Streaming failed (network/limits) — fall back to a normal download so
+        // the user still gets the file, and don't fake an "installed" state.
+        fallbackDownload(app.slug);
+        showIdle();
+        toast('تعذّر عرض شريط التقدّم، وبدأ التنزيل بالطريقة العادية', 'info');
+      }
     }
 
     btn.addEventListener('click', runInstall);
