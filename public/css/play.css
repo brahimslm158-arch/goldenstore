@@ -544,16 +544,16 @@ input, select { font-family: inherit; }
 
 /* ---------- Install split-button + dropdown ---------- */
 .d-actions .install-group { flex: 1; }
-.install-group { position: relative; display: flex; gap: 2px; }
+.install-group { position: relative; display: flex; align-items: stretch; gap: 2px; }
 .install-group .install-btn {
   flex: 1 1 auto;
-  border-start-end-radius: 6px; border-end-end-radius: 6px;
+  border-start-end-radius: 7px; border-end-end-radius: 7px;
 }
 .install-caret {
-  flex: 0 0 32px; width: 32px; padding: 0;
-  border-start-start-radius: 6px; border-end-start-radius: 6px;
+  flex: 0 0 38px; width: 38px; padding: 0;
+  border-start-start-radius: 7px; border-end-start-radius: 7px;
 }
-.install-caret .icon { width: 15px; height: 15px; transition: transform .2s; }
+.install-caret .icon { width: 16px; height: 16px; transition: transform .2s; }
 .install-group.menu-open .install-caret .icon { transform: rotate(180deg); }
 .install-menu {
   position: absolute; bottom: calc(100% + 8px); inset-inline-start: 0;
