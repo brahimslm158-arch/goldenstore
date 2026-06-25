@@ -549,11 +549,11 @@ input, select { font-family: inherit; }
   flex: 1 1 auto;
   border-start-end-radius: 7px; border-end-end-radius: 7px;
 }
-.install-caret {
-  flex: 0 0 20px; width: 20px; min-width: 20px; padding: 0;
+.d-actions .install-group .install-caret {
+  flex: 0 0 40px; width: 40px; min-width: 40px; max-width: 40px; padding: 0;
   border-start-start-radius: 7px; border-end-start-radius: 7px;
 }
-.install-caret .icon { width: 13px; height: 13px; transition: transform .2s; }
+.install-caret .icon { width: 16px; height: 16px; transition: transform .2s; }
 .install-group.menu-open .install-caret .icon { transform: rotate(180deg); }
 .install-menu {
   position: absolute; bottom: calc(100% + 8px); inset-inline-start: 0;
