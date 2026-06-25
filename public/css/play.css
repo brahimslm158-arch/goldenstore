@@ -546,14 +546,14 @@ input, select { font-family: inherit; }
 .d-actions .install-group { flex: 1; }
 .install-group { position: relative; display: flex; gap: 2px; }
 .install-group .install-btn {
-  flex: 1;
+  flex: 1 1 auto;
   border-start-end-radius: 6px; border-end-end-radius: 6px;
 }
 .install-caret {
-  flex: 0 0 auto; width: 48px; padding: 0;
+  flex: 0 0 40px; width: 40px; padding: 0;
   border-start-start-radius: 6px; border-end-start-radius: 6px;
 }
-.install-caret .icon { transition: transform .2s; }
+.install-caret .icon { width: 18px; height: 18px; transition: transform .2s; }
 .install-group.menu-open .install-caret .icon { transform: rotate(180deg); }
 .install-menu {
   position: absolute; bottom: calc(100% + 8px); inset-inline-start: 0;
@@ -576,11 +576,31 @@ input, select { font-family: inherit; }
 .dialog-overlay {
   position: fixed; inset: 0; z-index: 140; background: rgba(0,0,0,.6);
   display: flex; align-items: center; justify-content: center; padding: 18px;
+  backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px);
+  animation: dlg-fade .22s ease both;
 }
 .dialog-card {
   width: 100%; max-width: 440px; max-height: 88vh; overflow: auto;
   background: var(--surface); border-radius: 18px; border: 1px solid var(--line);
   box-shadow: 0 24px 60px rgba(0,0,0,.5);
+  animation: dlg-in .34s cubic-bezier(.16,.84,.34,1) both;
+  transform-origin: center bottom;
+}
+@keyframes dlg-fade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes dlg-in {
+  from { opacity: 0; transform: translateY(22px) scale(.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+@media (max-width: 540px) {
+  .dialog-overlay { align-items: flex-end; padding: 0; }
+  .dialog-card {
+    max-width: 100%; border-radius: 22px 22px 0 0; max-height: 92vh;
+    animation: dlg-sheet .34s cubic-bezier(.16,.84,.34,1) both;
+  }
+  @keyframes dlg-sheet {
+    from { transform: translateY(100%); }
+    to   { transform: translateY(0); }
+  }
 }
 .dialog-head {
   display: flex; align-items: center; justify-content: space-between;
