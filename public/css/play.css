@@ -542,6 +542,69 @@ input, select { font-family: inherit; }
 .install-btn.installed { background: rgba(47,123,255,.15); color: #4f93ff; border: 1px solid rgba(79,147,255,.6); }
 .install-btn.installed .icon { color: #4f93ff; }
 
+/* ---------- Install split-button + dropdown ---------- */
+.d-actions .install-group { flex: 1; }
+.install-group { position: relative; display: flex; gap: 2px; }
+.install-group .install-btn {
+  flex: 1;
+  border-start-end-radius: 6px; border-end-end-radius: 6px;
+}
+.install-caret {
+  flex: 0 0 auto; width: 48px; padding: 0;
+  border-start-start-radius: 6px; border-end-start-radius: 6px;
+}
+.install-caret .icon { transition: transform .2s; }
+.install-group.menu-open .install-caret .icon { transform: rotate(180deg); }
+.install-menu {
+  position: absolute; bottom: calc(100% + 8px); inset-inline-start: 0;
+  min-width: 200px; background: var(--surface); border: 1px solid var(--line);
+  border-radius: 14px; padding: 6px; z-index: 60;
+  box-shadow: 0 12px 30px rgba(0,0,0,.45);
+  opacity: 0; visibility: hidden; transform: translateY(8px);
+  transition: opacity .16s, transform .16s, visibility .16s;
+}
+.install-group.menu-open .install-menu { opacity: 1; visibility: visible; transform: translateY(0); }
+.install-menu-item {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 11px 12px; border-radius: 10px; font-size: 15px; font-weight: 600;
+  color: var(--text); text-align: start;
+}
+.install-menu-item:hover { background: var(--surface-2); }
+.install-menu-item .icon { color: var(--text-2); }
+
+/* ---------- Dialog (request update / report) ---------- */
+.dialog-overlay {
+  position: fixed; inset: 0; z-index: 140; background: rgba(0,0,0,.6);
+  display: flex; align-items: center; justify-content: center; padding: 18px;
+}
+.dialog-card {
+  width: 100%; max-width: 440px; max-height: 88vh; overflow: auto;
+  background: var(--surface); border-radius: 18px; border: 1px solid var(--line);
+  box-shadow: 0 24px 60px rgba(0,0,0,.5);
+}
+.dialog-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 16px 18px; border-bottom: 1px solid var(--line);
+}
+.dialog-title { display: flex; align-items: center; gap: 10px; font-size: 18px; font-weight: 700; }
+.dialog-title .icon { color: var(--gold); }
+.dialog-close { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--text-2); }
+.dialog-close:hover { background: var(--surface-2); }
+.dialog-body { padding: 16px 18px; display: flex; flex-direction: column; gap: 14px; }
+.dialog-field { display: flex; flex-direction: column; gap: 6px; }
+.dialog-label { font-size: 14px; font-weight: 600; color: var(--text-2); }
+.dialog-label .req { color: #ff6b6b; }
+.dialog-card .field {
+  width: 100%; background: var(--surface-2); border: 1px solid var(--line);
+  border-radius: 12px; padding: 12px 14px; color: var(--text); font-size: 15px;
+}
+.dialog-card .field:focus { outline: none; border-color: var(--gold); }
+.dialog-card textarea.field { resize: vertical; min-height: 72px; }
+.dialog-card .field:disabled { color: var(--text-3); }
+.dialog-err { color: #ff6b6b; font-size: 13px; padding: 0 18px; min-height: 0; }
+.dialog-err:not(:empty) { padding-bottom: 4px; }
+.dialog-actions { display: flex; gap: 10px; justify-content: flex-end; padding: 14px 18px 18px; }
+
 /* ---------- Review identity (signed-in author) ---------- */
 .review-identity {
   display: flex; align-items: center; gap: 10px;

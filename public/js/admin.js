@@ -196,6 +196,7 @@
       tabBtn('dashboard', 'dashboard', 'لوحة المعلومات'),
       tabBtn('apps', 'apps', 'التطبيقات'),
       tabBtn('new', 'plus', 'تطبيق جديد'),
+      tabBtn('requests', 'flag', 'الطلبات والبلاغات'),
       el('span', { class: 'tab-spacer' }),
       el('button', { class: 'tab', onclick: async () => {
         await api('/api/logout', { method: 'POST' });
@@ -210,6 +211,7 @@
     if (activeTab === 'dashboard') await renderDashboard(body);
     else if (activeTab === 'apps') await renderAppsList(body);
     else if (activeTab === 'new') await renderNewApp(body);
+    else if (activeTab === 'requests') await renderRequests(body);
     else if (activeTab.startsWith('edit:')) await renderEditApp(body, activeTab.slice(5));
   }
 
@@ -265,6 +267,55 @@
       el('div', { class: 'l' }, ico(icon), label),
       el('div', { class: 'v' }, value),
     );
+  }
+
+  // -------- requests & reports --------
+  async function renderRequests(body) {
+    body.innerHTML = '<div class="center-spinner"><div class="spinner"></div></div>';
+    try {
+      const { requests } = await api('/api/admin/requests');
+      body.innerHTML = '';
+      if (!requests.length) {
+        body.append(emptyMsg('لا توجد طلبات أو بلاغات', 'ستظهر هنا طلبات التحديث والبلاغات الواردة من المستخدمين.'));
+        return;
+      }
+      const list = el('div', { class: 'panel' });
+      requests.forEach((r) => list.append(requestCard(r, body)));
+      body.append(list);
+    } catch (e) {
+      body.innerHTML = '';
+      body.append(emptyMsg('تعذر التحميل', e.message));
+    }
+  }
+
+  function requestCard(r, body) {
+    const isUpdate = r.type === 'update';
+    const card = el('div', { class: 'req-card' });
+    const dismissBtn = el('button', { class: 'btn btn-sm btn-secondary', onclick: async () => {
+      dismissBtn.disabled = true;
+      try { await api(`/api/admin/requests/${r.id}`, { method: 'DELETE' }); card.remove(); toast('تم الحذف', 'success'); }
+      catch { dismissBtn.disabled = false; toast('تعذّر الحذف', 'error'); }
+    } }, ico('trash'), 'حذف');
+
+    card.append(
+      el('div', { class: 'req-top' },
+        el('span', { class: `req-badge ${isUpdate ? 'update' : 'report'}` }, isUpdate ? 'طلب تحديث' : 'بلاغ'),
+        el('strong', null, r.app_name || r.slug),
+        el('span', { class: 'tab-spacer' }),
+        el('a', { class: 'btn btn-sm btn-secondary', href: `/app?slug=${encodeURIComponent(r.slug)}`, target: '_blank' }, ico('external'), 'عرض'),
+        dismissBtn,
+      ),
+      el('div', { class: 'req-meta' }, r.ts ? formatDate(r.ts) : ''),
+    );
+
+    if (isUpdate) {
+      card.append(el('div', { class: 'req-detail' }, `الإصدار الحالي: ${r.current_version || '—'} ← الإصدار المطلوب: ${r.new_version || '—'}`));
+      if (r.source) card.append(el('div', { class: 'req-detail' }, 'المصدر: ', el('a', { href: r.source, target: '_blank', rel: 'noopener' }, r.source)));
+    } else {
+      card.append(el('div', { class: 'req-detail' }, `السبب: ${r.reason || '—'}`));
+      if (r.details) card.append(el('div', { class: 'req-detail' }, r.details));
+    }
+    return card;
   }
 
   // -------- apps list --------

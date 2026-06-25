@@ -505,6 +505,67 @@ app.get('/apps/:slug/reviews', async (c) => {
   });
 });
 
+// ---------------- update requests & reports (sent to admin) ----------------
+
+// User asks for a newer version to be uploaded.
+app.post('/apps/:slug/request-update', async (c) => {
+  const ip = getClientIp(c);
+  if (!rateLimit(ip, 'req-update', 5, 300)) {
+    return c.json({ error: 'rate_limit_exceeded' }, 429);
+  }
+  const slug = c.req.param('slug');
+  const body = await c.req.json().catch(() => ({} as any));
+  const newVersion = String(body.new_version || '').trim().slice(0, 60);
+  const source = String(body.source || '').trim().slice(0, 500);
+  if (!newVersion) return c.json({ error: 'new_version_required' }, 400);
+
+  const db = await firestore();
+  const snap = await db.collection('apps').where('slug', '==', slug).limit(1).get();
+  if (snap.empty) return c.json({ error: 'not_found' }, 404);
+  const a = snap.docs[0].data() as App;
+
+  await db.collection('app_requests').add({
+    type: 'update',
+    slug,
+    app_name: a.name || slug,
+    current_version: a.version_name || '',
+    new_version: newVersion,
+    source,
+    status: 'new',
+    ts: nowSec(),
+  });
+  return c.json({ ok: true });
+});
+
+// User reports a problem (virus, broken, etc.).
+app.post('/apps/:slug/report', async (c) => {
+  const ip = getClientIp(c);
+  if (!rateLimit(ip, 'report', 5, 300)) {
+    return c.json({ error: 'rate_limit_exceeded' }, 429);
+  }
+  const slug = c.req.param('slug');
+  const body = await c.req.json().catch(() => ({} as any));
+  const reason = String(body.reason || '').trim().slice(0, 80);
+  const details = String(body.details || '').trim().slice(0, 2000);
+  if (!reason) return c.json({ error: 'reason_required' }, 400);
+
+  const db = await firestore();
+  const snap = await db.collection('apps').where('slug', '==', slug).limit(1).get();
+  if (snap.empty) return c.json({ error: 'not_found' }, 404);
+  const a = snap.docs[0].data() as App;
+
+  await db.collection('app_requests').add({
+    type: 'report',
+    slug,
+    app_name: a.name || slug,
+    reason,
+    details,
+    status: 'new',
+    ts: nowSec(),
+  });
+  return c.json({ ok: true });
+});
+
 // ---------------- auth ----------------
 
 function isSecureRequest(c: any): boolean {
@@ -610,6 +671,29 @@ app.get('/admin/apps', async (c) => {
     return { ...a, icon_url: icon_url(a.icon_key), feature_url: feature_url((a as any).feature_key) };
   });
   return c.json({ apps });
+});
+
+// List update-requests / reports submitted by users.
+app.get('/admin/requests', async (c) => {
+  const db = await firestore();
+  let docs: any[];
+  try {
+    const snap = await db.collection('app_requests').orderBy('ts', 'desc').limit(200).get();
+    docs = snap.docs;
+  } catch {
+    const snap = await db.collection('app_requests').get();
+    docs = snap.docs.sort((a: any, b: any) => (b.data().ts || 0) - (a.data().ts || 0)).slice(0, 200);
+  }
+  const requests = docs.map((d: any) => ({ id: d.id, ...(d.data() as any) }));
+  return c.json({ requests });
+});
+
+// Delete (dismiss/resolve) a request.
+app.delete('/admin/requests/:id', async (c) => {
+  const id = c.req.param('id');
+  const db = await firestore();
+  await db.collection('app_requests').doc(id).delete().catch(() => {});
+  return c.json({ ok: true });
 });
 
 app.get('/admin/apps/:id', async (c) => {

@@ -196,6 +196,85 @@
   function unmarkInstalledStored(slug) {
     try { const s = installedSet(); s.delete(slug); localStorage.setItem(INSTALL_KEY, JSON.stringify([...s])); } catch {}
   }
+  // Generic centered dialog (used by "request update" and "report").
+  function openDialog({ icon, title, fields, submitLabel, onSubmit }) {
+    const overlay = el('div', { class: 'dialog-overlay', onclick: (e) => { if (e.target === overlay) close(); } });
+    const inputs = {};
+    const body = el('div', { class: 'dialog-body' });
+    fields.forEach((f) => {
+      const lbl = el('label', { class: 'dialog-field' },
+        el('span', { class: 'dialog-label' }, f.label, f.required ? el('b', { class: 'req' }, ' *') : null));
+      let input;
+      if (f.type === 'textarea') input = el('textarea', { class: 'field', rows: '3', placeholder: f.placeholder || '', maxlength: f.maxlength || '2000' });
+      else if (f.type === 'select') {
+        input = el('select', { class: 'field' });
+        (f.options || []).forEach((o) => input.append(el('option', { value: o }, o)));
+      } else input = el('input', { class: 'field', type: 'text', placeholder: f.placeholder || '', maxlength: f.maxlength || '200', value: f.value || '', disabled: f.readonly ? true : false });
+      inputs[f.key] = input;
+      lbl.append(input);
+      body.append(lbl);
+    });
+
+    const submitBtn = el('button', { class: 'btn btn-primary' }, ico(icon, 'icon'), submitLabel);
+    const errLine = el('div', { class: 'dialog-err' });
+    submitBtn.addEventListener('click', async () => {
+      const values = {};
+      for (const f of fields) values[f.key] = (inputs[f.key].value || '').trim();
+      for (const f of fields) {
+        if (f.required && !values[f.key]) { errLine.textContent = 'يرجى ملء الحقول المطلوبة'; inputs[f.key].focus(); return; }
+      }
+      submitBtn.disabled = true; errLine.textContent = '';
+      try { await onSubmit(values); close(); toast('تم إرسال طلبك إلى الإدارة', 'success'); }
+      catch (e) { submitBtn.disabled = false; errLine.textContent = 'تعذّر الإرسال، حاول مجدداً'; }
+    });
+
+    const card = el('div', { class: 'dialog-card', dir: 'rtl' },
+      el('div', { class: 'dialog-head' },
+        el('div', { class: 'dialog-title' }, ico(icon, 'icon'), title),
+        el('button', { class: 'dialog-close', 'aria-label': 'إغلاق', onclick: () => close() }, ico('close')),
+      ),
+      body,
+      errLine,
+      el('div', { class: 'dialog-actions' },
+        el('button', { class: 'btn btn-secondary', onclick: () => close() }, 'إلغاء'),
+        submitBtn,
+      ),
+    );
+    overlay.append(card);
+    function close() { overlay.remove(); document.removeEventListener('keydown', esc); }
+    function esc(e) { if (e.key === 'Escape') close(); }
+    document.addEventListener('keydown', esc);
+    document.body.append(overlay);
+  }
+
+  function openRequestUpdate(app) {
+    openDialog({
+      icon: 'refresh', title: 'طلب تحديث', submitLabel: 'إرسال الطلب',
+      fields: [
+        { key: 'current', label: 'الإصدار الحالي', value: app.version_name || '—', readonly: true },
+        { key: 'new_version', label: 'الإصدار الجديد', required: true, placeholder: 'مثال: 2.5.1', maxlength: '60' },
+        { key: 'source', label: 'رابط المصدر', placeholder: 'مثال: https://play.google.com/...', maxlength: '500' },
+      ],
+      onSubmit: (v) => api(`/api/apps/${encodeURIComponent(app.slug)}/request-update`, {
+        method: 'POST', body: { new_version: v.new_version, source: v.source },
+      }),
+    });
+  }
+
+  function openReport(app) {
+    openDialog({
+      icon: 'flag', title: 'إبلاغ عن التطبيق', submitLabel: 'إرسال البلاغ',
+      fields: [
+        { key: 'reason', label: 'سبب البلاغ', required: true, type: 'select',
+          options: ['التطبيق فيه فيروس', 'رابط التحميل لا يعمل', 'محتوى غير لائق', 'انتهاك حقوق نشر', 'معلومات خاطئة', 'سبب آخر'] },
+        { key: 'details', label: 'تفاصيل إضافية', type: 'textarea', placeholder: 'اشرح المشكلة…', maxlength: '2000' },
+      ],
+      onSubmit: (v) => api(`/api/apps/${encodeURIComponent(app.slug)}/report`, {
+        method: 'POST', body: { reason: v.reason, details: v.details },
+      }),
+    });
+  }
+
   // Save a downloaded blob to the user's device.
   function saveBlob(blob, filename) {
     const url = URL.createObjectURL(blob);
@@ -297,7 +376,25 @@
 
     btn.addEventListener('click', runInstall);
     if (isInstalled(app.slug)) showInstalled();
-    return el('div', { class: 'd-actions' }, btn);
+
+    // Split dropdown attached to the install button: request-update / report.
+    const menu = el('div', { class: 'install-menu' },
+      el('button', { class: 'install-menu-item', type: 'button', onclick: () => { toggleMenu(false); openRequestUpdate(app); } },
+        ico('refresh', 'icon'), 'طلب تحديث'),
+      el('button', { class: 'install-menu-item', type: 'button', onclick: () => { toggleMenu(false); openReport(app); } },
+        ico('flag', 'icon'), 'إبلاغ عن مشكلة'),
+    );
+    const caret = el('button', { class: 'btn btn-primary btn-lg install-caret', type: 'button', 'aria-label': 'خيارات إضافية' }, ico('chevronDown', 'icon'));
+    const group = el('div', { class: 'install-group' }, btn, caret, menu);
+
+    function toggleMenu(force) {
+      const open = typeof force === 'boolean' ? force : !group.classList.contains('menu-open');
+      group.classList.toggle('menu-open', open);
+    }
+    caret.addEventListener('click', (e) => { e.stopPropagation(); toggleMenu(); });
+    document.addEventListener('click', (e) => { if (!group.contains(e.target)) toggleMenu(false); });
+
+    return el('div', { class: 'd-actions' }, group);
   }
 
   function ratingSection(app) {
