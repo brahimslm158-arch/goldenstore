@@ -239,7 +239,18 @@
       btn.classList.add('installed');
       btn.disabled = false;
       label.innerHTML = '';
-      label.append(ico('check', 'icon'), document.createTextNode('التطبيق لديك'));
+      label.append(ico('external', 'icon'), document.createTextNode('فتح'));
+    }
+
+    // Actually launch the installed app on the device (Android intent), falling
+    // back to re-downloading the APK when launching isn't possible.
+    function openApp() {
+      const pkg = (app.package_name || '').trim();
+      if (pkg) {
+        window.location.href = `intent:#Intent;package=${pkg};action=android.intent.action.MAIN;category=android.intent.category.LAUNCHER;end`;
+        return;
+      }
+      fallbackDownload(app.slug);
     }
     function showIdle() {
       resetBar();
@@ -252,7 +263,7 @@
 
     async function runInstall() {
       if (btn.classList.contains('installing')) return;
-      if (btn.classList.contains('installed')) { fallbackDownload(app.slug); return; }
+      if (btn.classList.contains('installed')) { openApp(); return; }
 
       btn.classList.add('installing');
       btn.disabled = true;
