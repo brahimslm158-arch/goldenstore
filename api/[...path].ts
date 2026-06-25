@@ -326,6 +326,8 @@ app.post('/apps/:slug/star', async (c) => {
   if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
     return c.json({ error: 'invalid_rating' }, 400);
   }
+  const comment = String(body.comment || '').trim().slice(0, 2000);
+  const name = String(body.name || '').trim().slice(0, 60);
 
   const db = await firestore();
   const snap = await db.collection('apps').where('slug', '==', slug).limit(1).get();
@@ -353,6 +355,8 @@ app.post('/apps/:slug/star', async (c) => {
     hash: voteHash,
     server_hash: serverOnlyHash,
     rating,
+    comment,
+    name,
     ts: nowSec(),
   });
   const result = await db.runTransaction(async (tx: any) => {
@@ -370,7 +374,10 @@ app.post('/apps/:slug/star', async (c) => {
     return { rating: avg, rating_count: newCount };
   });
 
-  return c.json({ ok: true, ...result });
+  const review = (comment || name)
+    ? { name: name || 'مستخدم', rating, comment, ts: nowSec() }
+    : null;
+  return c.json({ ok: true, ...result, review });
 });
 
 app.post('/apps/:slug/star-check', async (c) => {
@@ -394,12 +401,42 @@ app.post('/apps/:slug/star-check', async (c) => {
   const ratingCount = Number((doc.data() as any).rating_count || 0);
   const existingByHash = await doc.ref.collection('star_votes').where('hash', '==', voteHash).limit(1).get();
   if (!existingByHash.empty) {
-    const myRating = Number((existingByHash.docs[0].data() as any).rating || 0);
-    return c.json({ voted: true, my_rating: myRating, rating: ratingAvg, rating_count: ratingCount });
+    const v = existingByHash.docs[0].data() as any;
+    return c.json({ voted: true, my_rating: Number(v.rating || 0), my_comment: v.comment || '', my_name: v.name || '', rating: ratingAvg, rating_count: ratingCount });
   }
   const existingByServer = await doc.ref.collection('star_votes').where('server_hash', '==', serverOnlyHash).limit(1).get();
-  const myRating = existingByServer.empty ? 0 : Number((existingByServer.docs[0].data() as any).rating || 0);
-  return c.json({ voted: !existingByServer.empty, my_rating: myRating, rating: ratingAvg, rating_count: ratingCount });
+  const v = existingByServer.empty ? null : (existingByServer.docs[0].data() as any);
+  return c.json({ voted: !existingByServer.empty, my_rating: v ? Number(v.rating || 0) : 0, my_comment: v ? (v.comment || '') : '', my_name: v ? (v.name || '') : '', rating: ratingAvg, rating_count: ratingCount });
+});
+
+// List reviews (votes that include a written comment) + rating distribution.
+app.get('/apps/:slug/reviews', async (c) => {
+  const slug = c.req.param('slug');
+  const limit = Math.min(Number(c.req.query('limit') || '50') || 50, 100);
+  const db = await firestore();
+  const snap = await db.collection('apps').where('slug', '==', slug).limit(1).get();
+  if (snap.empty) return c.json({ error: 'not_found' }, 404);
+  const doc = snap.docs[0];
+
+  const votesSnap = await doc.ref.collection('star_votes').get();
+  const dist: Record<string, number> = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 };
+  const reviews: { name: string; rating: number; comment: string; ts: number }[] = [];
+  votesSnap.forEach((v: any) => {
+    const d = v.data() as any;
+    const r = Math.round(Number(d.rating) || 0);
+    if (r >= 1 && r <= 5) dist[String(r)]++;
+    const comment = String(d.comment || '').trim();
+    if (comment) reviews.push({ name: String(d.name || '').trim() || 'مستخدم', rating: r, comment, ts: Number(d.ts || 0) });
+  });
+  reviews.sort((a, b) => b.ts - a.ts);
+
+  return c.json({
+    reviews: reviews.slice(0, limit),
+    total: reviews.length,
+    dist,
+    rating: ratingAverage(doc.data()),
+    rating_count: Number((doc.data() as any).rating_count || 0),
+  });
 });
 
 // ---------------- auth ----------------
