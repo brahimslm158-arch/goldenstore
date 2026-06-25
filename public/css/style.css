@@ -54,6 +54,15 @@
   --shadow-2: 0 8px 32px rgba(20,25,35,0.14);
 }
 
+/* Light theme — fix elements that hardcode dark colors */
+:root[data-theme="light"] .header { background: rgba(255,255,255,0.82); }
+:root[data-theme="light"] .app-card .star-pin {
+  background: rgba(255,255,255,0.78);
+  border-color: rgba(180,140,40,0.35);
+}
+:root[data-theme="light"] .modal { background: rgba(18,22,30,0.55); }
+:root[data-theme="light"] .modal .close { background: rgba(0,0,0,0.06); }
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
 /* Smooth theme transition */
 *, *::before, *::after {

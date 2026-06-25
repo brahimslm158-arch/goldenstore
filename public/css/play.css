@@ -212,6 +212,17 @@ input, select { font-family: inherit; }
 .poster .rt { font-size: 12px; color: var(--text-2); margin-top: 2px; display: flex; align-items: center; gap: 3px; }
 .poster .rt .icon { width: 12px; height: 12px; color: var(--star); }
 
+/* wrapping poster grid (featured page) */
+.poster-grid {
+  display: grid; gap: 16px 12px; padding: 4px 16px 4px;
+  grid-template-columns: repeat(auto-fill, minmax(88px, 1fr));
+}
+.poster-grid .poster { width: 100%; }
+.poster-grid .poster .art { width: 100%; height: auto; aspect-ratio: 1 / 1; }
+
+/* section subtitle */
+.section-sub { padding: 0 16px; color: var(--text-2); font-size: 14px; margin-top: -2px; margin-bottom: 8px; }
+
 /* list row (recommended) */
 .applist { padding: 0 8px; }
 .approw {
