@@ -282,6 +282,7 @@
           el('thead', null, el('tr', null,
             el('th', null, ''),
             el('th', null, 'الاسم'),
+            el('th', null, 'النوع'),
             el('th', null, 'التصنيف'),
             el('th', null, 'الإصدار'),
             el('th', null, 'الحجم'),
@@ -296,6 +297,7 @@
               el('div', null, a.name),
               (a.stars > 0) ? el('span', { class: 'star-pin', style: 'position:relative; top:auto; inset-inline-end:auto; display:inline-flex; margin-top:6px;' }, ico('star'), formatNum(a.stars)) : null,
             ),
+            el('td', { 'data-label': 'النوع' }, a.type === 'game' ? 'لعبة' : 'تطبيق'),
             el('td', { 'data-label': 'التصنيف' }, cats.find(c => c.slug === a.category)?.name || a.category),
             el('td', { 'data-label': 'الإصدار' }, a.version_name || '—'),
             el('td', { 'data-label': 'الحجم' }, formatBytes(a.size_bytes)),
@@ -328,6 +330,7 @@
 
     const apkDz = dropzone({ accept: '.apk', label: 'اسحب أو اختر ملف APK' });
     const iconDz = dropzone({ accept: 'image/*', label: 'اختر أيقونة (PNG/JPG)' });
+    const featDz = dropzone({ accept: 'image/*', label: 'اختر صورة عرضية (يفضّل 1024×500)' });
     const ssDz = dropzone({ accept: 'image/*', multiple: true, label: 'اختر لقطات الشاشة (متعددة)' });
 
     const form = el('form', { class: 'form', onsubmit: async (e) => {
@@ -349,6 +352,9 @@
         let icon_key = null;
         const iconFiles = iconDz.getFiles();
         if (iconFiles.length) icon_key = await r2Upload(iconFiles[0], 'icon', slugHint, (r) => iconDz.setProgress(0, r));
+        let feature_key = null;
+        const featFiles = featDz.getFiles();
+        if (featFiles.length) feature_key = await r2Upload(featFiles[0], 'feature', slugHint, (r) => featDz.setProgress(0, r));
         const screenshot_keys = [];
         const ssFiles = ssDz.getFiles();
         for (let i = 0; i < ssFiles.length; i++) {
@@ -361,6 +367,7 @@
           package_name: data.package_name,
           developer: data.developer,
           category: data.category,
+          type: data.type === 'game' ? 'game' : 'app',
           short_description: data.short_description,
           description: data.description,
           version_name: data.version_name,
@@ -368,6 +375,7 @@
           min_sdk: data.min_sdk ? Number(data.min_sdk) : undefined,
           apk_key,
           icon_key,
+          feature_key,
           screenshot_keys,
         };
         const res = await api('/api/admin/apps', { method: 'POST', body: payload });
@@ -391,6 +399,7 @@
           formField('developer', 'المطوّر', 'text', { placeholder: 'اسم المطوّر' }),
           categoryField('category'),
         ),
+        typeField('type'),
         formField('short_description', 'وصف مختصر', 'text', { placeholder: 'سطر واحد يصف التطبيق' }),
         formTextarea('description', 'الوصف الكامل', { placeholder: 'تفاصيل التطبيق وميزاته…', rows: 5 }),
         formRow(
@@ -406,6 +415,10 @@
       el('div', { class: 'panel' },
         el('div', { class: 'panel-head' }, ico('image'), 'الأيقونة'),
         iconDz,
+      ),
+      el('div', { class: 'panel' },
+        el('div', { class: 'panel-head' }, ico('image'), 'الصورة العرضية (تظهر في بطاقات اختيارات المحررين)'),
+        featDz,
       ),
       el('div', { class: 'panel' },
         el('div', { class: 'panel-head' }, ico('image'), 'لقطات الشاشة'),
@@ -460,6 +473,7 @@
             formField('developer', 'المطوّر', 'text', { value: app.developer || '' }),
             categoryField('category', app.category),
           ),
+          typeField('type', app.type),
           formField('short_description', 'وصف مختصر', 'text', { value: app.short_description || '' }),
           formTextarea('description', 'الوصف الكامل', { rows: 5, value: app.description || '' }),
           formRow(
@@ -522,6 +536,26 @@
         el('div', { class: 'panel-head' }, ico('image'), 'الأيقونة'),
         app.icon_url ? el('img', { src: app.icon_url, style: 'width:80px; height:80px; border-radius:18px; border:1px solid var(--line); margin-bottom:12px;' }) : null,
         iconForm,
+      ));
+
+      // Feature graphic (wide image used in the home editors-choice carousel)
+      const featDz = dropzone({ accept: 'image/*', label: 'اختر صورة عرضية (يفضّل 1024×500)' });
+      const featForm = el('form', { class: 'form', onsubmit: async (e) => {
+        e.preventDefault();
+        const files = featDz.getFiles();
+        if (!files.length) { toast('اختر صورة', 'error'); return; }
+        try {
+          const feature_key = await r2Upload(files[0], 'feature', app.slug, (r) => featDz.setProgress(0, r));
+          await api(`/api/admin/apps/${id}/feature`, { method: 'POST', body: { feature_key } });
+          toast('تم تحديث الصورة العرضية', 'success');
+          renderEditApp(body, id);
+        } catch (err) { toast('فشل التحديث', 'error'); }
+      } });
+      featForm.append(featDz, el('button', { type: 'submit', class: 'btn btn-primary btn-sm' }, ico('upload'), 'حفظ الصورة العرضية'));
+      body.append(el('div', { class: 'panel' },
+        el('div', { class: 'panel-head' }, ico('image'), 'الصورة العرضية (بطاقات اختيارات المحررين)'),
+        app.feature_url ? el('img', { src: app.feature_url, style: 'width:100%; max-width:420px; aspect-ratio:1024/500; object-fit:cover; border-radius:16px; border:1px solid var(--line); margin-bottom:12px;' }) : null,
+        featForm,
       ));
 
       // Screenshots
@@ -622,6 +656,19 @@
     return el('div', { class: 'field' },
       el('label', null, 'التصنيف'),
       sel,
+    );
+  }
+  function typeField(name, value) {
+    const sel = el('select', { name });
+    [['app', 'تطبيق'], ['game', 'لعبة']].forEach(([v, lbl]) => {
+      const opt = el('option', { value: v }, lbl);
+      if ((value || 'app') === v) opt.selected = true;
+      sel.append(opt);
+    });
+    return el('div', { class: 'field' },
+      el('label', null, 'النوع'),
+      sel,
+      el('div', { class: 'hint' }, 'الألعاب تظهر في تبويب «ألعاب» بالشريط السفلي'),
     );
   }
   function formToggle(name, label, checked) {

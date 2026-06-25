@@ -8,6 +8,7 @@ export interface App {
   short_description?: string;
   description?: string;
   category: string;
+  type?: 'app' | 'game'; // distinguishes regular apps from games
   developer?: string;
   version_name?: string;
   version_code?: number;
@@ -15,6 +16,7 @@ export interface App {
   size_bytes: number;
   apk_key: string;
   icon_key?: string;
+  feature_key?: string; // wide "feature graphic" shown in editors-choice carousel
   // Ratings (real, computed from user votes)
   stars: number;          // total number of ratings (kept in sync with rating_count)
   rating_sum?: number;    // sum of all 1–5 star ratings

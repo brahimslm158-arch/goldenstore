@@ -128,6 +128,7 @@ function appPublic(doc: any, includeInternalKeys = false): App & { id: string } 
     short_description: d.short_description,
     description: d.description,
     category: d.category,
+    type: (d as any).type === 'game' ? 'game' : 'app',
     developer: d.developer,
     version_name: d.version_name,
     version_code: d.version_code,
@@ -143,8 +144,19 @@ function appPublic(doc: any, includeInternalKeys = false): App & { id: string } 
   if (includeInternalKeys) {
     result.apk_key = d.apk_key;
     result.icon_key = d.icon_key;
+    result.feature_key = (d as any).feature_key;
   }
   return result;
+}
+
+// Public URL for the wide feature graphic (same R2 public bucket as icons).
+function feature_url(feature_key?: string): string | null {
+  if (!feature_key) return null;
+  try {
+    return r2PublicUrl(feature_key);
+  } catch {
+    return null;
+  }
 }
 
 function icon_url(icon_key?: string): string | null {
@@ -181,6 +193,7 @@ app.get('/categories', async (c) => {
 app.get('/apps', async (c) => {
   const q = (c.req.query('q') || '').trim().toLowerCase();
   const category = (c.req.query('category') || '').trim();
+  const type = (c.req.query('type') || '').trim();
   const sort = (c.req.query('sort') || 'recent').trim();
   const starredOnly = c.req.query('starred') === '1';
   const limit = Math.min(Number(c.req.query('limit') || '24') || 24, 60);
@@ -189,6 +202,7 @@ app.get('/apps', async (c) => {
   const db = await firestore();
   let query: any = db.collection('apps');
   if (category) query = query.where('category', '==', category);
+  if (type) query = query.where('type', '==', type);
   if (starredOnly) query = query.where('stars', '>', 0);
   if (q) {
     const token = q.split(/\s+/).filter((w) => w.length >= 2)[0];
@@ -210,6 +224,7 @@ app.get('/apps', async (c) => {
       // Composite index not yet created — fall back to unordered fetch + in-memory sort
       let fallback: any = db.collection('apps');
       if (category) fallback = fallback.where('category', '==', category);
+      if (type) fallback = fallback.where('type', '==', type);
       if (starredOnly) fallback = fallback.where('stars', '>', 0);
       if (q) {
         const token = q.split(/\s+/).filter((w) => w.length >= 2)[0];
@@ -232,7 +247,7 @@ app.get('/apps', async (c) => {
   }
   const apps = snap.docs.map((d: any) => {
     const a = appPublic(d);
-    return { ...a, icon_url: icon_url((d.data() as App).icon_key) };
+    return { ...a, icon_url: icon_url((d.data() as App).icon_key), feature_url: feature_url((d.data() as App).feature_key) };
   });
   return c.json({ apps, total });
 });
@@ -256,7 +271,7 @@ app.get('/apps/:slug', async (c) => {
     return { id: s.id, position: sd.position, url: icon_url(sd.r2_key) };
   });
   return c.json({
-    app: { ...ap, icon_url: icon_url(rawData.icon_key) },
+    app: { ...ap, icon_url: icon_url(rawData.icon_key), feature_url: feature_url(rawData.feature_key) },
     screenshots,
   });
 });
@@ -307,15 +322,11 @@ function computeVoteHash(clientFp: string, serverFp: string): string {
 
 app.post('/apps/:slug/star', async (c) => {
   const ip = getClientIp(c);
-  // Rate limit: max 10 star attempts per IP per minute
+  // Rate limit: max 10 star attempts per IP per minute (anti-spam burst guard)
   if (!rateLimit(ip, 'star', 10, 60)) {
     return c.json({ error: 'rate_limit_exceeded' }, 429);
   }
-  // Additional: max 1 star per IP per app per hour (even with different fingerprints)
   const slug = c.req.param('slug');
-  if (!rateLimit(ip, `star:${slug}`, 1, 3600)) {
-    return c.json({ error: 'already_voted' }, 409);
-  }
 
   const body = await c.req.json().catch(() => ({} as any));
   const clientFp = String(body.fp || '').trim();
@@ -328,6 +339,10 @@ app.post('/apps/:slug/star', async (c) => {
   }
   const comment = String(body.comment || '').trim().slice(0, 2000);
   const name = String(body.name || '').trim().slice(0, 60);
+  const uid = String(body.uid || '').trim().slice(0, 128);
+  let photo_url = String(body.photo_url || '').trim();
+  if (!/^https:\/\//.test(photo_url)) photo_url = '';
+  photo_url = photo_url.slice(0, 500);
 
   const db = await firestore();
   const snap = await db.collection('apps').where('slug', '==', slug).limit(1).get();
@@ -339,24 +354,35 @@ app.post('/apps/:slug/star', async (c) => {
   // Also store a server-only hash to prevent same IP+UA from voting with different client FPs
   const serverOnlyHash = crypto.createHash('sha256').update(sFp).digest('hex');
 
-  // Check for duplicate votes before writing
+  // Check for duplicate votes before writing.
   const votesRef = doc.ref.collection('star_votes');
-  const existingByHash = await votesRef.where('hash', '==', voteHash).limit(1).get();
-  if (!existingByHash.empty) {
-    return c.json({ error: 'already_voted', rating: ratingAverage(doc.data()), rating_count: Number((doc.data() as any).rating_count || 0) }, 409);
-  }
-  const existingByServer = await votesRef.where('server_hash', '==', serverOnlyHash).limit(1).get();
-  if (!existingByServer.empty) {
-    return c.json({ error: 'already_voted', rating: ratingAverage(doc.data()), rating_count: Number((doc.data() as any).rating_count || 0) }, 409);
+  if (uid) {
+    // Signed-in users: exactly one rating/review per account.
+    const existingByUid = await votesRef.where('uid', '==', uid).limit(1).get();
+    if (!existingByUid.empty) {
+      return c.json({ error: 'already_voted', rating: ratingAverage(doc.data()), rating_count: Number((doc.data() as any).rating_count || 0) }, 409);
+    }
+  } else {
+    // Anonymous fallback: dedupe by device fingerprint.
+    const existingByHash = await votesRef.where('hash', '==', voteHash).limit(1).get();
+    if (!existingByHash.empty) {
+      return c.json({ error: 'already_voted', rating: ratingAverage(doc.data()), rating_count: Number((doc.data() as any).rating_count || 0) }, 409);
+    }
+    const existingByServer = await votesRef.where('server_hash', '==', serverOnlyHash).limit(1).get();
+    if (!existingByServer.empty) {
+      return c.json({ error: 'already_voted', rating: ratingAverage(doc.data()), rating_count: Number((doc.data() as any).rating_count || 0) }, 409);
+    }
   }
 
   // Write the vote and update the running average atomically.
   await votesRef.add({
     hash: voteHash,
     server_hash: serverOnlyHash,
+    uid: uid || null,
     rating,
     comment,
     name,
+    photo_url: photo_url || null,
     ts: nowSec(),
   });
   const result = await db.runTransaction(async (tx: any) => {
@@ -375,7 +401,7 @@ app.post('/apps/:slug/star', async (c) => {
   });
 
   const review = (comment || name)
-    ? { name: name || 'مستخدم', rating, comment, ts: nowSec() }
+    ? { name: name || 'مستخدم', rating, comment, photo_url: photo_url || null, ts: nowSec() }
     : null;
   return c.json({ ok: true, ...result, review });
 });
@@ -384,7 +410,8 @@ app.post('/apps/:slug/star-check', async (c) => {
   const slug = c.req.param('slug');
   const body = await c.req.json().catch(() => ({} as any));
   const clientFp = String(body.fp || '').trim();
-  if (!clientFp || clientFp.length < 16) {
+  const uid = String(body.uid || '').trim().slice(0, 128);
+  if ((!clientFp || clientFp.length < 16) && !uid) {
     return c.json({ voted: false });
   }
 
@@ -393,20 +420,33 @@ app.post('/apps/:slug/star-check', async (c) => {
   if (snap.empty) return c.json({ error: 'not_found' }, 404);
   const doc = snap.docs[0];
 
-  const sFp = serverFingerprint(c);
-  const voteHash = computeVoteHash(clientFp, sFp);
-
-  const serverOnlyHash = crypto.createHash('sha256').update(sFp).digest('hex');
   const ratingAvg = ratingAverage(doc.data());
   const ratingCount = Number((doc.data() as any).rating_count || 0);
-  const existingByHash = await doc.ref.collection('star_votes').where('hash', '==', voteHash).limit(1).get();
-  if (!existingByHash.empty) {
-    const v = existingByHash.docs[0].data() as any;
-    return c.json({ voted: true, my_rating: Number(v.rating || 0), my_comment: v.comment || '', my_name: v.name || '', rating: ratingAvg, rating_count: ratingCount });
+  const mine = (v: any) => c.json({
+    voted: true,
+    my_rating: Number(v.rating || 0),
+    my_comment: v.comment || '',
+    my_name: v.name || '',
+    my_photo: v.photo_url || '',
+    rating: ratingAvg,
+    rating_count: ratingCount,
+  });
+
+  // Signed-in users are matched by account id first.
+  if (uid) {
+    const existingByUid = await doc.ref.collection('star_votes').where('uid', '==', uid).limit(1).get();
+    if (!existingByUid.empty) return mine(existingByUid.docs[0].data());
+    return c.json({ voted: false, rating: ratingAvg, rating_count: ratingCount });
   }
+
+  const sFp = serverFingerprint(c);
+  const voteHash = computeVoteHash(clientFp, sFp);
+  const serverOnlyHash = crypto.createHash('sha256').update(sFp).digest('hex');
+  const existingByHash = await doc.ref.collection('star_votes').where('hash', '==', voteHash).limit(1).get();
+  if (!existingByHash.empty) return mine(existingByHash.docs[0].data());
   const existingByServer = await doc.ref.collection('star_votes').where('server_hash', '==', serverOnlyHash).limit(1).get();
-  const v = existingByServer.empty ? null : (existingByServer.docs[0].data() as any);
-  return c.json({ voted: !existingByServer.empty, my_rating: v ? Number(v.rating || 0) : 0, my_comment: v ? (v.comment || '') : '', my_name: v ? (v.name || '') : '', rating: ratingAvg, rating_count: ratingCount });
+  if (!existingByServer.empty) return mine(existingByServer.docs[0].data());
+  return c.json({ voted: false, my_rating: 0, my_comment: '', my_name: '', my_photo: '', rating: ratingAvg, rating_count: ratingCount });
 });
 
 // List reviews (votes that include a written comment) + rating distribution.
@@ -420,13 +460,22 @@ app.get('/apps/:slug/reviews', async (c) => {
 
   const votesSnap = await doc.ref.collection('star_votes').get();
   const dist: Record<string, number> = { '1': 0, '2': 0, '3': 0, '4': 0, '5': 0 };
-  const reviews: { name: string; rating: number; comment: string; ts: number }[] = [];
+  const reviews: { name: string; rating: number; comment: string; photo_url: string | null; ts: number }[] = [];
   votesSnap.forEach((v: any) => {
     const d = v.data() as any;
     const r = Math.round(Number(d.rating) || 0);
     if (r >= 1 && r <= 5) dist[String(r)]++;
     const comment = String(d.comment || '').trim();
-    if (comment) reviews.push({ name: String(d.name || '').trim() || 'مستخدم', rating: r, comment, ts: Number(d.ts || 0) });
+    if (comment) {
+      const photo = String(d.photo_url || '').trim();
+      reviews.push({
+        name: String(d.name || '').trim() || 'مستخدم',
+        rating: r,
+        comment,
+        photo_url: /^https:\/\//.test(photo) ? photo : null,
+        ts: Number(d.ts || 0),
+      });
+    }
   });
   reviews.sort((a, b) => b.ts - a.ts);
 
@@ -541,7 +590,7 @@ app.get('/admin/apps', async (c) => {
   const snap = await db.collection('apps').orderBy('created_at', 'desc').get();
   const apps = snap.docs.map((d: any) => {
     const a = appPublic(d, true);
-    return { ...a, icon_url: icon_url(a.icon_key) };
+    return { ...a, icon_url: icon_url(a.icon_key), feature_url: feature_url((a as any).feature_key) };
   });
   return c.json({ apps });
 });
@@ -557,7 +606,7 @@ app.get('/admin/apps/:id', async (c) => {
     const sd = s.data() as Screenshot;
     return { id: s.id, position: sd.position, r2_key: sd.r2_key, url: icon_url(sd.r2_key) };
   });
-  return c.json({ app: { ...a, icon_url: icon_url(a.icon_key) }, screenshots });
+  return c.json({ app: { ...a, icon_url: icon_url(a.icon_key), feature_url: feature_url((a as any).feature_key) }, screenshots });
 });
 
 // Step 1: client requests a presigned upload URL for R2
@@ -573,18 +622,19 @@ app.post('/admin/upload-url', async (c) => {
     apk: ['application/vnd.android.package-archive', 'application/octet-stream'],
     icon: ['image/png', 'image/jpeg', 'image/webp', 'image/gif'],
     screenshot: ['image/png', 'image/jpeg', 'image/webp', 'image/gif'],
+    feature: ['image/png', 'image/jpeg', 'image/webp', 'image/gif'],
   };
 
-  if (!['apk', 'icon', 'screenshot'].includes(kind)) {
+  if (!['apk', 'icon', 'screenshot', 'feature'].includes(kind)) {
     return c.json({ error: 'invalid_kind' }, 400);
   }
   if (ALLOWED_CONTENT_TYPES[kind] && !ALLOWED_CONTENT_TYPES[kind].includes(contentType)) {
     return c.json({ error: 'invalid_content_type' }, 400);
   }
-  const ext = safeExt(filename, kind === 'apk' ? 'apk' : kind === 'icon' ? 'png' : 'jpg');
+  const ext = safeExt(filename, kind === 'apk' ? 'apk' : kind === 'feature' ? 'jpg' : kind === 'icon' ? 'png' : 'jpg');
   const ts = Date.now();
   const rand = randomId().slice(0, 6);
-  const folder = kind === 'apk' ? 'apk' : kind === 'icon' ? 'icon' : 'ss';
+  const folder = kind === 'apk' ? 'apk' : kind === 'icon' ? 'icon' : kind === 'feature' ? 'feature' : 'ss';
   const key = `${folder}/${slugHint}-${ts}-${rand}.${ext}`;
   const url = await r2PresignPut(key, contentType, 900);
   return c.json({ url, key });
@@ -618,6 +668,9 @@ app.post('/admin/apps', async (c) => {
   if (body.icon_key && !isValidR2Key(String(body.icon_key), 'icon')) {
     return c.json({ error: 'invalid_icon_key' }, 400);
   }
+  if (body.feature_key && !isValidR2Key(String(body.feature_key), 'feature')) {
+    return c.json({ error: 'invalid_feature_key' }, 400);
+  }
 
   // Verify the file exists in R2 to get size
   const head = await r2Head(apk_key);
@@ -636,6 +689,7 @@ app.post('/admin/apps', async (c) => {
     short_description: String(body.short_description || '').trim() || undefined,
     description: String(body.description || '').trim() || undefined,
     category: String(body.category || 'other'),
+    type: String(body.type || 'app') === 'game' ? 'game' : 'app',
     developer: String(body.developer || '').trim() || undefined,
     version_name: String(body.version_name || '').trim() || undefined,
     version_code: body.version_code != null ? Number(body.version_code) : undefined,
@@ -643,6 +697,7 @@ app.post('/admin/apps', async (c) => {
     size_bytes: head.size,
     apk_key,
     icon_key: body.icon_key ? String(body.icon_key) : undefined,
+    feature_key: body.feature_key ? String(body.feature_key) : undefined,
     stars: 0,
     rating_sum: 0,
     rating_count: 0,
@@ -695,6 +750,7 @@ app.patch('/admin/apps/:id', async (c) => {
   if ('short_description' in body) update.short_description = String(body.short_description) || undefined;
   if ('description' in body) update.description = String(body.description) || undefined;
   if ('category' in body) update.category = String(body.category);
+  if ('type' in body) update.type = String(body.type) === 'game' ? 'game' : 'app';
   if ('developer' in body) update.developer = String(body.developer) || undefined;
   if ('version_name' in body) update.version_name = String(body.version_name) || undefined;
   if ('version_code' in body) update.version_code = Number(body.version_code) || undefined;
@@ -766,6 +822,28 @@ app.post('/admin/apps/:id/icon', async (c) => {
   return c.json({ ok: true });
 });
 
+// Replace / set the wide feature graphic
+app.post('/admin/apps/:id/feature', async (c) => {
+  const id = c.req.param('id');
+  const body = await c.req.json().catch(() => ({} as any));
+  const newKey = String(body.feature_key || '');
+  if (!newKey) return c.json({ error: 'feature_key_required' }, 400);
+  if (!isValidR2Key(newKey, 'feature')) return c.json({ error: 'invalid_feature_key' }, 400);
+
+  const db = await firestore();
+  const ref = db.collection('apps').doc(id);
+  const snap = await ref.get();
+  if (!snap.exists) return c.json({ error: 'not_found' }, 404);
+  const old = snap.data() as App;
+
+  await ref.update({ feature_key: newKey, updated_at: nowSec() });
+
+  if (old.feature_key && old.feature_key !== newKey) {
+    await r2Delete(old.feature_key).catch(() => {});
+  }
+  return c.json({ ok: true });
+});
+
 // Add screenshots
 app.post('/admin/apps/:id/screenshots', async (c) => {
   const id = c.req.param('id');
@@ -826,6 +904,7 @@ app.delete('/admin/apps/:id', async (c) => {
   }
   if (a.apk_key) await r2Delete(a.apk_key).catch(() => {});
   if (a.icon_key) await r2Delete(a.icon_key).catch(() => {});
+  if (a.feature_key) await r2Delete(a.feature_key).catch(() => {});
   await ref.delete();
   return c.json({ ok: true });
 });

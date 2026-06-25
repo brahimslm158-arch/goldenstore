@@ -145,6 +145,68 @@ function listRow(a, opts = {}) {
   );
 }
 
+// Curved, auto-advancing "editors' choice" carousel built from feature graphics.
+// Slides glide to the left every few seconds and can be paused on hover / picked via dots.
+function featureSlide(a) {
+  const slide = el('a', { href: `/app?slug=${encodeURIComponent(a.slug)}`, class: 'fc-slide' });
+  const media = el('div', { class: 'fc-media' });
+  if (a.feature_url) {
+    media.style.backgroundImage = `url("${a.feature_url}")`;
+  } else {
+    media.classList.add('fc-media-fallback');
+    media.append(a.icon_url
+      ? el('img', { class: 'fc-fallback-ico', src: a.icon_url, alt: '', loading: 'lazy' })
+      : ico('package', 'icon icon-lg'));
+  }
+  const rt = ratingOf(a);
+  slide.append(
+    media,
+    el('div', { class: 'fc-pill' }, ico('award', 'icon icon-sm'), 'اختيارات المحرّرين'),
+    el('div', { class: 'fc-body', dir: 'rtl' },
+      el('h3', null, a.name),
+      el('p', null, a.short_description || a.developer || 'تطبيق مميّز مختار لك'),
+      el('div', { class: 'fc-cta' },
+        el('span', { class: 'btn btn-primary' }, 'عرض'),
+        rt ? el('span', { class: 'fc-rate' }, ico('star', 'icon fill'), rt) : null,
+      ),
+    ),
+  );
+  return slide;
+}
+
+function featureCarousel(apps, opts = {}) {
+  const list = (apps || []).filter(Boolean).slice(0, opts.max || 8);
+  if (!list.length) return el('span');
+
+  const track = el('div', { class: 'fc-track' });
+  list.forEach((a) => track.append(featureSlide(a)));
+
+  const dots = el('div', { class: 'fc-dots' });
+  list.forEach((_, i) => dots.append(el('button', {
+    class: `fc-dot ${i === 0 ? 'on' : ''}`, type: 'button',
+    'aria-label': `شريحة ${i + 1}`, onclick: (e) => { e.preventDefault(); go(i, true); },
+  })));
+
+  const wrap = el('div', { class: 'feature-carousel' }, track, list.length > 1 ? dots : null);
+
+  let idx = 0;
+  let timer = null;
+  function paint() {
+    track.style.transform = `translateX(${-idx * 100}%)`;
+    Array.from(dots.children).forEach((d, i) => d.classList.toggle('on', i === idx));
+  }
+  function go(i, manual) { idx = (i + list.length) % list.length; paint(); if (manual) restart(); }
+  function restart() {
+    if (timer) clearInterval(timer);
+    if (list.length > 1) timer = setInterval(() => go(idx + 1), opts.interval || 4500);
+  }
+  wrap.addEventListener('mouseenter', () => { if (timer) clearInterval(timer); });
+  wrap.addEventListener('mouseleave', restart);
+  paint();
+  restart();
+  return wrap;
+}
+
 const CAT_NAMES = {
   games: 'ألعاب', social: 'تواصل اجتماعي', tools: 'أدوات', productivity: 'إنتاجية',
   entertainment: 'ترفيه', education: 'تعليم', photography: 'تصوير', music: 'موسيقى',
@@ -198,7 +260,8 @@ function topbarNav(title = '', actions = []) {
 }
 
 const NAV_ITEMS = [
-  { key: 'apps', label: 'كل التطبيقات', icon: 'apps', href: '/' },
+  { key: 'apps', label: 'التطبيقات', icon: 'apps', href: '/' },
+  { key: 'games', label: 'الألعاب', icon: 'gamepad', href: '/games' },
   { key: 'search', label: 'بحث', icon: 'search', href: '/search' },
   { key: 'featured', label: 'المميّزة', icon: 'award', href: '/featured' },
   { key: 'account', label: 'أنت', icon: 'user', href: '/account' },
@@ -351,7 +414,7 @@ function boot() { initAuth(); }
 window.Store = {
   STORE, api, el, ico,
   formatBytes, formatCount, formatNum, formatDate, ratingOf, ratingValue, ratingCountOf, getQuery, toast,
-  posterCard, listRow, categoryName,
+  posterCard, listRow, featureCarousel, categoryName,
   spinner, emptyState, errorState,
   topbarSearch, topbarNav, bottomNav, avatarEl,
   ready, signOut, getUser: () => _user,

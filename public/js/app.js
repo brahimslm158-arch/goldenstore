@@ -94,10 +94,8 @@
       stat(sdkName(app.min_sdk), 'أندرويد'),
     ));
 
-    // Actions
-    const installBtn = el('a', { class: 'btn btn-primary btn-lg', href: `/api/apps/${encodeURIComponent(app.slug)}/download` },
-      'تثبيت');
-    content.append(el('div', { class: 'd-actions' }, installBtn));
+    // Actions — animated install with a smooth progress bar.
+    content.append(installControl(app));
     content.append(el('div', { class: 'd-note' }, `سيتم تنزيل ملف APK (${formatBytes(app.size_bytes || 0)}). فعّل «تثبيت من مصادر غير معروفة» لإكمال التثبيت.`));
 
     // Screenshots
@@ -170,9 +168,12 @@
     const stars = el('div', { class: 'stars' });
     const rt = Math.round(Number(r.rating) || 0);
     for (let i = 1; i <= 5; i++) stars.append(el('span', { class: `star ${i <= rt ? 'on' : ''}` }, i <= rt ? '★' : '☆'));
+    const avatar = el('div', { class: 'avatar' });
+    if (r.photo_url) avatar.append(el('img', { src: r.photo_url, alt: '', referrerpolicy: 'no-referrer' }));
+    else avatar.textContent = initial;
     return el('div', { class: 'review' },
       el('div', { class: 'head' },
-        el('div', { class: 'avatar' }, initial),
+        avatar,
         el('div', { class: 'who' },
           el('div', { class: 'nm' }, r.name || 'مستخدم'),
           el('div', { class: 'dt' }, formatDate(r.ts)),
@@ -181,6 +182,65 @@
       stars,
       r.comment ? el('div', { class: 'body' }, r.comment) : null,
     );
+  }
+
+  // ----- Install: persist "installed" apps locally so the state survives reloads.
+  const INSTALL_KEY = 'gs_installed';
+  function installedSet() {
+    try { return new Set(JSON.parse(localStorage.getItem(INSTALL_KEY) || '[]')); } catch { return new Set(); }
+  }
+  function isInstalled(slug) { return installedSet().has(slug); }
+  function markInstalledStored(slug) {
+    try { const s = installedSet(); s.add(slug); localStorage.setItem(INSTALL_KEY, JSON.stringify([...s])); } catch {}
+  }
+  // Trigger the APK download without navigating away from the page.
+  function beginDownload(slug) {
+    const frame = el('iframe', { src: `/api/apps/${encodeURIComponent(slug)}/download`, style: { display: 'none' } });
+    document.body.append(frame);
+    setTimeout(() => frame.remove(), 60000);
+  }
+
+  // The install button + sliding progress bar. Animates on click, then settles
+  // into an "installed" state ("التطبيق لديك").
+  function installControl(app) {
+    const label = el('span', { class: 'install-label' }, 'تثبيت');
+    const fill = el('span', { class: 'install-fill' });
+    const btn = el('button', { class: 'btn btn-primary btn-lg install-btn', type: 'button' }, fill, label);
+
+    function showInstalled() {
+      btn.classList.remove('installing');
+      btn.classList.add('installed');
+      btn.disabled = false;
+      fill.style.transition = 'none';
+      fill.style.width = '0%';
+      label.innerHTML = '';
+      label.append(ico('check', 'icon'), document.createTextNode('التطبيق لديك'));
+    }
+
+    function runInstall() {
+      if (btn.classList.contains('installed')) { beginDownload(app.slug); return; }
+      if (btn.classList.contains('installing')) return;
+      beginDownload(app.slug);
+      btn.classList.add('installing');
+      btn.disabled = true;
+      label.textContent = 'جارٍ التثبيت…';
+      // Smooth, professional sweep from 0 → 100%.
+      fill.style.transition = 'none';
+      fill.style.width = '0%';
+      requestAnimationFrame(() => {
+        fill.style.transition = 'width 3.1s cubic-bezier(.25,.8,.3,1)';
+        fill.style.width = '100%';
+      });
+      setTimeout(() => {
+        markInstalledStored(app.slug);
+        showInstalled();
+        toast('تم التثبيت بنجاح', 'success');
+      }, 3200);
+    }
+
+    btn.addEventListener('click', runInstall);
+    if (isInstalled(app.slug)) showInstalled();
+    return el('div', { class: 'd-actions' }, btn);
   }
 
   function ratingSection(app) {
@@ -236,12 +296,22 @@
     }
     const pickerHint = el('div', { style: { fontSize: '14px', marginBottom: '8px' } }, 'قيّم واكتب مراجعتك');
 
-    // Review form (name + comment + submit)
-    const nameInput = el('input', { class: 'field', type: 'text', maxlength: '60', placeholder: 'اسمك (اختياري)', value: (user && user.displayName) || '' });
+    // Review form — reviews are tied to the signed-in Google account, so the
+    // reviewer identity (name + photo) is shown and submitted automatically.
+    const accountName = (user && (user.displayName || user.email)) || 'مستخدم';
+    const accountPhoto = (user && user.photoURL) || '';
+    const accountUid = (user && user.uid) || '';
+    const idAvatar = el('div', { class: 'avatar' });
+    if (accountPhoto) idAvatar.append(el('img', { src: accountPhoto, alt: '', referrerpolicy: 'no-referrer' }));
+    else idAvatar.textContent = (accountName.trim().charAt(0) || 'م').toUpperCase();
+    const identity = el('div', { class: 'review-identity' },
+      idAvatar,
+      el('div', { class: 'who' }, el('div', { class: 'nm' }, accountName), el('div', { class: 'dt' }, 'تنشر باسم حسابك')),
+    );
     const commentInput = el('textarea', { class: 'field', maxlength: '2000', placeholder: 'شارك رأيك في هذا التطبيق…' });
     const submitBtn = el('button', { class: 'btn btn-primary' }, 'نشر المراجعة');
     submitBtn.addEventListener('click', () => submit());
-    const form = el('div', { class: 'review-form' }, nameInput, commentInput, el('div', { class: 'actions' }, submitBtn));
+    const form = el('div', { class: 'review-form' }, identity, commentInput, el('div', { class: 'actions' }, submitBtn));
 
     // Reviews list
     const reviewsList = el('div', { class: 'reviews' });
@@ -255,14 +325,13 @@
     }
     renderReviews([]);
 
-    function lockVoted(rating, comment, name) {
+    function lockVoted(rating, comment) {
       voted = true; myRating = rating; selected = rating;
       paint(myRating);
       picker.classList.add('voted');
       pickerHint.textContent = myRating ? `تقييمك: ${myRating} من 5` : 'لقد قيّمت هذا التطبيق';
-      if (name) nameInput.value = name;
       if (comment) commentInput.value = comment;
-      nameInput.disabled = true; commentInput.disabled = true; submitBtn.disabled = true;
+      commentInput.disabled = true; submitBtn.disabled = true;
       submitBtn.textContent = 'تم نشر مراجعتك';
     }
 
@@ -270,8 +339,8 @@
     (async () => {
       try {
         fingerprint = await getFingerprint();
-        const res = await window.Store.api(`/api/apps/${encodeURIComponent(app.slug)}/star-check`, { method: 'POST', body: { fp: fingerprint } });
-        if (res.voted) lockVoted(Number(res.my_rating || 0), res.my_comment || '', res.my_name || '');
+        const res = await window.Store.api(`/api/apps/${encodeURIComponent(app.slug)}/star-check`, { method: 'POST', body: { fp: fingerprint, uid: accountUid } });
+        if (res.voted) lockVoted(Number(res.my_rating || 0), res.my_comment || '');
         if (typeof res.rating === 'number') refreshAverage(res.rating, Number(res.rating_count || 0));
       } catch {}
     })();
@@ -293,18 +362,18 @@
       if (!selected) { toast('اختر عدد النجوم أولاً', 'info'); return; }
       submitBtn.disabled = true;
       const myComment = commentInput.value.trim();
-      const myName = nameInput.value.trim();
+      const myName = accountName;
       try {
         if (!fingerprint) fingerprint = await getFingerprint();
         const res = await window.Store.api(`/api/apps/${encodeURIComponent(app.slug)}/star`, {
           method: 'POST',
-          body: { fp: fingerprint, rating: selected, comment: myComment, name: myName },
+          body: { fp: fingerprint, rating: selected, comment: myComment, name: myName, uid: accountUid, photo_url: accountPhoto },
         });
         const rated = selected;
-        lockVoted(rated, myComment, myName);
+        lockVoted(rated, myComment);
         refreshAverage(res.rating, Number(res.rating_count || 0));
         if (res.review || myComment) {
-          reviews.unshift(res.review || { name: myName || 'مستخدم', rating: rated, comment: myComment, ts: Math.floor(Date.now() / 1000) });
+          reviews.unshift(res.review || { name: myName || 'مستخدم', rating: rated, comment: myComment, photo_url: accountPhoto || null, ts: Math.floor(Date.now() / 1000) });
           renderReviews(reviews);
         }
         loadReviews();
@@ -312,7 +381,7 @@
       } catch (e) {
         submitBtn.disabled = false;
         if (e && e.status === 409) {
-          lockVoted(selected, myComment, myName);
+          lockVoted(selected, myComment);
           toast('لقد قيّمت هذا التطبيق مسبقاً', 'info');
           if (e.data && typeof e.data.rating === 'number') refreshAverage(e.data.rating, Number(e.data.rating_count || 0));
         } else if (e && e.data && e.data.error === 'invalid_rating') {

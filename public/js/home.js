@@ -74,9 +74,10 @@
         return;
       }
 
-      // Featured banner from the top-rated (then popular, then recent) app.
-      const feat = topApps[0] || popularApps[0] || recentApps[0];
-      if (feat) content.append(featureBanner(feat));
+      // Editors' choice — curved auto-scrolling carousel of apps that have a
+      // feature graphic (falling back to top/popular apps when none are set yet).
+      const carouselApps = pickCarousel([...recentApps, ...popularApps, ...topApps]);
+      if (carouselApps.length) content.append(S.featureCarousel(carouselApps));
 
       // "موصى به لك" — a curated horizontal row (most popular picks).
       const recommended = (popularApps.length ? popularApps : recentApps).slice(0, 12);
@@ -85,7 +86,7 @@
       // "قد يعجبك أيضاً" — every other app not already shown above
       // (الأكثر رواجًا / الأعلى تقييماً now live in their own tabs).
       const usedSlugs = new Set(recommended.map((a) => a.slug));
-      if (feat) usedSlugs.add(feat.slug);
+      carouselApps.forEach((a) => usedSlugs.add(a.slug));
       const rest = recentApps.filter((a) => !usedSlugs.has(a.slug));
       content.append(listSection('قد يعجبك أيضاً', rest));
     }
@@ -138,22 +139,18 @@
     }
   });
 
-  function featureBanner(a) {
-    return el('a', { href: `/app?slug=${encodeURIComponent(a.slug)}`, class: 'feature' },
-      el('div', { class: 'ftimg', style: {
-        display: 'flex', alignItems: 'center', justifyContent: 'center',
-        background: 'linear-gradient(135deg, #10233f, #0d0d0f 70%)',
-      } },
-        a.icon_url
-          ? el('img', { src: a.icon_url, alt: '', style: { width: '120px', height: '120px', borderRadius: '28px', boxShadow: '0 16px 40px rgba(0,0,0,.5)' } })
-          : ico('package', 'icon icon-lg')),
-      el('div', { class: 'pill' }, 'اختيارات المحرّرين'),
-      el('div', { class: 'ftbody' },
-        el('h3', null, a.name),
-        el('p', null, a.short_description || a.developer || 'تطبيق مميّز مختار لك'),
-        el('span', { class: 'btn btn-primary ftbtn' }, 'عرض'),
-      ),
-    );
+  // Choose carousel apps: prefer those with a feature graphic, de-duplicated,
+  // then top up with the best remaining apps so the carousel is never empty.
+  function pickCarousel(pool) {
+    const seen = new Set();
+    const withFeat = [];
+    const without = [];
+    pool.forEach((a) => {
+      if (!a || seen.has(a.slug)) return;
+      seen.add(a.slug);
+      (a.feature_url ? withFeat : without).push(a);
+    });
+    return [...withFeat, ...without].slice(0, 8);
   }
 
   function posterSection(title, apps) {

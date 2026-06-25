@@ -11,6 +11,7 @@
           { "source": "/featured", "destination": "/featured.html" },
           { "source": "/account", "destination": "/account.html" },
           { "source": "/books", "destination": "/books.html" },
+          { "source": "/games", "destination": "/games.html" },
           { "source": "/admin", "destination": "/admin.html" },
           { "source": "/api/:path*", "destination": "/api/[...path]" }
     ],
