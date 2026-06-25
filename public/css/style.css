@@ -37,7 +37,28 @@
   --header-h: 64px;
 }
 
+/* Light theme overrides */
+:root[data-theme="light"] {
+  --black:      #eef0f3;
+  --bg-1:       #e7eaef;
+  --bg-2:       #ffffff;
+  --bg-3:       #f3f5f8;
+  --line:       #e0e3e9;
+  --line-2:     #d2d6de;
+
+  --text-1:     #181a1d;
+  --text-2:     #565b63;
+  --text-3:     #868c95;
+
+  --shadow-1: 0 4px 18px rgba(20,25,35,0.10);
+  --shadow-2: 0 8px 32px rgba(20,25,35,0.14);
+}
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
+/* Smooth theme transition */
+*, *::before, *::after {
+  transition: background-color .25s ease, border-color .25s ease, color .2s ease, fill .2s ease;
+}
 
 html, body {
   background: var(--black);
@@ -1014,6 +1035,15 @@ section { margin: 56px 0; }
 .req-card .req-meta { font-size: 13px; color: var(--text-3); }
 .req-card .req-detail { font-size: 14px; color: var(--text-2); }
 .req-card a { color: var(--gold); word-break: break-all; }
+
+/* ============== Theme toggle ============== */
+.theme-toggle { display: inline-flex; align-items: center; justify-content: center; }
+.theme-toggle .icon { width: 20px; height: 20px; }
+.theme-toggle-float {
+  position: fixed; top: 16px; inset-inline-end: 16px; z-index: 50;
+  width: 42px; height: 42px; padding: 0; border-radius: 50%;
+  background: var(--bg-2); border: 1px solid var(--line);
+}
 
 /* ============== Login form ============== */
 .login-wrap {

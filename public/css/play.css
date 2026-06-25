@@ -32,7 +32,31 @@
   --font: 'Tajawal', 'Roboto', system-ui, -apple-system, 'Segoe UI', sans-serif;
 }
 
+/* Light theme overrides */
+:root[data-theme="light"] {
+  --bg: #f4f5f7;
+  --surface: #ffffff;
+  --surface-2: #eceef2;
+  --surface-3: #e0e3ea;
+  --line: #dde0e6;
+  --text: #1a1c20;
+  --text-2: #555a62;
+  --text-3: #828892;
+  --gold-ink: #1a1500;
+  --primary: #1a73e8;
+  --primary-2: #1a73e8;
+  --on-primary: #ffffff;
+  --nav: #1a73e8;
+  --nav-bg: rgba(26,115,232,0.12);
+  --accent: #1a73e8;
+  --blue: #1a73e8;
+}
+
 * { box-sizing: border-box; margin: 0; padding: 0; }
+/* Smooth theme transition */
+*, *::before, *::after {
+  transition: background-color .25s ease, border-color .25s ease, color .2s ease, fill .2s ease;
+}
 
 html, body {
   background: var(--bg);
@@ -124,6 +148,8 @@ input, select { font-family: inherit; }
   color: var(--text); position: relative;
 }
 .icon-btn:active { background: var(--surface-2); }
+.theme-toggle.icon-btn { width: 38px; height: 38px; }
+.theme-toggle.icon-btn .icon { width: 22px; height: 22px; }
 .topbar-nav .title { font-weight: 700; font-size: 17px; flex: 1; }
 .topbar-nav .spacer { flex: 1; }
 

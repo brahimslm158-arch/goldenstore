@@ -2,6 +2,33 @@
 
 const STORE = { name: 'Goldenstore', domain: 'goldenstore.me' };
 
+/* ----------------------------- Theme (light/dark) ----------------------------- */
+const THEME_KEY = 'gs_theme';
+function currentTheme() {
+  try { return localStorage.getItem(THEME_KEY) === 'light' ? 'light' : 'dark'; } catch { return 'dark'; }
+}
+function applyTheme(theme) {
+  const t = theme === 'light' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', t);
+  try { localStorage.setItem(THEME_KEY, t); } catch {}
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', t === 'light' ? '#ffffff' : '#000000');
+  document.querySelectorAll('.theme-toggle').forEach((b) => syncThemeBtn(b, t));
+}
+function toggleTheme() { applyTheme(currentTheme() === 'light' ? 'dark' : 'light'); }
+function syncThemeBtn(btn, t) {
+  btn.innerHTML = '';
+  btn.append(ico(t === 'light' ? 'moon' : 'sun'));
+  btn.setAttribute('aria-label', t === 'light' ? 'الوضع الغامق' : 'الوضع الفاتح');
+  btn.setAttribute('title', t === 'light' ? 'الوضع الغامق' : 'الوضع الفاتح');
+}
+function themeToggleBtn() {
+  const btn = el('button', { class: 'tab theme-toggle', type: 'button', onclick: toggleTheme });
+  syncThemeBtn(btn, currentTheme());
+  return btn;
+}
+applyTheme(currentTheme());
+
 async function api(path, opts = {}) {
   const ctrl = new AbortController();
   const timeoutMs = typeof opts.timeoutMs === 'number' ? opts.timeoutMs : 15000;
@@ -202,6 +229,7 @@ window.GS = {
   formatBytes, formatNum, formatDate,
   getQuery, setQuery,
   init, STORE,
+  themeToggleBtn, toggleTheme, currentTheme,
 };
 
 document.addEventListener('DOMContentLoaded', init);

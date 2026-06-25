@@ -3,6 +3,34 @@
 
 const STORE = { name: 'Golden Store', domain: 'goldenstore.me' };
 
+/* ----------------------------- Theme (light/dark) ----------------------------- */
+const THEME_KEY = 'gs_theme';
+function currentTheme() {
+  try { return localStorage.getItem(THEME_KEY) === 'light' ? 'light' : 'dark'; } catch { return 'dark'; }
+}
+function applyTheme(theme) {
+  const t = theme === 'light' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', t);
+  try { localStorage.setItem(THEME_KEY, t); } catch {}
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (meta) meta.setAttribute('content', t === 'light' ? '#ffffff' : '#0d0d0f');
+  document.querySelectorAll('.theme-toggle').forEach((b) => syncThemeBtn(b, t));
+}
+function toggleTheme() { applyTheme(currentTheme() === 'light' ? 'dark' : 'light'); }
+function syncThemeBtn(btn, t) {
+  btn.innerHTML = '';
+  btn.append(ico(t === 'light' ? 'moon' : 'sun', 'icon'));
+  btn.setAttribute('aria-label', t === 'light' ? 'الوضع الغامق' : 'الوضع الفاتح');
+  btn.setAttribute('title', t === 'light' ? 'الوضع الغامق' : 'الوضع الفاتح');
+}
+function themeToggleBtn() {
+  const btn = el('button', { class: 'icon-btn theme-toggle', type: 'button', onclick: toggleTheme });
+  syncThemeBtn(btn, currentTheme());
+  return btn;
+}
+// Apply persisted theme as early as possible.
+applyTheme(currentTheme());
+
 /* ----------------------------- API ----------------------------- */
 async function api(path, opts = {}) {
   const ctrl = new AbortController();
@@ -245,6 +273,7 @@ function topbarSearch(user) {
     el('div', { class: 'topbar-home' },
       el('a', { href: '/', class: 'brand', 'aria-label': 'Golden Store' }, el('img', { src: '/images/logo.png', alt: 'Golden Store' })),
       el('div', { class: 'tb-spacer' }),
+      themeToggleBtn(),
       avatarEl(user),
     ),
   );
@@ -256,6 +285,7 @@ function topbarNav(title = '', actions = []) {
     el('button', { class: 'icon-btn', 'aria-label': 'رجوع', onclick: () => history.length > 1 ? history.back() : (location.href = '/') }, ico('chevronEnd')),
     title ? el('div', { class: 'title' }, title) : el('div', { class: 'spacer' }),
     ...actions,
+    themeToggleBtn(),
   );
 }
 
@@ -416,7 +446,7 @@ window.Store = {
   formatBytes, formatCount, formatNum, formatDate, ratingOf, ratingValue, ratingCountOf, getQuery, toast,
   posterCard, listRow, featureCarousel, categoryName,
   spinner, emptyState, errorState,
-  topbarSearch, topbarNav, bottomNav, avatarEl,
+  topbarSearch, topbarNav, bottomNav, avatarEl, themeToggleBtn, toggleTheme, currentTheme,
   ready, signOut, getUser: () => _user,
 };
 

@@ -16,10 +16,13 @@
       style: { background: 'transparent', border: 'none', outline: 'none', color: 'var(--text)', flex: '1', fontSize: '15px' },
     });
     const bar = el('div', { class: 'topbar' },
-      el('div', { class: 'search-pill' },
-        el('button', { class: 's-ico', 'aria-label': 'رجوع', onclick: () => history.length > 1 ? history.back() : (location.href = '/') }, ico('chevronEnd')),
-        input,
-        el('button', { class: 's-ico', 'aria-label': 'مسح', onclick: () => { input.value = ''; input.focus(); run(); } }, ico('close')),
+      el('div', { class: 'topbar-home', style: { gap: '8px', height: 'auto' } },
+        el('div', { class: 'search-pill' },
+          el('button', { class: 's-ico', 'aria-label': 'رجوع', onclick: () => history.length > 1 ? history.back() : (location.href = '/') }, ico('chevronEnd')),
+          input,
+          el('button', { class: 's-ico', 'aria-label': 'مسح', onclick: () => { input.value = ''; input.focus(); run(); } }, ico('close')),
+        ),
+        S.themeToggleBtn(),
       ),
     );
     const results = el('div', { class: 'content' });

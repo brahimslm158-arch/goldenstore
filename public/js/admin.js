@@ -1,5 +1,5 @@
 (async function () {
-  const { api, el, ico, toast, formatBytes, formatNum, formatDate } = window.GS;
+  const { api, el, ico, toast, formatBytes, formatNum, formatDate, themeToggleBtn } = window.GS;
   const root = document.getElementById('content');
 
   let me = null;
@@ -174,7 +174,10 @@
       style: 'position:absolute; opacity:0; pointer-events:none; height:0; width:0; padding:0; margin:0; border:0;',
     }));
 
+    const themeBtn = themeToggleBtn();
+    themeBtn.classList.add('theme-toggle-float');
     const wrap = el('div', { class: 'login-wrap' },
+      themeBtn,
       el('div', { class: 'login-card' },
         el('div', { class: 'title' }, ico('shield'), ' دخول الإدارة'),
         el('div', { class: 'sub' }, 'صفحة مخصصة لمالك المتجر فقط — أدخل كلمة المرور للمتابعة.'),
@@ -198,6 +201,7 @@
       tabBtn('new', 'plus', 'تطبيق جديد'),
       tabBtn('requests', 'flag', 'الطلبات والبلاغات'),
       el('span', { class: 'tab-spacer' }),
+      themeToggleBtn(),
       el('button', { class: 'tab', onclick: async () => {
         await api('/api/logout', { method: 'POST' });
         renderLogin();
