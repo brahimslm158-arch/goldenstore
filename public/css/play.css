@@ -539,8 +539,8 @@ input, select { font-family: inherit; }
   0%   { inset-inline-start: -40%; }
   100% { inset-inline-start: 100%; }
 }
-.install-btn.installed { background: var(--surface-2); color: var(--gold); border: 1px solid var(--gold); }
-.install-btn.installed .icon { color: var(--gold); }
+.install-btn.installed { background: rgba(47,123,255,.15); color: #4f93ff; border: 1px solid rgba(79,147,255,.6); }
+.install-btn.installed .icon { color: #4f93ff; }
 
 /* ---------- Review identity (signed-in author) ---------- */
 .review-identity {
