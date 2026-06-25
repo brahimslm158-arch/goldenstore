@@ -155,26 +155,63 @@
     return wrap;
   }
 
+  // One row of the rating distribution bar chart (Google Play style).
+  function distRow(starN, c, total) {
+    const pct = total > 0 ? Math.round((c / total) * 100) : 0;
+    return el('div', { class: 'row' },
+      el('span', { class: 'lbl' }, String(starN)),
+      el('div', { class: 'bar' }, el('span', { style: { width: pct + '%' } })),
+    );
+  }
+
+  // A single review card: avatar + name + date, star row, then the comment.
+  function reviewCard(r) {
+    const initial = ((r.name || 'م').trim().charAt(0) || 'م').toUpperCase();
+    const stars = el('div', { class: 'stars' });
+    const rt = Math.round(Number(r.rating) || 0);
+    for (let i = 1; i <= 5; i++) stars.append(el('span', { class: `star ${i <= rt ? 'on' : ''}` }, i <= rt ? '★' : '☆'));
+    return el('div', { class: 'review' },
+      el('div', { class: 'head' },
+        el('div', { class: 'avatar' }, initial),
+        el('div', { class: 'who' },
+          el('div', { class: 'nm' }, r.name || 'مستخدم'),
+          el('div', { class: 'dt' }, formatDate(r.ts)),
+        ),
+      ),
+      stars,
+      r.comment ? el('div', { class: 'body' }, r.comment) : null,
+    );
+  }
+
   function ratingSection(app) {
-    let fingerprint = null, voted = false, myRating = 0;
+    let fingerprint = null, voted = false, myRating = 0, selected = 0;
+    let reviews = [];
 
     const avg = S.ratingValue(app);
     const initialCount = S.ratingCountOf(app);
+    const user = S.getUser ? S.getUser() : null;
 
     const big = el('div', { class: 'rate-big' }, initialCount > 0 ? avg.toFixed(1) : '—');
     const avgBar = starBar(avg);
     const count = el('div', { class: 'rate-meta' },
-      initialCount > 0 ? `${formatNum(initialCount)} شخص قيّم هذا التطبيق` : 'كن أول من يقيّم هذا التطبيق');
+      initialCount > 0 ? `${formatNum(initialCount)} تقييم` : 'كن أول من يقيّم هذا التطبيق');
+
+    // Rating distribution (5 → 1)
+    const distRows = el('div', { class: 'rate-dist' });
+    function renderDist(dist, total) {
+      distRows.innerHTML = '';
+      for (let s = 5; s >= 1; s--) distRows.append(distRow(s, Number((dist && dist[s]) || 0), total));
+    }
+    renderDist({}, 0);
 
     function refreshAverage(ratingAvg, ratingCount) {
       big.textContent = ratingCount > 0 ? Number(ratingAvg).toFixed(1) : '—';
       const fresh = starBar(ratingAvg);
       avgBar.replaceChildren(...fresh.childNodes);
-      count.textContent = ratingCount > 0 ? `${formatNum(ratingCount)} شخص قيّم هذا التطبيق` : 'كن أول من يقيّم هذا التطبيق';
+      count.textContent = ratingCount > 0 ? `${formatNum(ratingCount)} تقييم` : 'كن أول من يقيّم هذا التطبيق';
     }
 
-    // Interactive star picker (1–5). Uses text glyphs so stars are always
-    // clearly visible and tappable on every device (no hover needed on mobile).
+    // Interactive star picker (1–5). Text glyphs so stars are always visible/tappable.
     const icons = [];
     const picker = el('div', { class: 'rate-input' });
     function paint(n) {
@@ -189,63 +226,115 @@
       sp.setAttribute('role', 'button');
       sp.setAttribute('aria-label', `${i} نجوم`);
       sp.addEventListener('mouseenter', () => { if (!voted) paint(i); });
-      sp.addEventListener('mouseleave', () => paint(myRating));
-      sp.addEventListener('click', () => vote(i));
+      sp.addEventListener('mouseleave', () => paint(voted ? myRating : selected));
+      sp.addEventListener('click', () => {
+        if (voted) { toast('لقد قيّمت هذا التطبيق مسبقاً', 'info'); return; }
+        selected = i; paint(i);
+      });
       icons.push(sp);
       picker.append(sp);
     }
-    const pickerHint = el('div', { style: { fontSize: '14px', marginBottom: '8px' } }, 'قيّم هذا التطبيق');
+    const pickerHint = el('div', { style: { fontSize: '14px', marginBottom: '8px' } }, 'قيّم واكتب مراجعتك');
 
+    // Review form (name + comment + submit)
+    const nameInput = el('input', { class: 'field', type: 'text', maxlength: '60', placeholder: 'اسمك (اختياري)', value: (user && user.displayName) || '' });
+    const commentInput = el('textarea', { class: 'field', maxlength: '2000', placeholder: 'شارك رأيك في هذا التطبيق…' });
+    const submitBtn = el('button', { class: 'btn btn-primary' }, 'نشر المراجعة');
+    submitBtn.addEventListener('click', () => submit());
+    const form = el('div', { class: 'review-form' }, nameInput, commentInput, el('div', { class: 'actions' }, submitBtn));
+
+    // Reviews list
+    const reviewsList = el('div', { class: 'reviews' });
+    function renderReviews(list) {
+      reviewsList.innerHTML = '';
+      if (!list || !list.length) {
+        reviewsList.append(el('div', { class: 'reviews-empty' }, 'لا توجد مراجعات بعد. كن أول من يكتب مراجعة!'));
+        return;
+      }
+      list.forEach((r) => reviewsList.append(reviewCard(r)));
+    }
+    renderReviews([]);
+
+    function lockVoted(rating, comment, name) {
+      voted = true; myRating = rating; selected = rating;
+      paint(myRating);
+      picker.classList.add('voted');
+      pickerHint.textContent = myRating ? `تقييمك: ${myRating} من 5` : 'لقد قيّمت هذا التطبيق';
+      if (name) nameInput.value = name;
+      if (comment) commentInput.value = comment;
+      nameInput.disabled = true; commentInput.disabled = true; submitBtn.disabled = true;
+      submitBtn.textContent = 'تم نشر مراجعتك';
+    }
+
+    // Initial load — my vote state.
     (async () => {
       try {
         fingerprint = await getFingerprint();
         const res = await window.Store.api(`/api/apps/${encodeURIComponent(app.slug)}/star-check`, { method: 'POST', body: { fp: fingerprint } });
-        if (res.voted) {
-          voted = true;
-          myRating = Number(res.my_rating || 0);
-          paint(myRating);
-          picker.classList.add('voted');
-          pickerHint.textContent = myRating ? `تقييمك: ${myRating} من 5` : 'لقد قيّمت هذا التطبيق';
-        }
+        if (res.voted) lockVoted(Number(res.my_rating || 0), res.my_comment || '', res.my_name || '');
         if (typeof res.rating === 'number') refreshAverage(res.rating, Number(res.rating_count || 0));
       } catch {}
     })();
 
-    async function vote(value) {
+    // Initial load — reviews list + distribution.
+    async function loadReviews() {
+      try {
+        const res = await window.Store.api(`/api/apps/${encodeURIComponent(app.slug)}/reviews`);
+        reviews = res.reviews || [];
+        renderReviews(reviews);
+        renderDist(res.dist || {}, Number(res.rating_count || 0));
+        if (typeof res.rating === 'number') refreshAverage(res.rating, Number(res.rating_count || 0));
+      } catch {}
+    }
+    loadReviews();
+
+    async function submit() {
       if (voted) { toast('لقد قيّمت هذا التطبيق مسبقاً', 'info'); return; }
+      if (!selected) { toast('اختر عدد النجوم أولاً', 'info'); return; }
+      submitBtn.disabled = true;
+      const myComment = commentInput.value.trim();
+      const myName = nameInput.value.trim();
       try {
         if (!fingerprint) fingerprint = await getFingerprint();
-        const res = await window.Store.api(`/api/apps/${encodeURIComponent(app.slug)}/star`, { method: 'POST', body: { fp: fingerprint, rating: value } });
-        voted = true;
-        myRating = value;
-        paint(myRating);
-        picker.classList.add('voted');
-        pickerHint.textContent = `تقييمك: ${value} من 5`;
+        const res = await window.Store.api(`/api/apps/${encodeURIComponent(app.slug)}/star`, {
+          method: 'POST',
+          body: { fp: fingerprint, rating: selected, comment: myComment, name: myName },
+        });
+        const rated = selected;
+        lockVoted(rated, myComment, myName);
         refreshAverage(res.rating, Number(res.rating_count || 0));
-        toast('شكراً لتقييمك!', 'success');
+        if (res.review || myComment) {
+          reviews.unshift(res.review || { name: myName || 'مستخدم', rating: rated, comment: myComment, ts: Math.floor(Date.now() / 1000) });
+          renderReviews(reviews);
+        }
+        loadReviews();
+        toast('شكراً لمراجعتك!', 'success');
       } catch (e) {
+        submitBtn.disabled = false;
         if (e && e.status === 409) {
-          voted = true;
+          lockVoted(selected, myComment, myName);
           toast('لقد قيّمت هذا التطبيق مسبقاً', 'info');
           if (e.data && typeof e.data.rating === 'number') refreshAverage(e.data.rating, Number(e.data.rating_count || 0));
         } else if (e && e.data && e.data.error === 'invalid_rating') {
           toast('اختر عدد النجوم أولاً', 'info');
         } else {
-          toast('تعذّر إرسال التقييم', 'error');
+          toast('تعذّر إرسال المراجعة', 'error');
         }
       }
     }
 
     return el('div', { class: 'd-section' },
       el('h3', null, 'التقييمات والمراجعات'),
-      el('div', { class: 'rate-block' },
-        el('div', null, big, avgBar),
-        el('div', null, count),
+      el('div', { class: 'rate-summary' },
+        el('div', { class: 'rate-side' }, big, avgBar, count),
+        distRows,
       ),
       el('div', { style: { marginTop: '18px' } },
         pickerHint,
         picker,
+        form,
       ),
+      reviewsList,
     );
   }
 })();
