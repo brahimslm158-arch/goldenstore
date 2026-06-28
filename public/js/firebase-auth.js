@@ -51,17 +51,31 @@ function makeProvider() {
   return provider;
 }
 
+function isMobileOrInApp() {
+  var ua = navigator.userAgent || '';
+  return /Android|iPhone|iPad|iPod/i.test(ua) || /FBAN|FBAV|Instagram|Line|Twitter|Snapchat|TikTok|WebView|wv\)/i.test(ua);
+}
+
 async function signInWithGoogle() {
   initFirebase();
+  // On mobile / in-app browsers, go straight to redirect (popups are unreliable).
+  if (isMobileOrInApp()) {
+    try {
+      await _auth.signInWithRedirect(makeProvider());
+    } catch (e) {
+      throw e;
+    }
+    return null;
+  }
   try {
-    const result = await _auth.signInWithPopup(makeProvider());
+    var result = await _auth.signInWithPopup(makeProvider());
     return result.user;
   } catch (e) {
-    const code = e && e.code;
+    var code = e && e.code;
     // User dismissed the popup — not an error worth surfacing.
     if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') return null;
-    // Popups blocked or unsupported (common on mobile/in-app browsers): fall back to redirect.
-    if (code === 'auth/popup-blocked' || code === 'auth/operation-not-supported-in-this-environment') {
+    // Popups blocked, unsupported, or cross-origin issue: fall back to redirect.
+    if (code === 'auth/popup-blocked' || code === 'auth/operation-not-supported-in-this-environment' || code === 'auth/web-storage-unsupported') {
       await _auth.signInWithRedirect(makeProvider());
       return null;
     }

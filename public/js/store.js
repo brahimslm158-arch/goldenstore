@@ -472,7 +472,12 @@ function buildGate(loading) {
     btn.disabled = true;
     btn.lastChild && (btn.lastChild.textContent = ' ' + t('جارٍ تسجيل الدخول…'));
     try {
-      await window.GAuth.signInWithGoogle();
+      const result = await window.GAuth.signInWithGoogle();
+      if (!result) {
+        // User closed popup or redirect started — re-enable button
+        btn.disabled = false;
+        btn.lastChild && (btn.lastChild.textContent = ' ' + t('متابعة باستخدام Google'));
+      }
     } catch (e) {
       console.error('signIn', e && e.code, e && e.message);
       const msg = authErrorMessage(e);
