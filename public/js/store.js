@@ -180,7 +180,9 @@ function listRow(a, opts = {}) {
         el('span', null, formatBytes(a.size_bytes || 0)),
       ),
     ),
-    opts.installed ? el('span', { class: 'badge' }, ico('check', 'icon icon-sm'), t('مثبّت')) : null,
+    opts.installed
+      ? el('span', { class: 'badge' }, ico('check', 'icon icon-sm'), t('مثبّت'))
+      : el('span', { class: 'row-dl-btn' }, ico('download', 'icon')),
   );
 }
 
@@ -374,14 +376,23 @@ function initials(user) {
   return n.trim().charAt(0).toUpperCase();
 }
 
-// Google Play–style home header: brand logo (start), user avatar (end).
+// Google Play–style home header: brand logo (start), search bar (center), avatar (end).
 function topbarSearch(user) {
+  const searchInput = el('input', { type: 'text', class: 'topbar-search-input', placeholder: t('ابحث عن تطبيقات وألعاب'), 'aria-label': t('بحث') });
+  searchInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      const q = searchInput.value.trim();
+      if (q) location.href = `/search?q=${encodeURIComponent(q)}`;
+    }
+  });
+  const searchBar = el('div', { class: 'topbar-search-bar' },
+    ico('search', 'icon search-ico'),
+    searchInput,
+  );
   return el('div', { class: 'topbar' },
     el('div', { class: 'topbar-home' },
       el('a', { href: '/', class: 'brand', 'aria-label': 'Golden Store' }, el('img', { src: '/images/logo.png', alt: 'Golden Store' })),
-      el('div', { class: 'tb-spacer' }),
-      langSwitcherEl(),
-      themeToggleBtn(),
+      searchBar,
       avatarEl(user),
     ),
   );
@@ -393,16 +404,13 @@ function topbarNav(title = '', actions = []) {
     el('button', { class: 'icon-btn', 'aria-label': t('رجوع'), onclick: () => history.length > 1 ? history.back() : (location.href = '/') }, ico('chevronEnd')),
     title ? el('div', { class: 'title' }, title) : el('div', { class: 'spacer' }),
     ...actions,
-    langSwitcherEl(),
-    themeToggleBtn(),
   );
 }
 
 const NAV_ITEMS_RAW = [
   { key: 'apps', label: 'التطبيقات', icon: 'apps', href: '/' },
   { key: 'games', label: 'الألعاب', icon: 'gamepad', href: '/games' },
-  { key: 'search', label: 'بحث', icon: 'search', href: '/search' },
-  { key: 'featured', label: 'المميّزة', icon: 'award', href: '/featured' },
+  { key: 'library', label: 'مكتبتي', icon: 'download', href: '/account?tab=library' },
   { key: 'account', label: 'أنت', icon: 'user', href: '/account' },
 ];
 function bottomNav(active) {

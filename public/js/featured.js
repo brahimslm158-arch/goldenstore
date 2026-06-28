@@ -4,7 +4,7 @@
   const { el, ico, api, t } = S;
   const root = document.getElementById('root');
 
-  S.bottomNav('featured');
+  S.bottomNav('');
 
   S.ready((user) => {
     root.innerHTML = '';

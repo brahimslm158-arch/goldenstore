@@ -91,10 +91,14 @@
       const rest = recentApps.filter((a) => !usedSlugs.has(a.slug));
 
       // "قد يعجبك أيضاً" — a short curated taste of the rest.
-      content.append(listSection(t('قد يعجبك أيضاً'), rest.slice(0, 5)));
+      const likeApps = rest.slice(0, 5);
+      content.append(listSection(t('قد يعجبك أيضاً'), likeApps));
 
-      // "تطبيقات أخرى" — every remaining app, with a vertical/horizontal toggle.
-      const others = rest.slice(5);
+      // Mark "قد يعجبك" slugs as used too
+      likeApps.forEach((a) => usedSlugs.add(a.slug));
+
+      // "تطبيقات أخرى" — every remaining app not shown anywhere above.
+      const others = rest.filter((a) => !usedSlugs.has(a.slug));
       if (others.length) content.append(toggleSection(t('تطبيقات أخرى'), others));
     }
 
@@ -180,39 +184,41 @@
     );
   }
 
-  // Section with a vertical (2-col list) / horizontal (2-col grid) view switch.
+  // Section with a vertical (list) / grid (2-col icons) view switch.
   const VIEW_KEY = 'gs_home_view';
   function toggleSection(title, apps) {
     if (!apps || !apps.length) return el('span');
-    let mode = localStorage.getItem(VIEW_KEY) === 'grid' ? 'grid' : 'list';
+    let mode = localStorage.getItem(VIEW_KEY) === 'list' ? 'list' : 'grid';
 
     const body = el('div');
-    const listBtn = el('button', { type: 'button', 'aria-label': 'عرض عمودي', title: 'عرض عمودي' }, ico('list', 'icon'));
-    const gridBtn = el('button', { type: 'button', 'aria-label': 'عرض أفقي', title: 'عرض أفقي' }, ico('grid', 'icon'));
+    const gridBtn = el('button', { type: 'button', 'aria-label': t('شبكة'), title: t('شبكة') }, ico('grid', 'icon'));
+    const listBtn = el('button', { type: 'button', 'aria-label': t('قائمة'), title: t('قائمة') }, ico('list', 'icon'));
 
     function render() {
       body.innerHTML = '';
-      listBtn.classList.toggle('on', mode === 'list');
       gridBtn.classList.toggle('on', mode === 'grid');
+      listBtn.classList.toggle('on', mode === 'list');
       if (mode === 'grid') {
-        const grid = el('div', { class: 'poster-grid two-col' });
-        apps.forEach((a) => grid.append(window.Store.posterCard(a)));
+        // 2-column grid with compact list rows
+        const grid = el('div', { class: 'applist two-col' });
+        apps.forEach((a) => grid.append(window.Store.listRow(a)));
         body.append(grid);
       } else {
-        const list = el('div', { class: 'applist two-col' });
+        // Single column list
+        const list = el('div', { class: 'applist' });
         apps.forEach((a) => list.append(window.Store.listRow(a)));
         body.append(list);
       }
     }
     function setMode(m) { if (m === mode) return; mode = m; try { localStorage.setItem(VIEW_KEY, m); } catch (e) {} render(); }
-    listBtn.onclick = () => setMode('list');
     gridBtn.onclick = () => setMode('grid');
+    listBtn.onclick = () => setMode('list');
 
     render();
     return el('div', { class: 'section' },
       el('div', { class: 'section-head' },
         el('h2', null, title),
-        el('div', { class: 'view-toggle' }, listBtn, gridBtn),
+        el('div', { class: 'view-toggle' }, gridBtn, listBtn),
       ),
       body,
     );

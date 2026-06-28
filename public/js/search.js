@@ -3,7 +3,7 @@
   const S = window.Store;
   const { el, ico, api, getQuery, t } = S;
   const root = document.getElementById('root');
-  S.bottomNav('search');
+  S.bottomNav('');
 
   S.ready((user) => {
     root.innerHTML = '';
@@ -22,7 +22,6 @@
           input,
           el('button', { class: 's-ico', 'aria-label': 'مسح', onclick: () => { input.value = ''; input.focus(); run(); } }, ico('close')),
         ),
-        S.themeToggleBtn(),
       ),
     );
     const results = el('div', { class: 'content' });

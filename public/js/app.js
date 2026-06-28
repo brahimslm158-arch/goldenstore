@@ -552,18 +552,57 @@
       }
     }
 
-    return el('div', { class: 'd-section' },
-      el('h3', null, t('التقييمات والمراجعات')),
-      el('div', { class: 'rate-summary' },
-        el('div', { class: 'rate-side' }, big, avgBar, count),
-        distRows,
-      ),
+    // Collapsible rating section
+    const rateBody = el('div', { class: 'rate-collapse-body' });
+    rateBody.append(
       el('div', { style: { marginTop: '18px' } },
         pickerHint,
         picker,
         form,
       ),
       reviewsList,
+    );
+    // Initially collapsed
+    rateBody.style.maxHeight = '0';
+    rateBody.style.overflow = 'hidden';
+    rateBody.style.transition = 'max-height .35s ease';
+
+    let rateOpen = false;
+    const toggleIcon = ico('chevronDown', 'icon rate-toggle-ico');
+    const rateHeader = el('div', { class: 'rate-collapse-header', onclick: () => {
+      rateOpen = !rateOpen;
+      if (rateOpen) {
+        rateBody.style.maxHeight = rateBody.scrollHeight + 2000 + 'px';
+        toggleIcon.style.transform = 'rotate(180deg)';
+      } else {
+        rateBody.style.maxHeight = '0';
+        toggleIcon.style.transform = 'rotate(0deg)';
+      }
+    } },
+      el('h3', { style: { margin: '0', flex: '1', cursor: 'pointer' } }, t('التقييمات والمراجعات')),
+      toggleIcon,
+    );
+    toggleIcon.style.transition = 'transform .3s ease';
+
+    // Auto-close after rating: watch for the 'voted' class on picker
+    const collapseObserver = new MutationObserver(() => {
+      if (picker.classList.contains('voted') && rateOpen) {
+        setTimeout(() => {
+          rateOpen = false;
+          rateBody.style.maxHeight = '0';
+          toggleIcon.style.transform = 'rotate(0deg)';
+        }, 1500);
+      }
+    });
+    collapseObserver.observe(picker, { attributes: true, attributeFilter: ['class'] });
+
+    return el('div', { class: 'd-section' },
+      rateHeader,
+      el('div', { class: 'rate-summary' },
+        el('div', { class: 'rate-side' }, big, avgBar, count),
+        distRows,
+      ),
+      rateBody,
     );
   }
 })();

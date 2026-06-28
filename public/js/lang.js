@@ -71,6 +71,10 @@
     'إبلاغ عن التطبيق': { en: 'Report app', fr: 'Signaler l’application', es: 'Reportar la aplicación' },
     'إرسال البلاغ': { en: 'Send report', fr: 'Envoyer le signalement', es: 'Enviar reporte' },
 
+    'ابحث عن تطبيقات وألعاب': { en: 'Search apps and games', fr: 'Rechercher des applis et jeux', es: 'Buscar apps y juegos' },
+    'شبكة': { en: 'Grid', fr: 'Grille', es: 'Cuadrícula' },
+    'قائمة': { en: 'List', fr: 'Liste', es: 'Lista' },
+
     // home sections / tabs
     'محتوى يهمك': { en: 'For you', fr: 'Pour vous', es: 'Para ti' },
     'الأكثر رواجا': { en: 'Trending', fr: 'Tendances', es: 'Tendencias' },
