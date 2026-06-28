@@ -179,7 +179,7 @@
     );
   }
 
-  // Section with a vertical (list) / horizontal (grid) view switch.
+  // Section with a vertical (2-col list) / horizontal (2-col grid) view switch.
   const VIEW_KEY = 'gs_home_view';
   function toggleSection(title, apps) {
     if (!apps || !apps.length) return el('span');
@@ -194,11 +194,11 @@
       listBtn.classList.toggle('on', mode === 'list');
       gridBtn.classList.toggle('on', mode === 'grid');
       if (mode === 'grid') {
-        const grid = el('div', { class: 'poster-grid' });
+        const grid = el('div', { class: 'poster-grid two-col' });
         apps.forEach((a) => grid.append(window.Store.posterCard(a)));
         body.append(grid);
       } else {
-        const list = el('div', { class: 'applist' });
+        const list = el('div', { class: 'applist two-col' });
         apps.forEach((a) => list.append(window.Store.listRow(a)));
         body.append(list);
       }

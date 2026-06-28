@@ -246,9 +246,24 @@ function featureCarousel(apps, opts = {}) {
 }
 
 const CAT_NAMES = {
-  games: 'ألعاب', social: 'تواصل اجتماعي', tools: 'أدوات', productivity: 'إنتاجية',
-  entertainment: 'ترفيه', education: 'تعليم', photography: 'تصوير', music: 'موسيقى',
-  finance: 'مالية', shopping: 'تسوق', news: 'أخبار', health: 'صحة ولياقة', travel: 'سفر', other: 'أخرى',
+  // App categories
+  social: 'تواصل اجتماعي', communication: 'اتصالات', tools: 'أدوات', productivity: 'إنتاجية',
+  entertainment: 'ترفيه', education: 'تعليم', photography: 'تصوير', music: 'موسيقى وصوتيات',
+  video_players: 'مشغّلات فيديو', finance: 'مالية', shopping: 'تسوق', news: 'أخبار ومجلات',
+  health: 'صحة ولياقة', travel: 'سفر ومحلّي', food: 'طعام وشراب', lifestyle: 'أسلوب حياة',
+  books: 'كتب ومراجع', business: 'أعمال', dating: 'تعارف', maps: 'خرائط وملاحة',
+  medical: 'طبّي', personalization: 'تخصيص', sports: 'رياضة', weather: 'طقس',
+  auto: 'سيارات ومركبات', beauty: 'جمال وتجميل', art_design: 'فنّ وتصميم',
+  house_home: 'منزل', parenting: 'أبوّة وأمومة', events: 'فعاليات', comics: 'قصص مصوّرة',
+  other: 'أخرى',
+  // Game categories
+  game_action: 'أكشن', game_adventure: 'مغامرات', game_arcade: 'أركيد', game_board: 'ألعاب لوحية',
+  game_card: 'ورق (كوتشينة)', game_casino: 'كازينو', game_casual: 'عادية', game_educational: 'تعليمية',
+  game_music: 'موسيقى', game_puzzle: 'ألغاز', game_racing: 'سباقات', game_rpg: 'تقمّص أدوار',
+  game_simulation: 'محاكاة', game_sports: 'رياضية', game_strategy: 'استراتيجية',
+  game_trivia: 'معلومات عامة', game_word: 'كلمات', game_other: 'ألعاب أخرى',
+  // Legacy
+  games: 'ألعاب',
 };
 function categoryName(slug) { return CAT_NAMES[slug] || ''; }
 
@@ -453,6 +468,32 @@ async function signOut() {
 /* ----------------------------- Boot ----------------------------- */
 function boot() { initAuth(); }
 
+/* ----------------------------- Download History ----------------------------- */
+const DL_HISTORY_KEY = 'gs_downloads';
+function getDownloadHistory() {
+  try { return JSON.parse(localStorage.getItem(DL_HISTORY_KEY) || '[]'); } catch { return []; }
+}
+function addToDownloadHistory(app) {
+  try {
+    const list = getDownloadHistory();
+    // Remove existing entry for same slug to avoid duplicates
+    const filtered = list.filter((e) => e.slug !== app.slug);
+    filtered.unshift({
+      slug: app.slug,
+      name: app.name,
+      icon_url: app.icon_url || null,
+      developer: app.developer || '',
+      size_bytes: app.size_bytes || 0,
+      downloaded_at: Math.floor(Date.now() / 1000),
+    });
+    // Keep max 200 entries
+    localStorage.setItem(DL_HISTORY_KEY, JSON.stringify(filtered.slice(0, 200)));
+  } catch {}
+}
+function clearDownloadHistory() {
+  try { localStorage.removeItem(DL_HISTORY_KEY); } catch {}
+}
+
 window.Store = {
   STORE, api, el, ico,
   formatBytes, formatCount, formatNum, formatDate, ratingOf, ratingValue, ratingCountOf, getQuery, toast,
@@ -460,6 +501,7 @@ window.Store = {
   spinner, emptyState, errorState,
   topbarSearch, topbarNav, bottomNav, avatarEl, themeToggleBtn, langSwitcherEl, toggleTheme, currentTheme,
   ready, signOut, getUser: () => _user,
+  getDownloadHistory, addToDownloadHistory, clearDownloadHistory,
 };
 
 document.addEventListener('DOMContentLoaded', boot);

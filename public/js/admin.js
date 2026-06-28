@@ -453,7 +453,7 @@
         formField('package_name', 'اسم الحزمة (Package name)', 'text', { required: true, placeholder: 'com.example.app' }),
         formRow(
           formField('developer', 'المطوّر', 'text', { placeholder: 'اسم المطوّر' }),
-          categoryField('category'),
+          categoryField('category', null, 'type'),
         ),
         typeField('type'),
         formField('short_description', 'وصف مختصر', 'text', { placeholder: 'سطر واحد يصف التطبيق' }),
@@ -527,7 +527,7 @@
           formField('package_name', 'اسم الحزمة', 'text', { required: true, value: app.package_name }),
           formRow(
             formField('developer', 'المطوّر', 'text', { value: app.developer || '' }),
-            categoryField('category', app.category),
+            categoryField('category', app.category, 'type'),
           ),
           typeField('type', app.type),
           formField('short_description', 'وصف مختصر', 'text', { value: app.short_description || '' }),
@@ -702,13 +702,32 @@
   function formRow(...children) {
     return el('div', { class: 'form-row' }, ...children);
   }
-  function categoryField(name, value) {
+  function categoryField(name, value, typeSelectName) {
     const sel = el('select', { name });
-    cats.forEach((c) => {
-      const opt = el('option', { value: c.slug }, c.name);
-      if ((value || 'other') === c.slug) opt.selected = true;
-      sel.append(opt);
-    });
+    function populateCats(currentType) {
+      const selected = sel.value || value || 'other';
+      sel.innerHTML = '';
+      cats.forEach((c) => {
+        // Show app categories for apps, game categories for games
+        const isGameCat = c.slug.startsWith('game_');
+        if (currentType === 'game' && !isGameCat && c.slug !== 'other') return;
+        if (currentType !== 'game' && isGameCat) return;
+        const opt = el('option', { value: c.slug }, c.name);
+        if (selected === c.slug) opt.selected = true;
+        sel.append(opt);
+      });
+    }
+    // Defer linking to type select to allow DOM construction
+    setTimeout(() => {
+      const typeEl = typeSelectName && sel.closest('form')?.querySelector(`[name="${typeSelectName}"]`);
+      if (typeEl) {
+        populateCats(typeEl.value);
+        typeEl.addEventListener('change', () => populateCats(typeEl.value));
+      } else {
+        populateCats(value && value.startsWith('game_') ? 'game' : 'app');
+      }
+    }, 0);
+    populateCats(value && value.startsWith('game_') ? 'game' : 'app');
     return el('div', { class: 'field' },
       el('label', null, 'التصنيف'),
       sel,

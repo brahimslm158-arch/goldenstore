@@ -126,28 +126,32 @@
     // Rating section (star vote)
     content.append(ratingSection(app));
 
-    // Info
-    content.append(el('div', { class: 'd-section' },
-      el('h3', null, 'معلومات إضافية'),
-      el('div', { class: 'info-grid' },
-        info('الإصدار', app.version_name || '—'),
-        info('آخر تحديث', formatDate(app.updated_at)),
-        info('الحجم', formatBytes(app.size_bytes || 0)),
-        info('عدد التنزيلات', formatNum(app.downloads)),
-        info('يتطلب', sdkName(app.min_sdk)),
-        info('اسم الحزمة', app.package_name || '—'),
-        info('المطوّر', app.developer || '—'),
-        info('التصنيف', S.categoryName(app.category) || '—'),
-      ),
-    ));
+    // Similar apps/games
+    loadSimilar(app, content);
 
     function stat(value, label) {
       const v = el('div', { class: 'v' });
       if (value && value.nodeType) v.append(value); else v.textContent = value;
       return el('div', { class: 'd-stat' }, v, el('div', { class: 'l' }, label));
     }
-    function info(l, v) { return el('div', { class: 'info-cell' }, el('div', { class: 'l' }, l), el('div', { class: 'v' }, v)); }
   });
+
+  async function loadSimilar(app, container) {
+    try {
+      const catParam = app.category ? `&category=${encodeURIComponent(app.category)}` : '';
+      const typeParam = app.type ? `&type=${encodeURIComponent(app.type)}` : '';
+      const res = await api(`/api/apps?limit=20${catParam}${typeParam}&sort=popular`);
+      const similar = (res.apps || []).filter((a) => a.slug !== app.slug).slice(0, 10);
+      if (!similar.length) return;
+      const title = app.type === 'game' ? 'ألعاب مماثلة' : 'تطبيقات مماثلة';
+      const row = el('div', { class: 'hrow' });
+      similar.forEach((a) => row.append(S.posterCard(a)));
+      container.append(el('div', { class: 'd-section' },
+        el('h3', null, title),
+        row,
+      ));
+    } catch {}
+  }
 
   // Static 5-star bar reflecting an average value (filled vs empty).
   function starBar(value) {
@@ -367,12 +371,14 @@
         if (total) setProgress(1);
         saveBlob(blob, filename);
         markInstalledStored(app.slug);
+        S.addToDownloadHistory(app);
         showInstalled();
         toast('اكتمل التحميل وحُفظ الملف في جهازك', 'success');
       } catch (e) {
         // Streaming failed (network/limits) — fall back to a normal download so
         // the user still gets the file, and don't fake an "installed" state.
         fallbackDownload(app.slug);
+        S.addToDownloadHistory(app);
         showIdle();
         toast('تعذّر عرض شريط التقدّم، وبدأ التنزيل بالطريقة العادية', 'info');
       }
@@ -488,7 +494,7 @@
       paint(myRating);
       picker.classList.add('voted');
       pickerHint.textContent = myRating ? `تقييمك: ${myRating} من 5` : 'لقد قيّمت هذا التطبيق';
-      if (comment) commentInput.value = comment;
+      commentInput.value = '';
       commentInput.disabled = true; submitBtn.disabled = true;
       submitBtn.textContent = 'تم نشر مراجعتك';
     }
