@@ -98,17 +98,9 @@
         recommended.forEach((a) => usedSlugs.add(a.slug));
       }
 
-      // "قد يعجبك أيضاً" — short list taste
-      const rest = allApps.filter((a) => !usedSlugs.has(a.slug));
-      const likeApps = rest.slice(0, 5);
-      if (likeApps.length) {
-        content.append(listSection(t('قد يعجبك أيضاً'), likeApps));
-        likeApps.forEach((a) => usedSlugs.add(a.slug));
-      }
-
-      // "تطبيقات أخرى" — everything remaining, 2-col grid/list toggle
+      // Directly under "موصى به لك": grid/list toggle showing the rest of the apps
       const others = allApps.filter((a) => !usedSlugs.has(a.slug));
-      if (others.length) content.append(toggleSection(t('تطبيقات أخرى'), others));
+      if (others.length) content.append(toggleSection('', others));
     }
 
     async function renderTop() {
@@ -183,16 +175,6 @@
     );
   }
 
-  function listSection(title, apps) {
-    if (!apps || !apps.length) return el('span');
-    const list = el('div', { class: 'applist' });
-    apps.forEach((a) => list.append(window.Store.listRow(a)));
-    return el('div', { class: 'section' },
-      el('div', { class: 'section-head' }, el('h2', null, title)),
-      list,
-    );
-  }
-
   // Section with a vertical (list) / grid (2-col icons) view switch.
   const VIEW_KEY = 'gs_home_view';
   function toggleSection(title, apps) {
@@ -224,12 +206,10 @@
     listBtn.onclick = () => setMode('list');
 
     render();
-    return el('div', { class: 'section' },
-      el('div', { class: 'section-head' },
-        el('h2', null, title),
-        el('div', { class: 'view-toggle' }, gridBtn, listBtn),
-      ),
-      body,
-    );
+    const head = el('div', { class: 'section-head' });
+    if (title) head.append(el('h2', null, title));
+    else head.style.justifyContent = 'flex-end';
+    head.append(el('div', { class: 'view-toggle' }, gridBtn, listBtn));
+    return el('div', { class: 'section' }, head, body);
   }
 })();
