@@ -378,16 +378,56 @@ function initials(user) {
 
 // Google Play–style home header: brand logo (start), search bar (center), avatar (end).
 function topbarSearch(user) {
-  const searchInput = el('input', { type: 'text', class: 'topbar-search-input', placeholder: t('ابحث عن تطبيقات وألعاب'), 'aria-label': t('بحث') });
+  const searchInput = el('input', { type: 'text', class: 'topbar-search-input', placeholder: t('ابحث عن تطبيقات وألعاب'), 'aria-label': t('بحث'), autocomplete: 'off' });
+  const suggestBox = el('div', { class: 'search-suggest' });
+  let suggestTimer = null;
+
   searchInput.addEventListener('keydown', (e) => {
     if (e.key === 'Enter') {
       const q = searchInput.value.trim();
+      suggestBox.innerHTML = '';
+      suggestBox.classList.remove('open');
       if (q) location.href = `/search?q=${encodeURIComponent(q)}`;
     }
+    if (e.key === 'Escape') { suggestBox.innerHTML = ''; suggestBox.classList.remove('open'); }
   });
+
+  searchInput.addEventListener('input', () => {
+    clearTimeout(suggestTimer);
+    const q = searchInput.value.trim();
+    if (q.length < 2) { suggestBox.innerHTML = ''; suggestBox.classList.remove('open'); return; }
+    suggestTimer = setTimeout(async () => {
+      try {
+        const res = await api(`/api/apps?q=${encodeURIComponent(q)}&limit=6`, { timeoutMs: 5000 });
+        const apps = (res.apps || []).slice(0, 6);
+        suggestBox.innerHTML = '';
+        if (!apps.length) { suggestBox.classList.remove('open'); return; }
+        apps.forEach((a) => {
+          const row = el('a', { href: `/app?slug=${encodeURIComponent(a.slug)}`, class: 'suggest-row' },
+            el('div', { class: 'suggest-icon' }, a.icon_url ? el('img', { src: a.icon_url, alt: '' }) : ico('package', 'icon')),
+            el('div', { class: 'suggest-info' },
+              el('div', { class: 'suggest-name' }, a.name),
+              el('div', { class: 'suggest-dev' }, a.developer || ''),
+            ),
+          );
+          suggestBox.append(row);
+        });
+        // "عرض الكل" link
+        suggestBox.append(el('a', { href: `/search?q=${encodeURIComponent(q)}`, class: 'suggest-all' }, t('عرض كل النتائج')));
+        suggestBox.classList.add('open');
+      } catch {}
+    }, 300);
+  });
+
+  // Close suggestions on outside click
+  document.addEventListener('click', (e) => {
+    if (!searchBar.contains(e.target)) { suggestBox.innerHTML = ''; suggestBox.classList.remove('open'); }
+  });
+
   const searchBar = el('div', { class: 'topbar-search-bar' },
     ico('search', 'icon search-ico'),
     searchInput,
+    suggestBox,
   );
   return el('div', { class: 'topbar' },
     el('div', { class: 'topbar-home' },

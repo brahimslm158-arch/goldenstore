@@ -70,35 +70,45 @@
       const popularApps = filt(popular.apps);
       const topApps = filt(top.apps);
 
-      if (!recentApps.length && !popularApps.length) {
+      // Build a single deduplicated pool of ALL apps
+      const seenAll = new Set();
+      const allApps = [];
+      [...recentApps, ...popularApps, ...topApps].forEach((a) => {
+        if (!a || seenAll.has(a.slug)) return;
+        seenAll.add(a.slug);
+        allApps.push(a);
+      });
+
+      if (!allApps.length) {
         content.append(S.emptyState(t('لا توجد تطبيقات بعد'), t('ستظهر هنا تطبيقات المتجر فور إضافتها من لوحة الإدارة.')));
         return;
       }
 
-      // Editors' choice — curved auto-scrolling carousel of apps that have a
-      // feature graphic (falling back to top/popular apps when none are set yet).
-      const carouselApps = pickCarousel([...recentApps, ...popularApps, ...topApps]);
+      const usedSlugs = new Set();
+
+      // Editors' choice carousel (max 6 so more remain for below)
+      const carouselApps = pickCarousel(allApps).slice(0, 6);
       if (carouselApps.length) content.append(S.featureCarousel(carouselApps));
-
-      // "موصى به لك" — a curated horizontal row (most popular picks).
-      const recommended = (popularApps.length ? popularApps : recentApps).slice(0, 12);
-      content.append(posterSection(t('موصى به لك'), recommended));
-
-      // "قد يعجبك أيضاً" — every other app not already shown above
-      // (الأكثر رواجًا / الأعلى تقييماً now live in their own tabs).
-      const usedSlugs = new Set(recommended.map((a) => a.slug));
       carouselApps.forEach((a) => usedSlugs.add(a.slug));
-      const rest = recentApps.filter((a) => !usedSlugs.has(a.slug));
 
-      // "قد يعجبك أيضاً" — a short curated taste of the rest.
+      // "موصى به لك" — horizontal row (max 8, skip already shown)
+      const recPool = (popularApps.length ? popularApps : recentApps).filter((a) => !usedSlugs.has(a.slug));
+      const recommended = recPool.slice(0, 8);
+      content.append(posterSection(t('موصى به لك'), recommended));
+      recommended.forEach((a) => usedSlugs.add(a.slug));
+
+      // Everything else not shown above
+      const rest = allApps.filter((a) => !usedSlugs.has(a.slug));
+
+      // "قد يعجبك أيضاً" — short taste (max 5)
       const likeApps = rest.slice(0, 5);
-      content.append(listSection(t('قد يعجبك أيضاً'), likeApps));
+      if (likeApps.length) {
+        content.append(listSection(t('قد يعجبك أيضاً'), likeApps));
+        likeApps.forEach((a) => usedSlugs.add(a.slug));
+      }
 
-      // Mark "قد يعجبك" slugs as used too
-      likeApps.forEach((a) => usedSlugs.add(a.slug));
-
-      // "تطبيقات أخرى" — every remaining app not shown anywhere above.
-      const others = rest.filter((a) => !usedSlugs.has(a.slug));
+      // "تطبيقات أخرى" — everything remaining, 2-col grid/list toggle
+      const others = allApps.filter((a) => !usedSlugs.has(a.slug));
       if (others.length) content.append(toggleSection(t('تطبيقات أخرى'), others));
     }
 

@@ -72,6 +72,7 @@
     'إرسال البلاغ': { en: 'Send report', fr: 'Envoyer le signalement', es: 'Enviar reporte' },
 
     'ابحث عن تطبيقات وألعاب': { en: 'Search apps and games', fr: 'Rechercher des applis et jeux', es: 'Buscar apps y juegos' },
+    'عرض كل النتائج': { en: 'Show all results', fr: 'Voir tous les résultats', es: 'Ver todos los resultados' },
     'شبكة': { en: 'Grid', fr: 'Grille', es: 'Cuadrícula' },
     'قائمة': { en: 'List', fr: 'Liste', es: 'Lista' },
 

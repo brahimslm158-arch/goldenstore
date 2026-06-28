@@ -113,12 +113,7 @@
             S.toggleTheme();
             renderSettings();
           }),
-          settingItem('globe', t('اللغة'), langLabel(), () => {
-            if (window.GSI18N && window.GSI18N.cycleLang) {
-              window.GSI18N.cycleLang();
-              setTimeout(() => renderSettings(), 100);
-            }
-          }),
+          langSettingItem(),
           settingItem('info', t('حول Golden Store'), t('الإصدار') + ' 2.0', null),
         ),
         el('div', { style: { padding: '24px 0' } },
@@ -129,6 +124,34 @@
     }
 
     renderSettings();
+  }
+
+  function langSettingItem() {
+    const langs = [
+      { code: 'ar', label: 'العربية' },
+      { code: 'en', label: 'English' },
+      { code: 'fr', label: 'Français' },
+      { code: 'es', label: 'Español' },
+    ];
+    const currentLang = (window.GSI18N && window.GSI18N.lang) || 'ar';
+    const wrapper = el('div', { class: 'acct-setting lang-setting' });
+    wrapper.append(
+      ico('globe', 'icon'),
+      el('span', { class: 'label' }, t('اللغة')),
+    );
+    const select = el('select', { class: 'lang-select' });
+    langs.forEach((l) => {
+      const opt = el('option', { value: l.code }, l.label);
+      if (l.code === currentLang) opt.selected = true;
+      select.append(opt);
+    });
+    select.addEventListener('change', () => {
+      if (window.GSI18N && window.GSI18N.setLang) {
+        window.GSI18N.setLang(select.value);
+      }
+    });
+    wrapper.append(select);
+    return wrapper;
   }
 
   function settingItem(icon, label, value, onClick) {
