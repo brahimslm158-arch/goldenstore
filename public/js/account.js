@@ -128,30 +128,39 @@
 
   function langSettingItem() {
     const langs = [
-      { code: 'ar', label: 'العربية' },
-      { code: 'en', label: 'English' },
-      { code: 'fr', label: 'Français' },
-      { code: 'es', label: 'Español' },
+      { code: 'ar', label: 'العربية', flag: '🇸🇦' },
+      { code: 'en', label: 'English', flag: '🇬🇧' },
+      { code: 'fr', label: 'Français', flag: '🇫🇷' },
+      { code: 'es', label: 'Español', flag: '🇪🇸' },
     ];
     const currentLang = (window.GSI18N && window.GSI18N.lang) || 'ar';
+
     const wrapper = el('div', { class: 'acct-setting lang-setting' });
     wrapper.append(
       ico('globe', 'icon'),
       el('span', { class: 'label' }, t('اللغة')),
     );
-    const select = el('select', { class: 'lang-select' });
+
+    const langGrid = el('div', { class: 'lang-grid' });
     langs.forEach((l) => {
-      const opt = el('option', { value: l.code }, l.label);
-      if (l.code === currentLang) opt.selected = true;
-      select.append(opt);
+      const btn = el('button', {
+        type: 'button',
+        class: `lang-chip ${l.code === currentLang ? 'active' : ''}`,
+        onclick: () => {
+          if (l.code === currentLang) return;
+          if (window.GSI18N && window.GSI18N.setLang) {
+            window.GSI18N.setLang(l.code);
+          }
+        },
+      },
+        el('span', { class: 'lang-flag' }, l.flag),
+        el('span', { class: 'lang-name' }, l.label),
+      );
+      langGrid.append(btn);
     });
-    select.addEventListener('change', () => {
-      if (window.GSI18N && window.GSI18N.setLang) {
-        window.GSI18N.setLang(select.value);
-      }
-    });
-    wrapper.append(select);
-    return wrapper;
+
+    const section = el('div', { class: 'lang-section' }, wrapper, langGrid);
+    return section;
   }
 
   function settingItem(icon, label, value, onClick) {

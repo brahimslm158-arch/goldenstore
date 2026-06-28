@@ -84,23 +84,22 @@
         return;
       }
 
-      const usedSlugs = new Set();
-
-      // Editors' choice carousel (max 6 so more remain for below)
+      // Editors' choice carousel — visual hero only, does NOT consume apps
       const carouselApps = pickCarousel(allApps).slice(0, 6);
       if (carouselApps.length) content.append(S.featureCarousel(carouselApps));
-      carouselApps.forEach((a) => usedSlugs.add(a.slug));
 
-      // "موصى به لك" — horizontal row (max 8, skip already shown)
-      const recPool = (popularApps.length ? popularApps : recentApps).filter((a) => !usedSlugs.has(a.slug));
-      const recommended = recPool.slice(0, 8);
-      content.append(posterSection(t('موصى به لك'), recommended));
-      recommended.forEach((a) => usedSlugs.add(a.slug));
+      // Track which slugs are shown in browsable sections to avoid duplication
+      const usedSlugs = new Set();
 
-      // Everything else not shown above
+      // "موصى به لك" — horizontal poster row
+      const recommended = (popularApps.length ? popularApps : recentApps).slice(0, 8);
+      if (recommended.length) {
+        content.append(posterSection(t('موصى به لك'), recommended));
+        recommended.forEach((a) => usedSlugs.add(a.slug));
+      }
+
+      // "قد يعجبك أيضاً" — short list taste
       const rest = allApps.filter((a) => !usedSlugs.has(a.slug));
-
-      // "قد يعجبك أيضاً" — short taste (max 5)
       const likeApps = rest.slice(0, 5);
       if (likeApps.length) {
         content.append(listSection(t('قد يعجبك أيضاً'), likeApps));
