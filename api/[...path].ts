@@ -17,7 +17,7 @@ import {
   signJwt,
   verifyJwt,
 } from '../lib/auth.js';
-import { nowSec, randomId, safeExt, searchTerms, slugify } from '../lib/utils.js';
+import { nowSec, randomId, safeExt, searchTerms, slugify, sanitizeText, sanitizeUrl, safeInt } from '../lib/utils.js';
 import { DEFAULT_CATEGORIES, type App, type Category, type Screenshot } from '../lib/types.js';
 
 export const config = { runtime: 'nodejs' };
@@ -71,6 +71,9 @@ app.use('*', async (c, next) => {
   c.header('X-Frame-Options', 'DENY');
   c.header('X-XSS-Protection', '1; mode=block');
   c.header('Referrer-Policy', 'strict-origin-when-cross-origin');
+  c.header('Strict-Transport-Security', 'max-age=63072000; includeSubDomains; preload');
+  c.header('Cache-Control', 'no-store');
+  c.header('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=()');
 });
 
 // --- Security: body size limit (1MB) ---
@@ -80,6 +83,24 @@ app.use('*', async (c, next) => {
   if (cl && Number(cl) > MAX_BODY_SIZE) {
     return c.json({ error: 'payload_too_large' }, 413);
   }
+  await next();
+});
+
+// --- Security: validate slug/id params (no path traversal, max length) ---
+function isValidSlug(s: string): boolean {
+  if (!s || s.length > 200) return false;
+  if (/[\/\\<>\x00-\x1f]/.test(s)) return false;
+  if (s.includes('..')) return false;
+  return true;
+}
+app.use('/apps/:slug/*', async (c, next) => {
+  const slug = c.req.param('slug');
+  if (!isValidSlug(slug)) return c.json({ error: 'invalid_slug' }, 400);
+  await next();
+});
+app.use('/apps/:slug', async (c, next) => {
+  const slug = c.req.param('slug');
+  if (!isValidSlug(slug)) return c.json({ error: 'invalid_slug' }, 400);
   await next();
 });
 
@@ -423,12 +444,11 @@ app.post('/apps/:slug/star', async (c) => {
   if (!Number.isFinite(rating) || rating < 1 || rating > 5) {
     return c.json({ error: 'invalid_rating' }, 400);
   }
-  const comment = String(body.comment || '').trim().slice(0, 2000);
-  const name = String(body.name || '').trim().slice(0, 60);
-  const uid = String(body.uid || '').trim().slice(0, 128);
-  let photo_url = String(body.photo_url || '').trim();
-  if (!/^https:\/\//.test(photo_url)) photo_url = '';
-  photo_url = photo_url.slice(0, 500);
+  const comment = sanitizeText(body.comment, 2000);
+  const name = sanitizeText(body.name, 60);
+  const uid = sanitizeText(body.uid, 128);
+  let photo_url = sanitizeUrl(body.photo_url);
+  if (!photo_url.startsWith('https://')) photo_url = '';
 
   const db = await firestore();
   const snap = await db.collection('apps').where('slug', '==', slug).limit(1).get();
@@ -584,8 +604,8 @@ app.post('/apps/:slug/request-update', async (c) => {
   }
   const slug = c.req.param('slug');
   const body = await c.req.json().catch(() => ({} as any));
-  const newVersion = String(body.new_version || '').trim().slice(0, 60);
-  const source = String(body.source || '').trim().slice(0, 500);
+  const newVersion = sanitizeText(body.new_version, 60);
+  const source = sanitizeUrl(body.source) || sanitizeText(body.source, 500);
   if (!newVersion) return c.json({ error: 'new_version_required' }, 400);
 
   const db = await firestore();
@@ -614,8 +634,8 @@ app.post('/apps/:slug/report', async (c) => {
   }
   const slug = c.req.param('slug');
   const body = await c.req.json().catch(() => ({} as any));
-  const reason = String(body.reason || '').trim().slice(0, 80);
-  const details = String(body.details || '').trim().slice(0, 2000);
+  const reason = sanitizeText(body.reason, 80);
+  const details = sanitizeText(body.details, 2000);
   if (!reason) return c.json({ error: 'reason_required' }, 400);
 
   const db = await firestore();
@@ -819,17 +839,13 @@ function isValidR2Key(key: string, expectedPrefix: string): boolean {
 // Step 2: after R2 upload, client posts metadata to create the app
 app.post('/admin/apps', async (c) => {
   const body = await c.req.json().catch(() => ({} as any));
-  const name = String(body.name || '').trim();
-  const package_name = String(body.package_name || '').trim();
+  const name = sanitizeText(body.name, 200);
+  const package_name = sanitizeText(body.package_name, 200);
   const apk_key = String(body.apk_key || '').trim();
   if (!name || !package_name || !apk_key) {
     return c.json({ error: 'name_package_apk_required' }, 400);
   }
-  // Input length limits to prevent abuse
-  if (name.length > 200 || package_name.length > 200) {
-    return c.json({ error: 'input_too_long' }, 400);
-  }
-  if (String(body.description || '').length > 10000 || String(body.short_description || '').length > 500) {
+  if (sanitizeText(body.description, 10000).length > 10000 || sanitizeText(body.short_description, 500).length > 500) {
     return c.json({ error: 'input_too_long' }, 400);
   }
   if (!isValidR2Key(apk_key, 'apk')) {
@@ -856,14 +872,14 @@ app.post('/admin/apps', async (c) => {
     name_lower: name.toLowerCase(),
     search_terms: searchTerms(name, body.developer, body.short_description, package_name),
     package_name,
-    short_description: String(body.short_description || '').trim() || undefined,
-    description: String(body.description || '').trim() || undefined,
-    category: String(body.category || 'other'),
+    short_description: sanitizeText(body.short_description, 500) || undefined,
+    description: sanitizeText(body.description, 10000) || undefined,
+    category: sanitizeText(body.category, 60) || 'other',
     type: String(body.type || 'app') === 'game' ? 'game' : 'app',
-    developer: String(body.developer || '').trim() || undefined,
-    version_name: String(body.version_name || '').trim() || undefined,
-    version_code: body.version_code != null ? Number(body.version_code) : undefined,
-    min_sdk: body.min_sdk != null ? Number(body.min_sdk) : undefined,
+    developer: sanitizeText(body.developer, 120) || undefined,
+    version_name: sanitizeText(body.version_name, 60) || undefined,
+    version_code: body.version_code != null ? safeInt(body.version_code, 0, 999999999) : undefined,
+    min_sdk: body.min_sdk != null ? safeInt(body.min_sdk, 1, 99) : undefined,
     size_bytes: head.size,
     apk_key,
     icon_key: body.icon_key ? String(body.icon_key) : undefined,

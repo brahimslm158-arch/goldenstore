@@ -40,3 +40,55 @@ export function randomId(): string {
 export function nowSec(): number {
   return Math.floor(Date.now() / 1000);
 }
+
+// --- Security: Input sanitization ---
+
+/** Strip HTML tags, control chars, and limit length to prevent XSS/injection. */
+export function sanitizeText(input: unknown, maxLength = 5000): string {
+  if (typeof input !== 'string') return '';
+  return input
+    .replace(/[<>]/g, '') // strip angle brackets (anti-XSS)
+    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // remove control chars
+    .trim()
+    .slice(0, maxLength);
+}
+
+/** Sanitize a URL — only allow http/https protocols. */
+export function sanitizeUrl(input: unknown, maxLength = 2048): string {
+  if (typeof input !== 'string') return '';
+  const cleaned = input.trim().slice(0, maxLength);
+  if (!cleaned) return '';
+  try {
+    const url = new URL(cleaned);
+    if (!['http:', 'https:'].includes(url.protocol)) return '';
+    return url.toString();
+  } catch {
+    return '';
+  }
+}
+
+/** Validate that a value is a safe integer within bounds. */
+export function safeInt(input: unknown, min = 0, max = 2147483647): number {
+  const n = Number(input);
+  if (!Number.isFinite(n) || !Number.isInteger(n)) return min;
+  return Math.max(min, Math.min(max, n));
+}
+
+/** Prevent NoSQL injection: strip $ and . prefixed keys from objects. */
+export function sanitizeQuery(obj: unknown): Record<string, unknown> {
+  if (!obj || typeof obj !== 'object' || Array.isArray(obj)) return {};
+  const safe: Record<string, unknown> = {};
+  for (const [key, val] of Object.entries(obj as Record<string, unknown>)) {
+    // Block keys starting with $ (operator injection) or containing ..
+    if (key.startsWith('$') || key.includes('..')) continue;
+    if (typeof val === 'string') {
+      safe[key] = val.slice(0, 1000);
+    } else if (typeof val === 'number' && Number.isFinite(val)) {
+      safe[key] = val;
+    } else if (typeof val === 'boolean') {
+      safe[key] = val;
+    }
+    // Ignore nested objects/arrays to prevent deep injection
+  }
+  return safe;
+}

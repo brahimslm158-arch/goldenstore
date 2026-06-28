@@ -1,7 +1,7 @@
 // Featured page — editors' choice & curated picks.
 (function () {
   const S = window.Store;
-  const { el, ico, api } = S;
+  const { el, ico, api, t } = S;
   const root = document.getElementById('root');
 
   S.bottomNav('featured');
@@ -12,7 +12,7 @@
 
     const content = el('div', { class: 'content' });
     root.append(content);
-    content.append(S.spinner());
+    content.append(S.skeletonHome());
     render(content);
   });
 
@@ -38,15 +38,15 @@
 
       const all = dedupe([top.apps, popular.apps, recent.apps]);
       if (!all.length) {
-        content.append(S.emptyState('لا توجد تطبيقات مميّزة بعد', 'ستظهر هنا اختيارات المحرّرين فور إضافتها من لوحة الإدارة.'));
+        content.append(S.emptyState(t('لا توجد تطبيقات مميّزة بعد'), t('ستظهر هنا اختيارات المحرّرين فور إضافتها من لوحة الإدارة.')));
         return;
       }
 
       const editors = all.filter((a) => a.feature_url);
       const rated = (top.apps || []).filter((a) => S.ratingCountOf(a) > 0);
 
-      content.append(el('div', { class: 'page-title' }, 'المميّزة'));
-      content.append(el('div', { class: 'section-sub' }, 'اختيارات المحرّرين المنتقاة لك'));
+      content.append(el('div', { class: 'page-title' }, t('المميّزة')));
+      content.append(el('div', { class: 'section-sub' }, t('اختيارات المحرّرين المنتقاة لك')));
 
       // Hero: curved auto-scrolling carousel built from feature graphics.
       const heroApps = editors.length ? editors : (popular.apps || top.apps || []);
@@ -54,19 +54,19 @@
 
       // Editors' choice grid (apps with a feature graphic).
       if (editors.length) {
-        content.append(gridSection('اختيارات المحرّرين', editors));
+        content.append(gridSection(t('اختيارات المحرّرين'), editors));
       }
 
       // Top rated — meaningful curated list (only when there are real ratings).
       if (rated.length) {
-        content.append(listSection('الأعلى تقييماً', rated.slice(0, 10)));
+        content.append(listSection(t('الأعلى تقييماً'), rated.slice(0, 10)));
       }
 
       // If there are no editors' picks yet, offer the most popular as a grid
       // so the page is never just a single hero.
       if (!editors.length) {
         const pop = (popular.apps && popular.apps.length ? popular.apps : recent.apps) || [];
-        if (pop.length) content.append(gridSection('الأكثر رواجًا', pop.slice(0, 18)));
+        if (pop.length) content.append(gridSection(t('الأكثر رواجًا'), pop.slice(0, 18)));
       }
     } catch (err) {
       content.innerHTML = '';

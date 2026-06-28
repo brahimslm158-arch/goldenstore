@@ -1,7 +1,7 @@
 // Home page — single "All apps" feed with Play-style top tabs (For you / Top charts / Categories).
 (function () {
   const S = window.Store;
-  const { el, ico, api, getQuery } = S;
+  const { el, ico, api, getQuery, t } = S;
   const root = document.getElementById('root');
 
   S.bottomNav('apps');
@@ -12,6 +12,7 @@
     { key: 'rated', label: 'الأعلى تقييماً' },
     { key: 'categories', label: 'الفئات' },
   ];
+  // Translate tab labels at render time so they're instant
 
   S.ready((user) => {
     root.innerHTML = '';
@@ -23,11 +24,11 @@
 
     function renderTabs() {
       tabsBar.innerHTML = '';
-      TOP_TABS.forEach((t) => {
+      TOP_TABS.forEach((t_item) => {
         tabsBar.append(el('button', {
-          class: `tab ${t.key === topTab ? 'active' : ''}`,
-          onclick: () => { if (topTab !== t.key) { topTab = t.key; renderTabs(); renderContent(); } },
-        }, t.label));
+          class: `tab ${t_item.key === topTab ? 'active' : ''}`,
+          onclick: () => { if (topTab !== t_item.key) { topTab = t_item.key; renderTabs(); renderContent(); } },
+        }, t(t_item.label)));
       });
     }
 
@@ -40,7 +41,7 @@
 
     async function renderContent() {
       content.innerHTML = '';
-      content.append(S.spinner());
+      content.append(topTab === 'categories' ? S.skeletonList() : S.skeletonHome());
       try {
         if (topTab === 'categories') return renderCategories();
         if (topTab === 'top') return renderTop();
@@ -70,7 +71,7 @@
       const topApps = filt(top.apps);
 
       if (!recentApps.length && !popularApps.length) {
-        content.append(S.emptyState('لا توجد تطبيقات بعد', 'ستظهر هنا تطبيقات المتجر فور إضافتها من لوحة الإدارة.'));
+        content.append(S.emptyState(t('لا توجد تطبيقات بعد'), t('ستظهر هنا تطبيقات المتجر فور إضافتها من لوحة الإدارة.')));
         return;
       }
 
@@ -81,7 +82,7 @@
 
       // "موصى به لك" — a curated horizontal row (most popular picks).
       const recommended = (popularApps.length ? popularApps : recentApps).slice(0, 12);
-      content.append(posterSection('موصى به لك', recommended));
+      content.append(posterSection(t('موصى به لك'), recommended));
 
       // "قد يعجبك أيضاً" — every other app not already shown above
       // (الأكثر رواجًا / الأعلى تقييماً now live in their own tabs).
@@ -90,18 +91,18 @@
       const rest = recentApps.filter((a) => !usedSlugs.has(a.slug));
 
       // "قد يعجبك أيضاً" — a short curated taste of the rest.
-      content.append(listSection('قد يعجبك أيضاً', rest.slice(0, 5)));
+      content.append(listSection(t('قد يعجبك أيضاً'), rest.slice(0, 5)));
 
       // "تطبيقات أخرى" — every remaining app, with a vertical/horizontal toggle.
       const others = rest.slice(5);
-      if (others.length) content.append(toggleSection('تطبيقات أخرى', others));
+      if (others.length) content.append(toggleSection(t('تطبيقات أخرى'), others));
     }
 
     async function renderTop() {
       const res = await api(q('sort=popular&limit=60'));
       const apps = filt(res.apps).slice(0, 50);
       content.innerHTML = '';
-      if (!apps.length) { content.append(S.emptyState('لا توجد تطبيقات بعد')); return; }
+      if (!apps.length) { content.append(S.emptyState(t('لا توجد تطبيقات بعد'))); return; }
       const list = el('div', { class: 'applist' });
       apps.forEach((a, i) => {
         const row = S.listRow(a);
@@ -116,7 +117,7 @@
       const res = await api(q('sort=rating&limit=60'));
       const apps = filt(res.apps).filter((a) => S.ratingCountOf(a) > 0).slice(0, 50);
       content.innerHTML = '';
-      if (!apps.length) { content.append(S.emptyState('لا توجد تطبيقات مقيّمة بعد', 'قيّم التطبيقات لتظهر هنا الأعلى تقييماً.')); return; }
+      if (!apps.length) { content.append(S.emptyState(t('لا توجد تطبيقات مقيّمة بعد'), t('قيّم التطبيقات لتظهر هنا الأعلى تقييماً.'))); return; }
       const list = el('div', { class: 'applist' });
       apps.forEach((a, i) => {
         const row = S.listRow(a);
@@ -136,7 +137,7 @@
           el('div', { class: 'art', style: { background: 'var(--surface-2)' } }, ico(c.icon, 'icon icon-lg')),
           el('div', { class: 'info' },
             el('div', { class: 'nm' }, c.name),
-            el('div', { class: 'sub' }, `${c.count || 0} تطبيق`),
+            el('div', { class: 'sub' }, `${c.count || 0} ${t('تطبيق')}`),
           ),
           ico('chevronStart', 'icon'),
         ));

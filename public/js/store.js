@@ -9,19 +9,19 @@ function currentTheme() {
   try { return localStorage.getItem(THEME_KEY) === 'light' ? 'light' : 'dark'; } catch { return 'dark'; }
 }
 function applyTheme(theme) {
-  const t = theme === 'light' ? 'light' : 'dark';
-  document.documentElement.setAttribute('data-theme', t);
-  try { localStorage.setItem(THEME_KEY, t); } catch {}
+  const th = theme === 'light' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', th);
+  try { localStorage.setItem(THEME_KEY, th); } catch {}
   const meta = document.querySelector('meta[name="theme-color"]');
-  if (meta) meta.setAttribute('content', t === 'light' ? '#ffffff' : '#0d0d0f');
-  document.querySelectorAll('.theme-toggle').forEach((b) => syncThemeBtn(b, t));
+  if (meta) meta.setAttribute('content', th === 'light' ? '#ffffff' : '#0d0d0f');
+  document.querySelectorAll('.theme-toggle').forEach((b) => syncThemeBtn(b, th));
 }
 function toggleTheme() { applyTheme(currentTheme() === 'light' ? 'dark' : 'light'); }
-function syncThemeBtn(btn, t) {
+function syncThemeBtn(btn, th) {
   btn.innerHTML = '';
-  btn.append(ico(t === 'light' ? 'moon' : 'sun', 'icon'));
-  btn.setAttribute('aria-label', t === 'light' ? 'الوضع الغامق' : 'الوضع الفاتح');
-  btn.setAttribute('title', t === 'light' ? 'الوضع الغامق' : 'الوضع الفاتح');
+  btn.append(ico(th === 'light' ? 'moon' : 'sun', 'icon'));
+  btn.setAttribute('aria-label', th === 'light' ? t('الوضع الغامق') : t('الوضع الفاتح'));
+  btn.setAttribute('title', th === 'light' ? t('الوضع الغامق') : t('الوضع الفاتح'));
 }
 function themeToggleBtn() {
   const btn = el('button', { class: 'icon-btn theme-toggle', type: 'button', onclick: toggleTheme });
@@ -94,6 +94,7 @@ function el(tag, attrs = null, ...children) {
 }
 
 function ico(name, extra = 'icon') { return window.GSIcons.iconEl(name, extra); }
+function t(s) { try { return window.GSI18N.t(s); } catch { return s; } }
 
 /* --------------------------- Formatters --------------------------- */
 function i18nUnits(kind) {
@@ -159,7 +160,7 @@ function posterCard(a) {
     el('div', { class: 'nm' }, a.name),
     rt
       ? el('div', { class: 'rt' }, el('span', null, rt), ico('star', 'icon fill'))
-      : el('div', { class: 'rt' }, el('span', null, 'جديد')),
+      : el('div', { class: 'rt' }, el('span', null, t('جديد'))),
   );
 }
 
@@ -173,13 +174,13 @@ function listRow(a, opts = {}) {
       el('div', { class: 'nm' }, a.name),
       el('div', { class: 'sub' }, a.developer || cat || STORE.name),
       el('div', { class: 'meta-line' },
-        rt ? el('span', null, rt) : el('span', null, 'جديد'),
+        rt ? el('span', null, rt) : el('span', null, t('جديد')),
         rt ? ico('star', 'icon fill') : null,
         el('span', null, '•'),
         el('span', null, formatBytes(a.size_bytes || 0)),
       ),
     ),
-    opts.installed ? el('span', { class: 'badge' }, ico('check', 'icon icon-sm'), 'مثبّت') : null,
+    opts.installed ? el('span', { class: 'badge' }, ico('check', 'icon icon-sm'), t('مثبّت')) : null,
   );
 }
 
@@ -199,12 +200,12 @@ function featureSlide(a) {
   const rt = ratingOf(a);
   slide.append(
     media,
-    el('div', { class: 'fc-pill' }, ico('award', 'icon icon-sm'), 'اختيارات المحرّرين'),
+    el('div', { class: 'fc-pill' }, ico('award', 'icon icon-sm'), t('اختيارات المحرّرين')),
     el('div', { class: 'fc-body', dir: 'rtl' },
       el('h3', null, a.name),
-      el('p', null, a.short_description || a.developer || 'تطبيق مميّز مختار لك'),
+      el('p', null, a.short_description || a.developer || t('تطبيق مميّز مختار لك')),
       el('div', { class: 'fc-cta' },
-        el('span', { class: 'btn btn-primary' }, 'عرض'),
+        el('span', { class: 'btn btn-primary' }, t('عرض')),
         rt ? el('span', { class: 'fc-rate' }, ico('star', 'icon fill'), rt) : null,
       ),
     ),
@@ -222,7 +223,7 @@ function featureCarousel(apps, opts = {}) {
   const dots = el('div', { class: 'fc-dots' });
   list.forEach((_, i) => dots.append(el('button', {
     class: `fc-dot ${i === 0 ? 'on' : ''}`, type: 'button',
-    'aria-label': `شريحة ${i + 1}`, onclick: (e) => { e.preventDefault(); go(i, true); },
+    'aria-label': `${t('شريحة')} ${i + 1}`, onclick: (e) => { e.preventDefault(); go(i, true); },
   })));
 
   const wrap = el('div', { class: 'feature-carousel' }, track, list.length > 1 ? dots : null);
@@ -265,24 +266,105 @@ const CAT_NAMES = {
   // Legacy
   games: 'ألعاب',
 };
-function categoryName(slug) { return CAT_NAMES[slug] || ''; }
+function categoryName(slug) { return t(CAT_NAMES[slug] || ''); }
 
 /* -------------------------- States UI -------------------------- */
 function spinner() { return el('div', { class: 'center' }, el('div', { class: 'spinner' })); }
+
+// --- Skeleton loaders ---
+function skEl(w, h, cls = '') {
+  return el('div', { class: `sk ${cls}`, style: { width: w, height: h, flexShrink: '0' } });
+}
+function skeletonHome() {
+  const wrap = el('div', { class: 'sk-section' });
+  // Hero skeleton
+  wrap.append(el('div', { class: 'sk-card', style: { width: '100%', height: '180px', marginBottom: '20px' } }));
+  // Section title
+  wrap.append(skEl('35%', '18px'));
+  // Poster row
+  const row = el('div', { class: 'sk-hrow', style: { marginTop: '12px' } });
+  for (let i = 0; i < 4; i++) {
+    const p = el('div', { class: 'sk-poster' });
+    p.append(el('div', { class: 'sk-card', style: { width: '100px', height: '100px', borderRadius: '20px' } }));
+    p.append(skEl('80px', '10px'));
+    p.append(skEl('50px', '8px'));
+    row.append(p);
+  }
+  wrap.append(row);
+  // List section
+  wrap.append(skEl('30%', '18px', ''), el('div', { style: { height: '16px' } }));
+  for (let i = 0; i < 4; i++) {
+    const r = el('div', { class: 'sk-row' });
+    r.append(skEl('48px', '48px', 'sk-circle'));
+    const info = el('div', { style: { flex: '1', display: 'flex', flexDirection: 'column', gap: '6px' } });
+    info.append(skEl('60%', '12px'));
+    info.append(skEl('40%', '10px'));
+    r.append(info);
+    wrap.append(r);
+  }
+  return wrap;
+}
+function skeletonDetail() {
+  const wrap = el('div');
+  const hdr = el('div', { class: 'sk-detail-header' });
+  hdr.append(skEl('80px', '80px', '', ''));
+  const hInfo = el('div', { style: { flex: '1', display: 'flex', flexDirection: 'column', gap: '8px', paddingTop: '4px' } });
+  hInfo.append(skEl('70%', '18px'));
+  hInfo.append(skEl('40%', '14px'));
+  hInfo.append(skEl('30%', '12px'));
+  hdr.append(hInfo);
+  wrap.append(hdr);
+  // Button skeleton
+  const body = el('div', { class: 'sk-detail-body' });
+  body.append(skEl('100%', '44px', ''));
+  // Stats row
+  const stats = el('div', { style: { display: 'flex', gap: '24px', justifyContent: 'center', marginTop: '8px' } });
+  for (let i = 0; i < 3; i++) {
+    const s = el('div', { style: { display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' } });
+    s.append(skEl('40px', '16px'));
+    s.append(skEl('50px', '10px'));
+    stats.append(s);
+  }
+  body.append(stats);
+  // Screenshots
+  const scrRow = el('div', { style: { display: 'flex', gap: '10px', overflow: 'hidden', marginTop: '12px' } });
+  for (let i = 0; i < 3; i++) scrRow.append(el('div', { class: 'sk-card', style: { width: '140px', height: '250px', flexShrink: '0', borderRadius: '12px' } }));
+  body.append(scrRow);
+  // Description
+  body.append(skEl('50%', '16px'));
+  body.append(skEl('100%', '12px'));
+  body.append(skEl('90%', '12px'));
+  body.append(skEl('75%', '12px'));
+  wrap.append(body);
+  return wrap;
+}
+function skeletonList() {
+  const wrap = el('div', { class: 'sk-list-section' });
+  for (let i = 0; i < 6; i++) {
+    const r = el('div', { class: 'sk-row' });
+    r.append(skEl('48px', '48px', 'sk-circle'));
+    const info = el('div', { style: { flex: '1', display: 'flex', flexDirection: 'column', gap: '6px' } });
+    info.append(skEl('65%', '13px'));
+    info.append(skEl('35%', '10px'));
+    r.append(info);
+    wrap.append(r);
+  }
+  return wrap;
+}
 function emptyState(title, hint, icon = 'package') {
   return el('div', { class: 'empty' }, ico(icon, 'icon'), el('h3', null, title), hint ? el('p', null, hint) : null);
 }
 function errorState(err) {
   if (err && (err.status === 0 || err.message === 'timeout'))
-    return emptyState('تعذّر الاتصال بالخادم', 'تحقّق من اتصالك بالإنترنت ثمّ حدّث الصفحة.', 'globe');
+    return emptyState(t('تعذّر الاتصال بالخادم'), t('تحقّق من اتصالك بالإنترنت ثمّ حدّث الصفحة.'), 'globe');
   if (err && err.status >= 500)
-    return emptyState('الخدمة غير متاحة مؤقتاً', 'حاول لاحقاً بعد دقائق قليلة.', 'info');
-  return emptyState('تعذّر تحميل البيانات', 'حدّث الصفحة وحاول مجدداً.', 'info');
+    return emptyState(t('الخدمة غير متاحة مؤقتاً'), t('حاول لاحقاً بعد دقائق قليلة.'), 'info');
+  return emptyState(t('تعذّر تحميل البيانات'), t('حدّث الصفحة وحاول مجدداً.'), 'info');
 }
 
 /* ----------------------------- Chrome ----------------------------- */
 function avatarEl(user) {
-  const a = el('a', { href: '/account', class: 'avatar', 'aria-label': 'حسابك' });
+  const a = el('a', { href: '/account', class: 'avatar', 'aria-label': t('حسابك') });
   if (user && user.photoURL) a.append(el('img', { src: user.photoURL, alt: '', referrerpolicy: 'no-referrer' }));
   else a.append(document.createTextNode(initials(user)));
   return a;
@@ -308,7 +390,7 @@ function topbarSearch(user) {
 // Back/title top bar (detail)
 function topbarNav(title = '', actions = []) {
   return el('div', { class: 'topbar-nav' },
-    el('button', { class: 'icon-btn', 'aria-label': 'رجوع', onclick: () => history.length > 1 ? history.back() : (location.href = '/') }, ico('chevronEnd')),
+    el('button', { class: 'icon-btn', 'aria-label': t('رجوع'), onclick: () => history.length > 1 ? history.back() : (location.href = '/') }, ico('chevronEnd')),
     title ? el('div', { class: 'title' }, title) : el('div', { class: 'spacer' }),
     ...actions,
     langSwitcherEl(),
@@ -316,7 +398,7 @@ function topbarNav(title = '', actions = []) {
   );
 }
 
-const NAV_ITEMS = [
+const NAV_ITEMS_RAW = [
   { key: 'apps', label: 'التطبيقات', icon: 'apps', href: '/' },
   { key: 'games', label: 'الألعاب', icon: 'gamepad', href: '/games' },
   { key: 'search', label: 'بحث', icon: 'search', href: '/search' },
@@ -326,9 +408,9 @@ const NAV_ITEMS = [
 function bottomNav(active) {
   const nav = el('nav', { class: 'bottomnav' },
     el('div', { class: 'bottomnav-inner' },
-      ...NAV_ITEMS.map((it) => el('a', { href: it.href, class: `navitem ${it.key === active ? 'active' : ''}` },
+      ...NAV_ITEMS_RAW.map((it) => el('a', { href: it.href, class: `navitem ${it.key === active ? 'active' : ''}` },
         el('span', { class: 'pill-ico' }, ico(it.icon, it.key === active ? 'icon fill' : 'icon')),
-        el('span', null, it.label),
+        el('span', null, t(it.label)),
       )),
     ),
   );
@@ -384,11 +466,11 @@ function authErrorMessage(e) {
 function buildGate(loading) {
   const errBox = el('div', { class: 'gate-error hidden' });
   const btn = el('button', { class: 'gbtn', html: GOOGLE_G });
-  btn.append(document.createTextNode(' متابعة باستخدام Google'));
+  btn.append(document.createTextNode(' ' + t('متابعة باستخدام Google')));
   btn.addEventListener('click', async () => {
     errBox.classList.add('hidden');
     btn.disabled = true;
-    btn.lastChild && (btn.lastChild.textContent = ' جارٍ تسجيل الدخول…');
+    btn.lastChild && (btn.lastChild.textContent = ' ' + t('جارٍ تسجيل الدخول…'));
     try {
       await window.GAuth.signInWithGoogle();
     } catch (e) {
@@ -398,16 +480,16 @@ function buildGate(loading) {
       errBox.classList.remove('hidden');
       toast(msg, 'error', 6000);
       btn.disabled = false;
-      btn.lastChild && (btn.lastChild.textContent = ' متابعة باستخدام Google');
+      btn.lastChild && (btn.lastChild.textContent = ' ' + t('متابعة باستخدام Google'));
     }
   });
   return el('div', { class: 'gate' },
     el('div', { class: 'logo' }, el('img', { src: '/images/logo.png', alt: 'Golden Store' })),
     el('h1', null, 'Golden', el('b', null, 'Store')),
-    el('p', null, 'سجّل الدخول بحساب Google للوصول إلى المتجر وتنزيل التطبيقات.'),
+    el('p', null, t('سجّل الدخول بحساب Google للوصول إلى المتجر وتنزيل التطبيقات.')),
     loading ? el('div', { class: 'gate-spinner' }, el('div', { class: 'spinner' })) : btn,
     errBox,
-    el('div', { class: 'terms' }, 'بالمتابعة فإنك توافق على شروط الاستخدام وسياسة الخصوصية لـ Golden Store.'),
+    el('div', { class: 'terms' }, t('بالمتابعة فإنك توافق على شروط الاستخدام وسياسة الخصوصية لـ Golden Store.')),
   );
 }
 
@@ -495,10 +577,10 @@ function clearDownloadHistory() {
 }
 
 window.Store = {
-  STORE, api, el, ico,
+  STORE, api, el, ico, t,
   formatBytes, formatCount, formatNum, formatDate, ratingOf, ratingValue, ratingCountOf, getQuery, toast,
   posterCard, listRow, featureCarousel, categoryName,
-  spinner, emptyState, errorState,
+  spinner, skeletonHome, skeletonDetail, skeletonList, emptyState, errorState,
   topbarSearch, topbarNav, bottomNav, avatarEl, themeToggleBtn, langSwitcherEl, toggleTheme, currentTheme,
   ready, signOut, getUser: () => _user,
   getDownloadHistory, addToDownloadHistory, clearDownloadHistory,

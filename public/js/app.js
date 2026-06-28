@@ -1,24 +1,20 @@
 // App detail page — Google Play–style.
 (function () {
   const S = window.Store;
-  const { el, ico, api, getQuery, formatBytes, formatNum, formatCount, formatDate, ratingOf, toast } = S;
+  const { el, ico, api, getQuery, formatBytes, formatNum, formatCount, formatDate, ratingOf, toast, t } = S;
   const root = document.getElementById('root');
   S.bottomNav('');
-
-  // Localize a known UI string synchronously (used for the rapidly-updating
-  // install button so we don't spam the translator with each progress percent).
-  const tr = (s) => { try { return (window.GSI18N && window.GSI18N.t) ? window.GSI18N.t(s) : s; } catch (e) { return s; } };
 
   const slug = getQuery('slug');
 
   function sdkName(sdk) {
-    const map = { 21: 'أندرويد 5.0', 22: '5.1', 23: '6.0', 24: '7.0', 25: '7.1', 26: '8.0', 27: '8.1', 28: '9', 29: '10', 30: '11', 31: '12', 32: '12L', 33: '13', 34: '14', 35: '15' };
+    const map = { 21: t('أندرويد') + ' 5.0', 22: '5.1', 23: '6.0', 24: '7.0', 25: '7.1', 26: '8.0', 27: '8.1', 28: '9', 29: '10', 30: '11', 31: '12', 32: '12L', 33: '13', 34: '14', 35: '15' };
     return map[sdk] || (sdk ? `SDK ${sdk}` : '—');
   }
 
   function openModal(src) {
     const m = el('div', { class: 'modal', onclick: (e) => { if (e.target === m) m.remove(); } },
-      el('button', { class: 'close', 'aria-label': 'إغلاق', onclick: () => m.remove() }, ico('close')),
+      el('button', { class: 'close', 'aria-label': t('إغلاق'), onclick: () => m.remove() }, ico('close')),
       el('img', { src }),
     );
     document.body.append(m);
@@ -48,20 +44,20 @@
   S.ready(async () => {
     root.innerHTML = '';
 
-    const menuBtn = el('button', { class: 'icon-btn', 'aria-label': 'مشاركة', onclick: () => share() }, ico('share'));
+    const menuBtn = el('button', { class: 'icon-btn', 'aria-label': t('مشاركة'), onclick: () => share() }, ico('share'));
     const nav = S.topbarNav('', [menuBtn]);
     root.append(nav);
     const content = el('div', { class: 'detail' });
     root.append(content);
-    content.append(S.spinner());
+    content.append(S.skeletonDetail());
 
     function share() {
       const url = location.href;
       if (navigator.share) navigator.share({ url }).catch(() => {});
-      else { navigator.clipboard && navigator.clipboard.writeText(url); toast('تم نسخ الرابط', 'success'); }
+      else { navigator.clipboard && navigator.clipboard.writeText(url); toast(t('تم نسخ الرابط'), 'success'); }
     }
 
-    if (!slug) { content.innerHTML = ''; content.append(S.emptyState('لا يوجد تطبيق محدد', 'الرابط غير صحيح.', 'info')); return; }
+    if (!slug) { content.innerHTML = ''; content.append(S.emptyState(t('لا يوجد تطبيق محدد'), t('الرابط غير صحيح.'), 'info')); return; }
 
     let app, screenshots;
     try {
@@ -69,9 +65,9 @@
       app = data.app; screenshots = data.screenshots || [];
     } catch (e) {
       content.innerHTML = '';
-      const title = (e && (e.status === 0 || e.message === 'timeout')) ? 'تعذّر الاتصال بالخادم' : 'التطبيق غير موجود';
-      content.append(S.emptyState(title, 'تأكد من الرابط أو عُد للرئيسية.', 'info'),
-        el('div', { style: { textAlign: 'center', marginTop: '16px' } }, el('a', { class: 'btn btn-primary', href: '/' }, 'العودة للرئيسية')));
+      const errTitle = (e && (e.status === 0 || e.message === 'timeout')) ? t('تعذّر الاتصال بالخادم') : t('التطبيق غير موجود');
+      content.append(S.emptyState(errTitle, t('تأكد من الرابط أو عُد للرئيسية.'), 'info'),
+        el('div', { style: { textAlign: 'center', marginTop: '16px' } }, el('a', { class: 'btn btn-primary', href: '/' }, t('العودة للرئيسية'))));
       return;
     }
 
@@ -85,22 +81,22 @@
       el('div', { class: 'd-titles' },
         el('div', { class: 'd-name' }, app.name),
         el('div', { class: 'd-dev' }, app.developer || S.STORE.name),
-        el('div', { class: 'd-sub' }, [S.categoryName(app.category), 'يحتوي على عمليات شراء داخل التطبيق'].filter(Boolean).join(' • ')),
+        el('div', { class: 'd-sub' }, [S.categoryName(app.category), t('يحتوي على عمليات شراء داخل التطبيق')].filter(Boolean).join(' • ')),
       ),
     ));
 
     // Stats row
     const rt = ratingOf(app);
     content.append(el('div', { class: 'd-stats' },
-      stat(rt ? el('span', null, rt, ico('star', 'icon fill')) : el('span', null, 'جديد'), 'تقييم'),
-      stat(formatCount(app.downloads), 'تنزيلات'),
-      stat(formatBytes(app.size_bytes || 0), 'الحجم'),
-      stat(sdkName(app.min_sdk), 'أندرويد'),
+      stat(rt ? el('span', null, rt, ico('star', 'icon fill')) : el('span', null, t('جديد')), t('تقييم')),
+      stat(formatCount(app.downloads), t('تنزيلات')),
+      stat(formatBytes(app.size_bytes || 0), t('الحجم')),
+      stat(sdkName(app.min_sdk), t('أندرويد')),
     ));
 
     // Actions — animated install with a smooth progress bar.
     content.append(installControl(app));
-    content.append(el('div', { class: 'd-note' }, `سيتم تنزيل ملف APK (${formatBytes(app.size_bytes || 0)}). فعّل «تثبيت من مصادر غير معروفة» لإكمال التثبيت.`));
+    content.append(el('div', { class: 'd-note' }, t('سيتم تنزيل ملف APK') + ` (${formatBytes(app.size_bytes || 0)}). ` + t('فعّل «تثبيت من مصادر غير معروفة» لإكمال التثبيت.')));
 
     // Screenshots
     if (screenshots.length) {
@@ -112,7 +108,7 @@
     // About
     if (app.short_description || app.description) {
       content.append(el('div', { class: 'd-section' },
-        el('h3', null, 'لمحة عن هذا التطبيق'),
+        el('h3', null, t('لمحة عن هذا التطبيق')),
         el('div', { class: 'd-desc' }, app.description || app.short_description),
       ));
     }
@@ -120,7 +116,7 @@
     // Tags
     content.append(el('div', { class: 'chip-row' },
       app.category ? el('span', { class: 'chip' }, S.categoryName(app.category)) : null,
-      el('span', { class: 'chip' }, 'الإصدار ' + (app.version_name || '—')),
+      el('span', { class: 'chip' }, t('الإصدار') + ' ' + (app.version_name || '—')),
     ));
 
     // Rating section (star vote)
@@ -143,11 +139,11 @@
       const res = await api(`/api/apps?limit=20${catParam}${typeParam}&sort=popular`);
       const similar = (res.apps || []).filter((a) => a.slug !== app.slug).slice(0, 10);
       if (!similar.length) return;
-      const title = app.type === 'game' ? 'ألعاب مماثلة' : 'تطبيقات مماثلة';
+      const simTitle = app.type === 'game' ? t('ألعاب مماثلة') : t('تطبيقات مماثلة');
       const row = el('div', { class: 'hrow' });
       similar.forEach((a) => row.append(S.posterCard(a)));
       container.append(el('div', { class: 'd-section' },
-        el('h3', null, title),
+        el('h3', null, simTitle),
         row,
       ));
     } catch {}
@@ -183,7 +179,7 @@
       el('div', { class: 'head' },
         avatar,
         el('div', { class: 'who' },
-          el('div', { class: 'nm' }, r.name || 'مستخدم'),
+          el('div', { class: 'nm' }, r.name || t('مستخدم')),
           el('div', { class: 'dt' }, formatDate(r.ts)),
         ),
       ),
@@ -229,22 +225,22 @@
       const values = {};
       for (const f of fields) values[f.key] = (inputs[f.key].value || '').trim();
       for (const f of fields) {
-        if (f.required && !values[f.key]) { errLine.textContent = 'يرجى ملء الحقول المطلوبة'; inputs[f.key].focus(); return; }
+        if (f.required && !values[f.key]) { errLine.textContent = t('يرجى ملء الحقول المطلوبة'); inputs[f.key].focus(); return; }
       }
       submitBtn.disabled = true; errLine.textContent = '';
-      try { await onSubmit(values); close(); toast('تم إرسال طلبك إلى الإدارة', 'success'); }
-      catch (e) { submitBtn.disabled = false; errLine.textContent = 'تعذّر الإرسال، حاول مجدداً'; }
+      try { await onSubmit(values); close(); toast(t('تم إرسال طلبك إلى الإدارة'), 'success'); }
+      catch (e) { submitBtn.disabled = false; errLine.textContent = t('تعذّر الإرسال، حاول مجدداً'); }
     });
 
     const card = el('div', { class: 'dialog-card', dir: 'rtl' },
       el('div', { class: 'dialog-head' },
         el('div', { class: 'dialog-title' }, ico(icon, 'icon'), title),
-        el('button', { class: 'dialog-close', 'aria-label': 'إغلاق', onclick: () => close() }, ico('close')),
+        el('button', { class: 'dialog-close', 'aria-label': t('إغلاق'), onclick: () => close() }, ico('close')),
       ),
       body,
       errLine,
       el('div', { class: 'dialog-actions' },
-        el('button', { class: 'btn btn-secondary', onclick: () => close() }, 'إلغاء'),
+        el('button', { class: 'btn btn-secondary', onclick: () => close() }, t('إلغاء')),
         submitBtn,
       ),
     );
@@ -257,11 +253,11 @@
 
   function openRequestUpdate(app) {
     openDialog({
-      icon: 'refresh', title: 'طلب تحديث', submitLabel: 'إرسال الطلب',
+      icon: 'refresh', title: t('طلب تحديث'), submitLabel: t('إرسال الطلب'),
       fields: [
-        { key: 'current', label: 'الإصدار الحالي', value: app.version_name || '—', readonly: true },
-        { key: 'new_version', label: 'الإصدار الجديد', required: true, placeholder: 'مثال: 2.5.1', maxlength: '60' },
-        { key: 'source', label: 'رابط المصدر', placeholder: 'مثال: https://play.google.com/...', maxlength: '500' },
+        { key: 'current', label: t('الإصدار الحالي'), value: app.version_name || '—', readonly: true },
+        { key: 'new_version', label: t('الإصدار الجديد'), required: true, placeholder: 'مثال: 2.5.1', maxlength: '60' },
+        { key: 'source', label: t('رابط المصدر'), placeholder: 'مثال: https://play.google.com/...', maxlength: '500' },
       ],
       onSubmit: (v) => api(`/api/apps/${encodeURIComponent(app.slug)}/request-update`, {
         method: 'POST', body: { new_version: v.new_version, source: v.source },
@@ -271,11 +267,11 @@
 
   function openReport(app) {
     openDialog({
-      icon: 'flag', title: 'إبلاغ عن التطبيق', submitLabel: 'إرسال البلاغ',
+      icon: 'flag', title: t('إبلاغ عن التطبيق'), submitLabel: t('إرسال البلاغ'),
       fields: [
-        { key: 'reason', label: 'سبب البلاغ', required: true, type: 'select',
-          options: ['التطبيق فيه فيروس', 'رابط التحميل لا يعمل', 'محتوى غير لائق', 'انتهاك حقوق نشر', 'معلومات خاطئة', 'سبب آخر'] },
-        { key: 'details', label: 'تفاصيل إضافية', type: 'textarea', placeholder: 'اشرح المشكلة…', maxlength: '2000' },
+        { key: 'reason', label: t('سبب البلاغ'), required: true, type: 'select',
+          options: [t('التطبيق فيه فيروس'), t('رابط التحميل لا يعمل'), t('محتوى غير لائق'), t('انتهاك حقوق نشر'), t('معلومات خاطئة'), t('سبب آخر')] },
+        { key: 'details', label: t('تفاصيل إضافية'), type: 'textarea', placeholder: 'اشرح المشكلة…', maxlength: '2000' },
       ],
       onSubmit: (v) => api(`/api/apps/${encodeURIComponent(app.slug)}/report`, {
         method: 'POST', body: { reason: v.reason, details: v.details },
@@ -305,7 +301,7 @@
   // reporting genuine progress, saves the file to the device, then settles into
   // an "installed" state ("التطبيق لديك").
   function installControl(app) {
-    const label = el('span', { class: 'install-label', 'data-noi18n': '' }, tr('تثبيت'));
+    const label = el('span', { class: 'install-label', 'data-noi18n': '' }, t('تثبيت'));
     const fill = el('span', { class: 'install-fill' });
     const btn = el('button', { class: 'btn btn-primary btn-lg install-btn', type: 'button' }, fill, label);
 
@@ -313,11 +309,11 @@
       const pct = Math.max(0, Math.min(100, Math.round(ratio * 100)));
       fill.style.transition = 'width .15s linear';
       fill.style.width = pct + '%';
-      label.textContent = `${tr('جارٍ التحميل…')} ${pct}%`;
+      label.textContent = `${t('جارٍ التحميل…')} ${pct}%`;
     }
     function setIndeterminate() {
       btn.classList.add('indeterminate');
-      label.textContent = tr('جارٍ التحميل…');
+      label.textContent = t('جارٍ التحميل…');
     }
     function resetBar() {
       btn.classList.remove('installing', 'indeterminate');
@@ -329,13 +325,13 @@
       btn.classList.add('installed');
       btn.disabled = false;
       label.innerHTML = '';
-      label.append(ico('check', 'icon'), document.createTextNode(tr('تم التثبيت')));
+      label.append(ico('check', 'icon'), document.createTextNode(t('تم التثبيت')));
     }
     function showIdle() {
       resetBar();
       btn.classList.remove('installed');
       btn.disabled = false;
-      label.textContent = tr('تثبيت');
+      label.textContent = t('تثبيت');
     }
 
     const filename = `${app.slug || 'app'}-${app.version_name || ''}.apk`.replace(/-+/g, '-');
@@ -349,7 +345,7 @@
       btn.disabled = true;
       fill.style.transition = 'none';
       fill.style.width = '0%';
-      label.textContent = `${tr('جارٍ التحميل…')} 0%`;
+      label.textContent = `${t('جارٍ التحميل…')} 0%`;
 
       try {
         const res = await fetch(`/api/apps/${encodeURIComponent(app.slug)}/download?stream=1`, { credentials: 'include' });
@@ -373,14 +369,14 @@
         markInstalledStored(app.slug);
         S.addToDownloadHistory(app);
         showInstalled();
-        toast('اكتمل التحميل وحُفظ الملف في جهازك', 'success');
+        toast(t('اكتمل التحميل وحُفظ الملف في جهازك'), 'success');
       } catch (e) {
         // Streaming failed (network/limits) — fall back to a normal download so
         // the user still gets the file, and don't fake an "installed" state.
         fallbackDownload(app.slug);
         S.addToDownloadHistory(app);
         showIdle();
-        toast('تعذّر عرض شريط التقدّم، وبدأ التنزيل بالطريقة العادية', 'info');
+        toast(t('تعذّر عرض شريط التقدّم، وبدأ التنزيل بالطريقة العادية'), 'info');
       }
     }
 
@@ -390,11 +386,11 @@
     // Split dropdown attached to the install button: request-update / report.
     const menu = el('div', { class: 'install-menu' },
       el('button', { class: 'install-menu-item', type: 'button', onclick: () => { toggleMenu(false); openRequestUpdate(app); } },
-        ico('refresh', 'icon'), 'طلب تحديث'),
+        ico('refresh', 'icon'), t('طلب تحديث')),
       el('button', { class: 'install-menu-item', type: 'button', onclick: () => { toggleMenu(false); openReport(app); } },
-        ico('flag', 'icon'), 'إبلاغ عن مشكلة'),
+        ico('flag', 'icon'), t('إبلاغ عن مشكلة')),
     );
-    const caret = el('button', { class: 'btn btn-primary btn-lg install-caret', type: 'button', 'aria-label': 'خيارات إضافية' }, ico('chevronDown', 'icon'));
+    const caret = el('button', { class: 'btn btn-primary btn-lg install-caret', type: 'button', 'aria-label': t('خيارات إضافية') }, ico('chevronDown', 'icon'));
     const group = el('div', { class: 'install-group' }, btn, caret, menu);
 
     function toggleMenu(force) {
@@ -418,7 +414,7 @@
     const big = el('div', { class: 'rate-big' }, initialCount > 0 ? avg.toFixed(1) : '—');
     const avgBar = starBar(avg);
     const count = el('div', { class: 'rate-meta' },
-      initialCount > 0 ? `${formatNum(initialCount)} تقييم` : 'كن أول من يقيّم هذا التطبيق');
+      initialCount > 0 ? `${formatNum(initialCount)} ${t('تقييم')}` : t('كن أول من يقيّم هذا التطبيق'));
 
     // Rating distribution (5 → 1)
     const distRows = el('div', { class: 'rate-dist' });
@@ -432,7 +428,7 @@
       big.textContent = ratingCount > 0 ? Number(ratingAvg).toFixed(1) : '—';
       const fresh = starBar(ratingAvg);
       avgBar.replaceChildren(...fresh.childNodes);
-      count.textContent = ratingCount > 0 ? `${formatNum(ratingCount)} تقييم` : 'كن أول من يقيّم هذا التطبيق';
+      count.textContent = ratingCount > 0 ? `${formatNum(ratingCount)} ${t('تقييم')}` : t('كن أول من يقيّم هذا التطبيق');
     }
 
     // Interactive star picker (1–5). Text glyphs so stars are always visible/tappable.
@@ -448,21 +444,21 @@
     for (let i = 1; i <= 5; i++) {
       const sp = el('span', { class: 'star-pick' }, '☆');
       sp.setAttribute('role', 'button');
-      sp.setAttribute('aria-label', `${i} نجوم`);
+      sp.setAttribute('aria-label', `${i} ${t('نجوم')}`);
       sp.addEventListener('mouseenter', () => { if (!voted) paint(i); });
       sp.addEventListener('mouseleave', () => paint(voted ? myRating : selected));
       sp.addEventListener('click', () => {
-        if (voted) { toast('لقد قيّمت هذا التطبيق مسبقاً', 'info'); return; }
+        if (voted) { toast(t('لقد قيّمت هذا التطبيق مسبقاً'), 'info'); return; }
         selected = i; paint(i);
       });
       icons.push(sp);
       picker.append(sp);
     }
-    const pickerHint = el('div', { style: { fontSize: '14px', marginBottom: '8px' } }, 'قيّم واكتب مراجعتك');
+    const pickerHint = el('div', { style: { fontSize: '14px', marginBottom: '8px' } }, t('قيّم واكتب مراجعتك'));
 
     // Review form — reviews are tied to the signed-in Google account, so the
     // reviewer identity (name + photo) is shown and submitted automatically.
-    const accountName = (user && (user.displayName || user.email)) || 'مستخدم';
+    const accountName = (user && (user.displayName || user.email)) || t('مستخدم');
     const accountPhoto = (user && user.photoURL) || '';
     const accountUid = (user && user.uid) || '';
     const idAvatar = el('div', { class: 'avatar' });
@@ -470,10 +466,10 @@
     else idAvatar.textContent = (accountName.trim().charAt(0) || 'م').toUpperCase();
     const identity = el('div', { class: 'review-identity' },
       idAvatar,
-      el('div', { class: 'who' }, el('div', { class: 'nm' }, accountName), el('div', { class: 'dt' }, 'تنشر باسم حسابك')),
+      el('div', { class: 'who' }, el('div', { class: 'nm' }, accountName), el('div', { class: 'dt' }, t('تنشر باسم حسابك'))),
     );
-    const commentInput = el('textarea', { class: 'field', maxlength: '2000', placeholder: 'شارك رأيك في هذا التطبيق…' });
-    const submitBtn = el('button', { class: 'btn btn-primary' }, 'نشر المراجعة');
+    const commentInput = el('textarea', { class: 'field', maxlength: '2000', placeholder: t('شارك رأيك في هذا التطبيق…') });
+    const submitBtn = el('button', { class: 'btn btn-primary' }, t('نشر المراجعة'));
     submitBtn.addEventListener('click', () => submit());
     const form = el('div', { class: 'review-form' }, identity, commentInput, el('div', { class: 'actions' }, submitBtn));
 
@@ -482,7 +478,7 @@
     function renderReviews(list) {
       reviewsList.innerHTML = '';
       if (!list || !list.length) {
-        reviewsList.append(el('div', { class: 'reviews-empty' }, 'لا توجد مراجعات بعد. كن أول من يكتب مراجعة!'));
+        reviewsList.append(el('div', { class: 'reviews-empty' }, t('لا توجد مراجعات بعد. كن أول من يكتب مراجعة!')));
         return;
       }
       list.forEach((r) => reviewsList.append(reviewCard(r)));
@@ -493,10 +489,10 @@
       voted = true; myRating = rating; selected = rating;
       paint(myRating);
       picker.classList.add('voted');
-      pickerHint.textContent = myRating ? `تقييمك: ${myRating} من 5` : 'لقد قيّمت هذا التطبيق';
+      pickerHint.textContent = myRating ? `${t('تقييمك')}: ${myRating} ${t('من')} 5` : t('لقد قيّمت هذا التطبيق');
       commentInput.value = '';
       commentInput.disabled = true; submitBtn.disabled = true;
-      submitBtn.textContent = 'تم نشر مراجعتك';
+      submitBtn.textContent = t('تم نشر مراجعتك');
     }
 
     // Initial load — my vote state.
@@ -522,8 +518,8 @@
     loadReviews();
 
     async function submit() {
-      if (voted) { toast('لقد قيّمت هذا التطبيق مسبقاً', 'info'); return; }
-      if (!selected) { toast('اختر عدد النجوم أولاً', 'info'); return; }
+      if (voted) { toast(t('لقد قيّمت هذا التطبيق مسبقاً'), 'info'); return; }
+      if (!selected) { toast(t('اختر عدد النجوم أولاً'), 'info'); return; }
       submitBtn.disabled = true;
       const myComment = commentInput.value.trim();
       const myName = accountName;
@@ -537,27 +533,27 @@
         lockVoted(rated, myComment);
         refreshAverage(res.rating, Number(res.rating_count || 0));
         if (res.review || myComment) {
-          reviews.unshift(res.review || { name: myName || 'مستخدم', rating: rated, comment: myComment, photo_url: accountPhoto || null, ts: Math.floor(Date.now() / 1000) });
+          reviews.unshift(res.review || { name: myName || t('مستخدم'), rating: rated, comment: myComment, photo_url: accountPhoto || null, ts: Math.floor(Date.now() / 1000) });
           renderReviews(reviews);
         }
         loadReviews();
-        toast('شكراً لمراجعتك!', 'success');
+        toast(t('شكراً لمراجعتك!'), 'success');
       } catch (e) {
         submitBtn.disabled = false;
         if (e && e.status === 409) {
           lockVoted(selected, myComment);
-          toast('لقد قيّمت هذا التطبيق مسبقاً', 'info');
+          toast(t('لقد قيّمت هذا التطبيق مسبقاً'), 'info');
           if (e.data && typeof e.data.rating === 'number') refreshAverage(e.data.rating, Number(e.data.rating_count || 0));
         } else if (e && e.data && e.data.error === 'invalid_rating') {
-          toast('اختر عدد النجوم أولاً', 'info');
+          toast(t('اختر عدد النجوم أولاً'), 'info');
         } else {
-          toast('تعذّر إرسال المراجعة', 'error');
+          toast(t('تعذّر إرسال المراجعة'), 'error');
         }
       }
     }
 
     return el('div', { class: 'd-section' },
-      el('h3', null, 'التقييمات والمراجعات'),
+      el('h3', null, t('التقييمات والمراجعات')),
       el('div', { class: 'rate-summary' },
         el('div', { class: 'rate-side' }, big, avgBar, count),
         distRows,

@@ -1,7 +1,7 @@
 // Account ("أنت") page — profile, download history (library), and sign out.
 (function () {
   const S = window.Store;
-  const { el, ico, formatBytes, formatDate, toast } = S;
+  const { el, ico, formatBytes, formatDate, toast, t } = S;
   const root = document.getElementById('root');
   S.bottomNav('account');
 
@@ -21,7 +21,7 @@
       el('div', { class: 'acct-head' },
         el('div', { class: 'avatar avatar-lg' }, photo),
         el('div', { class: 'acct-info' },
-          el('div', { class: 'nm' }, (user && user.displayName) || 'مستخدم Golden Store'),
+          el('div', { class: 'nm' }, (user && user.displayName) || t('مستخدم') + ' Golden Store'),
           el('div', { class: 'em' }, (user && user.email) || ''),
         ),
       ),
@@ -36,8 +36,8 @@
     function renderTabs() {
       tabBar.innerHTML = '';
       tabBar.append(
-        tabBtn('library', 'download', 'مكتبتي'),
-        tabBtn('settings', 'settings', 'الإعدادات'),
+        tabBtn('library', 'download', t('مكتبتي')),
+        tabBtn('settings', 'settings', t('الإعدادات')),
       );
     }
 
@@ -63,9 +63,9 @@
         tabBody.append(
           el('div', { class: 'empty-lib' },
             ico('download', 'icon icon-xxl'),
-            el('h3', null, 'مكتبتك فارغة'),
-            el('p', null, 'ستظهر هنا التطبيقات التي قمت بتحميلها لتسهيل إعادة تحميلها في أي وقت.'),
-            el('a', { class: 'btn btn-primary', href: '/' }, 'تصفّح التطبيقات'),
+            el('h3', null, t('مكتبتك فارغة')),
+            el('p', null, t('ستظهر هنا التطبيقات التي قمت بتحميلها لتسهيل إعادة تحميلها في أي وقت.')),
+            el('a', { class: 'btn btn-primary', href: '/' }, t('تصفّح التطبيقات')),
           ),
         );
         return;
@@ -73,13 +73,13 @@
 
       // Header with count + clear button
       const header = el('div', { class: 'lib-header' },
-        el('span', { class: 'lib-count' }, `${history.length} تطبيق في مكتبتك`),
+        el('span', { class: 'lib-count' }, `${history.length} ${t('تطبيق في مكتبتك')}`),
         el('button', { class: 'btn btn-sm btn-secondary', type: 'button', onclick: () => {
-          if (!confirm('حذف سجل التحميلات بالكامل؟')) return;
+          if (!confirm(t('حذف سجل التحميلات بالكامل؟'))) return;
           S.clearDownloadHistory();
           renderBody();
-          toast('تم مسح السجل', 'success');
-        } }, ico('trash', 'icon icon-sm'), 'مسح السجل'),
+          toast(t('تم مسح السجل'), 'success');
+        } }, ico('trash', 'icon icon-sm'), t('مسح السجل')),
       );
       tabBody.append(header);
 
@@ -101,7 +101,7 @@
             ),
           ),
           el('div', { class: 'lib-action' },
-            el('span', { class: 'btn btn-sm btn-primary' }, ico('download', 'icon icon-sm'), 'إعادة تحميل'),
+            el('span', { class: 'btn btn-sm btn-primary' }, ico('download', 'icon icon-sm'), t('إعادة تحميل')),
           ),
         );
         list.append(row);
@@ -113,21 +113,21 @@
     function renderSettings() {
       tabBody.append(
         el('div', { class: 'acct-list' },
-          settingItem('moon', 'المظهر', S.currentTheme() === 'light' ? 'فاتح' : 'غامق', () => {
+          settingItem('moon', t('المظهر'), S.currentTheme() === 'light' ? t('فاتح') : t('غامق'), () => {
             S.toggleTheme();
             renderBody();
           }),
-          settingItem('globe', 'اللغة', langLabel(), () => {
+          settingItem('globe', t('اللغة'), langLabel(), () => {
             if (window.GSI18N && window.GSI18N.cycleLang) {
               window.GSI18N.cycleLang();
               setTimeout(() => renderBody(), 100);
             }
           }),
-          settingItem('info', 'حول Golden Store', 'الإصدار 2.0', null),
+          settingItem('info', t('حول Golden Store'), t('الإصدار') + ' 2.0', null),
         ),
         el('div', { style: { padding: '24px 0' } },
           el('button', { class: 'btn btn-outline btn-block', onclick: () => S.signOut() },
-            ico('logout', 'icon icon-sm'), 'تسجيل الخروج'),
+            ico('logout', 'icon icon-sm'), t('تسجيل الخروج')),
         ),
       );
     }

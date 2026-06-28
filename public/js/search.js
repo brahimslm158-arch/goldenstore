@@ -1,7 +1,7 @@
 // Search page — live search + category browse.
 (function () {
   const S = window.Store;
-  const { el, ico, api, getQuery } = S;
+  const { el, ico, api, getQuery, t } = S;
   const root = document.getElementById('root');
   S.bottomNav('search');
 
@@ -11,7 +11,7 @@
     const initialCat = getQuery('category');
 
     const input = el('input', {
-      class: 'ph', type: 'search', placeholder: 'ابحث عن التطبيقات والألعاب',
+      class: 'ph', type: 'search', placeholder: t('ابحث عن التطبيقات والألعاب'),
       value: initialQ, autocomplete: 'off',
       style: { background: 'transparent', border: 'none', outline: 'none', color: 'var(--text)', flex: '1', fontSize: '15px' },
     });
@@ -43,16 +43,16 @@
       if (!q && !initialCat) { showSuggestions(); return; }
 
       results.innerHTML = '';
-      results.append(S.spinner());
+      results.append(S.skeletonList());
       try {
         const { apps } = await api(`/api/apps?${params.toString()}`);
         results.innerHTML = '';
         if (!apps.length) {
-          results.append(S.emptyState('لا توجد نتائج', q ? `لم نجد تطبيقات تطابق «${q}».` : 'لا توجد تطبيقات في هذه الفئة بعد.', 'search'));
+          results.append(S.emptyState(t('لا توجد نتائج'), q ? `${t('لم نجد تطبيقات تطابق')} «${q}».` : t('لا توجد تطبيقات في هذه الفئة بعد.'), 'search'));
           return;
         }
         const head = el('div', { class: 'section-head', style: { marginTop: '12px' } },
-          el('h2', null, q ? 'نتائج البحث' : (S.categoryName(initialCat) || 'تصفّح')));
+          el('h2', null, q ? t('نتائج البحث') : (S.categoryName(initialCat) || t('تصفّح'))));
         const list = el('div', { class: 'applist' });
         apps.forEach((a) => list.append(S.listRow(a)));
         results.append(head, list);
@@ -64,16 +64,16 @@
 
     async function showSuggestions() {
       results.innerHTML = '';
-      results.append(S.spinner());
+      results.append(S.skeletonList());
       try {
         const { categories } = await api('/api/categories');
         results.innerHTML = '';
-        results.append(el('div', { class: 'section-head', style: { marginTop: '12px' } }, el('h2', null, 'تصفّح حسب الفئة')));
+        results.append(el('div', { class: 'section-head', style: { marginTop: '12px' } }, el('h2', null, t('تصفّح حسب الفئة'))));
         const list = el('div', { class: 'applist' });
         categories.forEach((c) => {
           list.append(el('a', { href: `/search?category=${c.slug}`, class: 'approw' },
             el('div', { class: 'art', style: { background: 'var(--surface-2)' } }, ico(c.icon, 'icon icon-lg')),
-            el('div', { class: 'info' }, el('div', { class: 'nm' }, c.name), el('div', { class: 'sub' }, `${c.count || 0} تطبيق`)),
+            el('div', { class: 'info' }, el('div', { class: 'nm' }, c.name), el('div', { class: 'sub' }, `${c.count || 0} ${t('تطبيق')}`)),
             ico('chevronStart', 'icon'),
           ));
         });
