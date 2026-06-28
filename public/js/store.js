@@ -467,25 +467,30 @@ function buildGate(loading) {
   const errBox = el('div', { class: 'gate-error hidden' });
   const btn = el('button', { class: 'gbtn', html: GOOGLE_G });
   btn.append(document.createTextNode(' ' + t('متابعة باستخدام Google')));
+  function resetBtn() {
+    btn.disabled = false;
+    btn.lastChild && (btn.lastChild.textContent = ' ' + t('متابعة باستخدام Google'));
+  }
+  function showErr(msg) {
+    errBox.textContent = msg;
+    errBox.classList.remove('hidden');
+    toast(msg, 'error', 6000);
+    resetBtn();
+  }
   btn.addEventListener('click', async () => {
     errBox.classList.add('hidden');
     btn.disabled = true;
-    btn.lastChild && (btn.lastChild.textContent = ' ' + t('جارٍ تسجيل الدخول…'));
+    btn.lastChild && (btn.lastChild.textContent = ' ' + t('جار تسجيل الدخول…'));
+    // Safety timeout: if sign-in hangs for 15s, re-enable button
+    const timeout = setTimeout(() => { resetBtn(); }, 15000);
     try {
       const result = await window.GAuth.signInWithGoogle();
-      if (!result) {
-        // User closed popup or redirect started — re-enable button
-        btn.disabled = false;
-        btn.lastChild && (btn.lastChild.textContent = ' ' + t('متابعة باستخدام Google'));
-      }
+      clearTimeout(timeout);
+      if (!result) resetBtn();
     } catch (e) {
-      console.error('signIn', e && e.code, e && e.message);
-      const msg = authErrorMessage(e);
-      errBox.textContent = msg;
-      errBox.classList.remove('hidden');
-      toast(msg, 'error', 6000);
-      btn.disabled = false;
-      btn.lastChild && (btn.lastChild.textContent = ' ' + t('متابعة باستخدام Google'));
+      clearTimeout(timeout);
+      console.error('signIn error:', e && e.code, e && e.message, e);
+      showErr(authErrorMessage(e));
     }
   });
   return el('div', { class: 'gate' },
@@ -531,11 +536,20 @@ function initAuth() {
   if (cached) onAuthed(cached);
   else { document.body.style.overflow = 'hidden'; showGate(true); }
 
-  try { window.GAuth.init(); } catch {}
+  // Safety: if GAuth isn't available (SDK failed to load), show the button anyway
+  // so the user sees an error instead of an infinite spinner.
+  if (!window.GAuth || typeof window.GAuth.onAuthChange !== 'function') {
+    console.error('GAuth not available — Firebase SDK may have failed to load');
+    showGate(false);
+    document.body.style.overflow = 'hidden';
+    return;
+  }
+
+  try { window.GAuth.init(); } catch (e) { console.error('GAuth.init failed', e); }
   window.GAuth.onAuthChange((user) => {
     if (user) {
       cacheUser(user);
-      onAuthed(user); // refresh user object (e.g. avatar) without re-rendering page
+      onAuthed(user);
     } else {
       // No valid session: clear any stale cache and require sign-in.
       cacheUser(null);
@@ -544,6 +558,14 @@ function initAuth() {
       document.body.style.overflow = 'hidden';
     }
   });
+
+  // Safety timeout: if auth state isn't resolved within 8 seconds, show button
+  // (prevents infinite spinner if Firebase/network is slow).
+  setTimeout(() => {
+    if (!_user && _gateEl && _gateEl.querySelector('.gate-spinner')) {
+      showGate(false);
+    }
+  }, 8000);
 }
 
 async function signOut() {
