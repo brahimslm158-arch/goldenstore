@@ -128,39 +128,44 @@
 
   function langSettingItem() {
     const langs = [
-      { code: 'ar', label: 'العربية', flag: '🇸🇦' },
-      { code: 'en', label: 'English', flag: '🇬🇧' },
-      { code: 'fr', label: 'Français', flag: '🇫🇷' },
-      { code: 'es', label: 'Español', flag: '🇪🇸' },
+      { code: 'ar', label: 'العربية' },
+      { code: 'en', label: 'English' },
+      { code: 'fr', label: 'Français' },
+      { code: 'es', label: 'Español' },
     ];
     const currentLang = (window.GSI18N && window.GSI18N.lang) || 'ar';
+    const current = langs.find((l) => l.code === currentLang) || langs[0];
 
-    const wrapper = el('div', { class: 'acct-setting lang-setting' });
-    wrapper.append(
+    const dropdown = el('div', { class: 'lang-dropdown', 'data-noi18n': '' });
+
+    const trigger = el('button', { type: 'button', class: 'lang-trigger' },
       ico('globe', 'icon'),
       el('span', { class: 'label' }, t('اللغة')),
+      el('span', { class: 'lang-current' }, current.label),
+      ico('chevronDown', 'icon chevron'),
     );
 
-    const langGrid = el('div', { class: 'lang-grid' });
+    const menu = el('div', { class: 'lang-menu-pop' });
     langs.forEach((l) => {
-      const btn = el('button', {
+      const item = el('button', {
         type: 'button',
-        class: `lang-chip ${l.code === currentLang ? 'active' : ''}`,
+        class: `lang-option ${l.code === currentLang ? 'active' : ''}`,
         onclick: () => {
-          if (l.code === currentLang) return;
-          if (window.GSI18N && window.GSI18N.setLang) {
-            window.GSI18N.setLang(l.code);
-          }
+          if (l.code === currentLang) { dropdown.classList.remove('open'); return; }
+          if (window.GSI18N && window.GSI18N.setLang) window.GSI18N.setLang(l.code);
         },
       },
-        el('span', { class: 'lang-flag' }, l.flag),
         el('span', { class: 'lang-name' }, l.label),
+        l.code === currentLang ? ico('check', 'icon check') : el('span'),
       );
-      langGrid.append(btn);
+      menu.append(item);
     });
 
-    const section = el('div', { class: 'lang-section' }, wrapper, langGrid);
-    return section;
+    trigger.onclick = (e) => { e.stopPropagation(); dropdown.classList.toggle('open'); };
+    document.addEventListener('click', (e) => { if (!dropdown.contains(e.target)) dropdown.classList.remove('open'); });
+
+    dropdown.append(trigger, menu);
+    return dropdown;
   }
 
   function settingItem(icon, label, value, onClick) {
