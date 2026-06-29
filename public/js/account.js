@@ -114,9 +114,8 @@
             renderSettings();
           }),
           langSettingItem(),
-          settingItem('info', t('حول Golden Store'), t('الإصدار') + ' 2.0', null),
+          aboutDropdown(),
         ),
-        aboutStoreCard(),
         contactCard(),
         el('div', { style: { padding: '24px 0' } },
           el('button', { class: 'btn btn-outline btn-block', onclick: () => S.signOut() },
@@ -170,26 +169,35 @@
     return dropdown;
   }
 
-  function aboutStoreCard() {
-    return el('div', { class: 'store-card' },
-      el('div', { class: 'store-card-head' }, ico('shieldCheck', 'icon'), el('h3', null, t('عن Golden Store'))),
+  function aboutDropdown() {
+    const wrap = el('div', { class: 'about-collapse' });
+    const trigger = el('button', { type: 'button', class: 'acct-setting about-trigger' },
+      ico('info', 'icon'),
+      el('span', { class: 'label' }, t('عن Golden Store')),
+      el('span', { class: 'value' }, t('الإصدار') + ' 2.0'),
+      ico('chevronDown', 'icon icon-sm chevron'),
+    );
+    const body = el('div', { class: 'about-body' },
       el('p', { class: 'store-card-text' },
         t('Golden Store هو متجرك العربي لتحميل أحدث التطبيقات والألعاب المهكرة (Mod) والمدفوعة مجاناً بأحدث إصداراتها، مع ميزات مفتوحة بالكامل وبدون إعلانات. نختار المحتوى بعناية ونحدّثه باستمرار، ونوفّر تحميلاً مباشراً سريعاً وآمناً.')),
     );
+    trigger.onclick = () => wrap.classList.toggle('open');
+    wrap.append(trigger, body);
+    return wrap;
   }
 
   function contactCard() {
     const links = [
-      { icon: 'facebook',  label: 'Facebook',  href: 'https://www.facebook.com/F.Pony.Z' },
-      { icon: 'instagram', label: 'Instagram', href: 'https://www.instagram.com/faycalzaouani' },
-      { icon: 'telegram',  label: 'Telegram',  href: 'https://t.me/goldenstore_10' },
+      { icon: 'facebook',  label: 'Facebook',  href: 'https://www.facebook.com/F.Pony.Z', fill: true },
+      { icon: 'instagram', label: 'Instagram', href: 'https://www.instagram.com/faycalzaouani', fill: false },
+      { icon: 'telegram',  label: 'Telegram',  href: 'https://t.me/goldenstore_10', fill: true },
     ];
     const list = el('div', { class: 'acct-list contact-list' });
     links.forEach((l) => {
       list.append(el('a', { class: 'acct-setting contact-row', href: l.href, target: '_blank', rel: 'noopener noreferrer' },
-        ico(l.icon, `icon fill brand-${l.icon}`),
+        ico(l.icon, `icon ${l.fill ? 'fill ' : ''}brand-${l.icon}`),
         el('span', { class: 'label' }, l.label),
-        ico('chevronStart', 'icon icon-sm'),
+        ico('external', 'icon icon-sm'),
       ));
     });
     return el('div', null,

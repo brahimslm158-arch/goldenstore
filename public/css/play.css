@@ -635,20 +635,28 @@ input, select { font-family: inherit; }
 .acct-setting .icon { width: 22px; height: 22px; color: var(--text-2); flex-shrink: 0; }
 .acct-setting .label { flex: 1; font-size: 15px; font-weight: 500; }
 .acct-setting .value { font-size: 13px; color: var(--text-3); }
-/* About-store card + contact links (account settings) */
-.store-card {
-  margin: 16px; padding: 16px; border-radius: 16px;
-  background: var(--surface); border: 1px solid var(--line);
+/* About collapsible + contact links (account settings) */
+.about-collapse { display: flex; flex-direction: column; }
+.about-trigger { width: 100%; border: none; background: transparent; font-family: inherit; cursor: pointer; }
+.about-trigger .value { margin-inline-start: auto; }
+.about-trigger .chevron { color: var(--text-3); transition: transform .2s ease; }
+.about-collapse.open .about-trigger .chevron { transform: rotate(180deg); }
+.about-body {
+  max-height: 0; overflow: hidden; opacity: 0;
+  transition: max-height .28s ease, opacity .2s ease, padding .2s ease;
+  padding: 0 12px;
 }
-.store-card-head { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
-.store-card-head .icon { width: 22px; height: 22px; color: var(--primary, var(--gold)); flex-shrink: 0; }
-.store-card-head h3 { margin: 0; font-size: 15px; font-weight: 700; color: var(--text); }
-.store-card-text { margin: 0; font-size: 13.5px; line-height: 1.85; color: var(--text-2); }
-.contact-row .icon.fill { width: 22px; height: 22px; flex-shrink: 0; }
+.about-collapse.open .about-body { max-height: 360px; opacity: 1; padding: 4px 12px 14px; }
+.store-card-text { margin: 0; font-size: 13.5px; line-height: 1.9; color: var(--text-2); }
+
+.contact-row .brand-facebook,
+.contact-row .brand-instagram,
+.contact-row .brand-telegram { width: 22px; height: 22px; flex-shrink: 0; }
 .contact-row .brand-facebook { color: #1877f2; }
 .contact-row .brand-instagram { color: #e1306c; }
 .contact-row .brand-telegram { color: #229ed9; }
-.contact-row .chevronStart, .contact-row > .icon-sm { margin-inline-start: auto; color: var(--text-3); }
+.contact-row .label { flex: 1; }
+.contact-row > .icon-sm { margin-inline-start: auto; color: var(--text-3); }
 
 /* Language dropdown (account settings) */
 .lang-dropdown { position: relative; }
