@@ -473,16 +473,46 @@
     submitBtn.addEventListener('click', () => submit());
     const form = el('div', { class: 'review-form' }, identity, commentInput, el('div', { class: 'actions' }, submitBtn));
 
-    // Reviews list
+    // Reviews list — show only 1-2 initially, "show more" opens modal
+    const INITIAL_REVIEWS = 2;
     const reviewsList = el('div', { class: 'reviews' });
+    const showMoreBtn = el('button', { class: 'btn btn-secondary btn-sm', style: { marginTop: '12px', display: 'none' } }, t('عرض المزيد'));
+    showMoreBtn.addEventListener('click', () => openReviewsModal());
+
     function renderReviews(list) {
       reviewsList.innerHTML = '';
+      showMoreBtn.style.display = 'none';
       if (!list || !list.length) {
         reviewsList.append(el('div', { class: 'reviews-empty' }, t('لا توجد مراجعات بعد. كن أول من يكتب مراجعة!')));
         return;
       }
-      list.forEach((r) => reviewsList.append(reviewCard(r)));
+      const visible = list.slice(0, INITIAL_REVIEWS);
+      visible.forEach((r) => reviewsList.append(reviewCard(r)));
+      if (list.length > INITIAL_REVIEWS) {
+        showMoreBtn.style.display = '';
+        showMoreBtn.textContent = `${t('عرض المزيد')} (${list.length})`;
+      }
     }
+
+    function openReviewsModal() {
+      const overlay = el('div', { class: 'dialog-overlay', onclick: (e) => { if (e.target === overlay) overlay.remove(); } });
+      const body = el('div', { class: 'dialog-body', style: { maxHeight: '60vh', overflowY: 'auto' } });
+      reviews.forEach((r) => body.append(reviewCard(r)));
+      const card = el('div', { class: 'dialog-card' },
+        el('div', { class: 'dialog-head' },
+          el('div', { class: 'dialog-title' }, ico('star', 'icon'), t('جميع التقييمات والمراجعات')),
+          el('button', { class: 'dialog-close', 'aria-label': t('إغلاق'), onclick: () => overlay.remove() }, ico('close')),
+        ),
+        body,
+        el('div', { class: 'dialog-actions' },
+          el('button', { class: 'btn btn-secondary', onclick: () => overlay.remove() }, t('عرض أقل')),
+        ),
+      );
+      overlay.append(card);
+      document.body.append(overlay);
+      document.addEventListener('keydown', function esc(e) { if (e.key === 'Escape') { overlay.remove(); document.removeEventListener('keydown', esc); } });
+    }
+
     renderReviews([]);
 
     function lockVoted(rating, comment) {
@@ -490,9 +520,8 @@
       paint(myRating);
       picker.classList.add('voted');
       pickerHint.textContent = myRating ? `${t('تقييمك')}: ${myRating} ${t('من')} 5` : t('لقد قيّمت هذا التطبيق');
-      commentInput.value = '';
-      commentInput.disabled = true; submitBtn.disabled = true;
-      submitBtn.textContent = t('تم نشر مراجعتك');
+      // Completely hide the input form after voting
+      form.style.display = 'none';
     }
 
     // Initial load — my vote state.
@@ -561,6 +590,7 @@
         form,
       ),
       reviewsList,
+      showMoreBtn,
     );
     // Initially collapsed
     rateBody.style.maxHeight = '0';

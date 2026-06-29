@@ -211,7 +211,7 @@
     render();
     const head = el('div', { class: 'section-head' });
     if (title) head.append(el('h2', null, title));
-    else head.style.justifyContent = 'flex-end';
+    else head.style.justifyContent = 'flex-start';
     head.append(el('div', { class: 'view-toggle' }, gridBtn, listBtn));
     return el('div', { class: 'section' }, head, body);
   }
