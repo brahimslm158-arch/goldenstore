@@ -78,3 +78,71 @@ export async function r2Head(key: string): Promise<{ size: number; contentType: 
     return null;
   }
 }
+
+// --- Multipart upload helpers for large files ---
+
+export async function r2CreateMultipartUpload(
+  key: string,
+  contentType: string,
+): Promise<string> {
+  const { CreateMultipartUploadCommand } = await import('@aws-sdk/client-s3');
+  const res = await (await getClient()).send(
+    new CreateMultipartUploadCommand({
+      Bucket: r2Bucket(),
+      Key: key,
+      ContentType: contentType,
+    }),
+  );
+  return res.UploadId!;
+}
+
+export async function r2PresignUploadPart(
+  key: string,
+  uploadId: string,
+  partNumber: number,
+  expiresInSeconds = 3600,
+): Promise<string> {
+  const { UploadPartCommand } = await import('@aws-sdk/client-s3');
+  const { getSignedUrl } = await import('@aws-sdk/s3-request-presigner');
+  const cmd = new UploadPartCommand({
+    Bucket: r2Bucket(),
+    Key: key,
+    UploadId: uploadId,
+    PartNumber: partNumber,
+  });
+  return await getSignedUrl(await getClient(), cmd, { expiresIn: expiresInSeconds });
+}
+
+export async function r2CompleteMultipartUpload(
+  key: string,
+  uploadId: string,
+  parts: { PartNumber: number; ETag: string }[],
+): Promise<void> {
+  const { CompleteMultipartUploadCommand } = await import('@aws-sdk/client-s3');
+  await (await getClient()).send(
+    new CompleteMultipartUploadCommand({
+      Bucket: r2Bucket(),
+      Key: key,
+      UploadId: uploadId,
+      MultipartUpload: { Parts: parts },
+    }),
+  );
+}
+
+export async function r2AbortMultipartUpload(
+  key: string,
+  uploadId: string,
+): Promise<void> {
+  try {
+    const { AbortMultipartUploadCommand } = await import('@aws-sdk/client-s3');
+    await (await getClient()).send(
+      new AbortMultipartUploadCommand({
+        Bucket: r2Bucket(),
+        Key: key,
+        UploadId: uploadId,
+      }),
+    );
+  } catch {
+    // best-effort cleanup
+  }
+}

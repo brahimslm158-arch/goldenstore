@@ -22,33 +22,127 @@
     root.append(el('div', { class: 'center-spinner' }, el('div', { class: 'spinner' })));
   }
 
+  const MULTIPART_THRESHOLD = 10 * 1024 * 1024; // 10 MB
+
+  function xhrPut(url, data, contentType, onProgress) {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('PUT', url, true);
+      if (contentType) xhr.setRequestHeader('Content-Type', contentType);
+      if (onProgress) {
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) onProgress(e.loaded, e.total);
+        };
+      }
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          const etag = xhr.getResponseHeader('ETag');
+          resolve(etag);
+        } else {
+          reject(new Error(`upload_failed_${xhr.status}`));
+        }
+      };
+      xhr.onerror = () => reject(new Error('upload_error'));
+      xhr.send(data);
+    });
+  }
+
+  async function retryXhrPut(url, data, contentType, onProgress, maxRetries) {
+    let lastErr;
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        return await xhrPut(url, data, contentType, onProgress);
+      } catch (err) {
+        lastErr = err;
+        if (attempt < maxRetries) {
+          await new Promise((r) => setTimeout(r, 1000 * Math.pow(2, attempt)));
+        }
+      }
+    }
+    throw lastErr;
+  }
+
   async function r2Upload(file, kind, slugHint, onProgress) {
-    // 1. Request presigned URL
+    const contentType = file.type || 'application/octet-stream';
+
+    if (file.size > MULTIPART_THRESHOLD) {
+      return await r2MultipartUpload(file, kind, slugHint, contentType, onProgress);
+    }
+
+    // Small file: single presigned PUT (with retry)
     const { url, key } = await api('/api/admin/upload-url', {
       method: 'POST',
       body: {
         kind,
         filename: file.name,
-        content_type: file.type || 'application/octet-stream',
+        content_type: contentType,
         slug_hint: slugHint || file.name,
       },
     });
 
-    // 2. PUT file directly to R2
-    return await new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-      xhr.open('PUT', url, true);
-      xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
-      xhr.upload.onprogress = (e) => {
-        if (e.lengthComputable && onProgress) onProgress(e.loaded / e.total);
-      };
-      xhr.onload = () => {
-        if (xhr.status >= 200 && xhr.status < 300) resolve(key);
-        else reject(new Error(`upload_failed_${xhr.status}`));
-      };
-      xhr.onerror = () => reject(new Error('upload_error'));
-      xhr.send(file);
+    await retryXhrPut(url, file, contentType, (loaded, total) => {
+      if (onProgress) onProgress(loaded / total);
+    }, 2);
+    return key;
+  }
+
+  async function r2MultipartUpload(file, kind, slugHint, contentType, onProgress) {
+    // 1. Create multipart upload and get presigned part URLs
+    const mp = await api('/api/admin/multipart/create', {
+      method: 'POST',
+      timeoutMs: 60000,
+      body: {
+        kind,
+        filename: file.name,
+        content_type: contentType,
+        slug_hint: slugHint || file.name,
+        file_size: file.size,
+      },
     });
+
+    const { key, uploadId, partSize, parts: partUrls } = mp;
+    const completedParts = [];
+    let totalUploaded = 0;
+
+    try {
+      // 2. Upload each part with retry
+      for (let i = 0; i < partUrls.length; i++) {
+        const start = i * partSize;
+        const end = Math.min(start + partSize, file.size);
+        const chunk = file.slice(start, end);
+        const partNum = partUrls[i].partNumber;
+        const partUrl = partUrls[i].url;
+
+        const etag = await retryXhrPut(partUrl, chunk, null, (loaded) => {
+          if (onProgress) onProgress((totalUploaded + loaded) / file.size);
+        }, 3);
+
+        if (!etag) {
+          throw new Error('upload_etag_missing');
+        }
+
+        totalUploaded += (end - start);
+        if (onProgress) onProgress(totalUploaded / file.size);
+
+        completedParts.push({ PartNumber: partNum, ETag: etag });
+      }
+
+      // 3. Complete multipart upload
+      await api('/api/admin/multipart/complete', {
+        method: 'POST',
+        timeoutMs: 30000,
+        body: { key, uploadId, parts: completedParts },
+      });
+
+      return key;
+    } catch (err) {
+      // Abort multipart upload on failure (cleanup)
+      api('/api/admin/multipart/abort', {
+        method: 'POST',
+        body: { key, uploadId },
+      }).catch(() => {});
+      throw err;
+    }
   }
 
   function dropzone({ accept, multiple = false, label = 'انقر أو اسحب الملف هنا', onFiles }) {
