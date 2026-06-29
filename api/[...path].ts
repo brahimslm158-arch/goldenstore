@@ -10,6 +10,10 @@ import {
   r2PublicUrl,
   r2Delete,
   r2Head,
+  r2CreateMultipartUpload,
+  r2PresignUploadPart,
+  r2CompleteMultipartUpload,
+  r2AbortMultipartUpload,
 } from '../lib/r2.js';
 import {
   COOKIE_NAME,
@@ -883,8 +887,80 @@ app.post('/admin/upload-url', async (c) => {
   const rand = randomId().slice(0, 6);
   const folder = kind === 'apk' ? 'apk' : kind === 'icon' ? 'icon' : kind === 'feature' ? 'feature' : 'ss';
   const key = `${folder}/${slugHint}-${ts}-${rand}.${ext}`;
-  const url = await r2PresignPut(key, contentType, 900);
+  const url = await r2PresignPut(key, contentType, 3600);
   return c.json({ url, key });
+});
+
+// --- Multipart upload for large files (>10 MB) ---
+
+// Initiate a multipart upload and return presigned URLs for all parts
+app.post('/admin/multipart/create', async (c) => {
+  const body = await c.req.json().catch(() => ({} as any));
+  const kind = String(body.kind || '');
+  const filename = String(body.filename || '');
+  const contentType = String(body.content_type || 'application/octet-stream');
+  const slugHint = slugify(String(body.slug_hint || 'app'));
+  const fileSize = Number(body.file_size || 0);
+
+  const ALLOWED_CONTENT_TYPES: Record<string, string[]> = {
+    apk: ['application/vnd.android.package-archive', 'application/octet-stream'],
+    icon: ['image/png', 'image/jpeg', 'image/webp', 'image/gif'],
+    screenshot: ['image/png', 'image/jpeg', 'image/webp', 'image/gif'],
+    feature: ['image/png', 'image/jpeg', 'image/webp', 'image/gif'],
+  };
+  if (!['apk', 'icon', 'screenshot', 'feature'].includes(kind)) {
+    return c.json({ error: 'invalid_kind' }, 400);
+  }
+  if (ALLOWED_CONTENT_TYPES[kind] && !ALLOWED_CONTENT_TYPES[kind].includes(contentType)) {
+    return c.json({ error: 'invalid_content_type' }, 400);
+  }
+  if (!fileSize || fileSize <= 0) {
+    return c.json({ error: 'file_size_required' }, 400);
+  }
+
+  const ext = safeExt(filename, kind === 'apk' ? 'apk' : kind === 'feature' ? 'jpg' : kind === 'icon' ? 'png' : 'jpg');
+  const ts = Date.now();
+  const rand = randomId().slice(0, 6);
+  const folder = kind === 'apk' ? 'apk' : kind === 'icon' ? 'icon' : kind === 'feature' ? 'feature' : 'ss';
+  const key = `${folder}/${slugHint}-${ts}-${rand}.${ext}`;
+
+  const uploadId = await r2CreateMultipartUpload(key, contentType);
+
+  const PART_SIZE = 10 * 1024 * 1024; // 10 MB per part
+  const partCount = Math.ceil(fileSize / PART_SIZE);
+  const parts: { partNumber: number; url: string }[] = [];
+  for (let i = 1; i <= partCount; i++) {
+    const url = await r2PresignUploadPart(key, uploadId, i, 3600);
+    parts.push({ partNumber: i, url });
+  }
+
+  return c.json({ key, uploadId, partSize: PART_SIZE, parts });
+});
+
+// Complete a multipart upload after all parts have been uploaded
+app.post('/admin/multipart/complete', async (c) => {
+  const body = await c.req.json().catch(() => ({} as any));
+  const key = String(body.key || '');
+  const uploadId = String(body.uploadId || '');
+  const parts: { PartNumber: number; ETag: string }[] = Array.isArray(body.parts) ? body.parts : [];
+
+  if (!key || !uploadId || parts.length === 0) {
+    return c.json({ error: 'missing_fields' }, 400);
+  }
+
+  await r2CompleteMultipartUpload(key, uploadId, parts);
+  return c.json({ ok: true, key });
+});
+
+// Abort a multipart upload (cleanup on failure)
+app.post('/admin/multipart/abort', async (c) => {
+  const body = await c.req.json().catch(() => ({} as any));
+  const key = String(body.key || '');
+  const uploadId = String(body.uploadId || '');
+  if (key && uploadId) {
+    await r2AbortMultipartUpload(key, uploadId);
+  }
+  return c.json({ ok: true });
 });
 
 // Validate that R2 keys match expected folder prefixes (prevent path traversal)
