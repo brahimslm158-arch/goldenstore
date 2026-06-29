@@ -152,27 +152,9 @@ function toast(msg, type = 'info', ms = 3000) {
 }
 
 /* ----------------------------- Cards ----------------------------- */
-// Google Play-style poster card: feature image on top, compact info bar below
+// Square poster card (horizontal rows)
 function posterCard(a) {
   const rt = ratingOf(a);
-  const hasFeature = !!a.feature_url;
-  if (hasFeature) {
-    // Wide card: feature image + thin info bar (like Google Play)
-    return el('a', { href: `/app?slug=${encodeURIComponent(a.slug)}`, class: 'poster poster-wide' },
-      el('div', { class: 'poster-feat' }, el('img', { src: a.feature_url, alt: a.name, loading: 'lazy' })),
-      el('div', { class: 'poster-bar' },
-        el('div', { class: 'poster-bar-ico' }, a.icon_url ? el('img', { src: a.icon_url, alt: '' }) : ico('package', 'icon')),
-        el('div', { class: 'poster-bar-text' },
-          el('div', { class: 'poster-bar-name' }, a.name),
-          el('div', { class: 'poster-bar-sub' },
-            el('span', null, a.developer || ''),
-            rt ? el('span', { class: 'poster-bar-rate' }, rt, ico('star', 'icon fill')) : null,
-          ),
-        ),
-      ),
-    );
-  }
-  // Simple square icon card (no feature graphic)
   return el('a', { href: `/app?slug=${encodeURIComponent(a.slug)}`, class: 'poster' },
     el('div', { class: 'art' }, a.icon_url ? el('img', { src: a.icon_url, alt: a.name, loading: 'lazy' }) : ico('package', 'icon icon-lg')),
     el('div', { class: 'nm' }, a.name),
