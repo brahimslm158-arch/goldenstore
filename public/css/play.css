@@ -290,6 +290,28 @@ input, select { font-family: inherit; }
 .poster .rt { font-size: 12px; color: var(--text-2); margin-top: 2px; display: flex; align-items: center; gap: 3px; }
 .poster .rt .icon { width: 12px; height: 12px; color: var(--star); }
 
+/* Wide poster card (with feature graphic) — Google Play style */
+.poster.poster-wide {
+  width: 200px; flex: 0 0 200px;
+}
+.poster-feat {
+  width: 100%; aspect-ratio: 16/9; border-radius: 14px; overflow: hidden;
+  background: var(--surface-2);
+}
+.poster-feat img { width: 100%; height: 100%; object-fit: cover; }
+.poster-bottom {
+  display: flex; align-items: center; gap: 10px; margin-top: 10px;
+}
+.poster-ico {
+  width: 36px; height: 36px; border-radius: 10px; overflow: hidden; flex-shrink: 0;
+  background: var(--surface-2); display: flex; align-items: center; justify-content: center;
+}
+.poster-ico img { width: 100%; height: 100%; object-fit: cover; }
+.poster-ico .icon { width: 18px; height: 18px; color: var(--text-3); }
+.poster-info { flex: 1; min-width: 0; }
+.poster-info .nm { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.poster-info .rt { margin-top: 1px; }
+
 /* wrapping poster grid (featured page) */
 .poster-grid {
   display: grid; gap: 16px 12px; padding: 4px 16px 4px;
@@ -363,10 +385,13 @@ input, select { font-family: inherit; }
 .btn:active { transform: scale(.98); }
 .btn-primary { background: var(--primary); color: var(--on-primary); }
 .btn-primary:hover { filter: brightness(1.05); }
+.btn-secondary { background: var(--surface-2); color: var(--text); border: 1px solid var(--line); }
+.btn-secondary:hover { background: var(--surface-3); }
 .btn-outline { border: 1px solid var(--line); color: var(--nav); background: transparent; }
 .btn-text { color: var(--nav); font-weight: 700; padding: 8px 14px; }
 .btn-block { width: 100%; }
 .btn-lg { padding: 13px 26px; font-size: 16px; }
+.btn-sm { padding: 7px 16px; font-size: 13px; }
 
 /* ---------- App detail ---------- */
 .detail { padding: 4px 16px 24px; }
@@ -708,8 +733,8 @@ input, select { font-family: inherit; }
 /* ---------- Editors' choice carousel ---------- */
 .feature-carousel {
   margin: 6px 16px 4px; position: relative;
-  border-radius: 24px; overflow: hidden;
-  box-shadow: 0 10px 30px rgba(0,0,0,.35);
+  border-radius: 20px; overflow: hidden;
+  box-shadow: 0 6px 24px rgba(0,0,0,.25);
   background: var(--surface);
 }
 .fc-track {
@@ -719,55 +744,65 @@ input, select { font-family: inherit; }
 }
 .fc-slide {
   position: relative; flex: 0 0 100%; min-width: 100%;
-  display: block; aspect-ratio: 16/9; max-height: 340px;
-  color: #fff; overflow: hidden;
+  display: flex; flex-direction: column;
+  color: var(--text); overflow: hidden; background: var(--surface);
 }
+/* Image area: clean, no overlay */
 .fc-media {
-  position: absolute; inset: 0;
-  background-size: cover; background-position: center;
-  transform: scale(1.02);
+  position: relative; width: 100%; aspect-ratio: 16/9;
+  background: var(--surface-2); overflow: hidden;
+}
+.fc-media-img {
+  width: 100%; height: 100%; object-fit: cover;
 }
 .fc-media-fallback {
   display: flex; align-items: center; justify-content: center;
+  width: 100%; height: 100%;
   background: linear-gradient(135deg, #10233f, #0d0d0f 70%);
 }
 .fc-media-fallback .fc-fallback-ico {
-  width: 110px; height: 110px; border-radius: 26px; box-shadow: 0 16px 40px rgba(0,0,0,.5);
+  width: 90px; height: 90px; border-radius: 22px; box-shadow: 0 12px 30px rgba(0,0,0,.4);
 }
-.fc-slide::after {
-  content: ''; position: absolute; inset: 0;
-  background: linear-gradient(to top, rgba(0,0,0,.85) 0%, rgba(0,0,0,.25) 45%, rgba(0,0,0,0) 75%);
+/* Info area below the image */
+.fc-info {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px;
 }
-.fc-pill {
-  position: absolute; top: 14px; inset-inline-start: 14px; z-index: 2;
-  display: inline-flex; align-items: center; gap: 6px;
-  background: var(--gold); color: var(--gold-ink);
-  font-size: 12px; font-weight: 800; padding: 6px 13px; border-radius: 999px;
-  box-shadow: 0 4px 14px rgba(0,0,0,.3);
+.fc-info-icon {
+  width: 44px; height: 44px; border-radius: 12px; overflow: hidden; flex-shrink: 0;
+  background: var(--surface-2); display: flex; align-items: center; justify-content: center;
 }
-.fc-pill .icon { color: var(--gold-ink); }
-.fc-body {
-  position: absolute; inset-inline: 0; bottom: 0; z-index: 2;
-  padding: 16px 18px 18px;
+.fc-info-icon img { width: 100%; height: 100%; object-fit: cover; }
+.fc-info-icon .icon { width: 22px; height: 22px; color: var(--text-3); }
+.fc-info-text { flex: 1; min-width: 0; }
+.fc-info-text h3 {
+  font-size: 16px; font-weight: 700; line-height: 1.3;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.fc-body h3 { font-size: 20px; font-weight: 800; line-height: 1.2; }
-.fc-body p {
-  color: rgba(255,255,255,.82); font-size: 13px; margin-top: 4px;
-  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+.fc-info-text p {
+  color: var(--text-2); font-size: 12px; margin-top: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.fc-cta { display: flex; align-items: center; gap: 12px; margin-top: 12px; }
-.fc-cta .btn { background: var(--gold); color: var(--gold-ink); padding: 9px 24px; }
+.fc-info-meta {
+  display: flex; flex-direction: column; align-items: flex-end; gap: 4px; flex-shrink: 0;
+}
 .fc-rate {
   display: inline-flex; align-items: center; gap: 4px;
-  font-weight: 700; font-size: 14px; color: #fff;
+  font-weight: 700; font-size: 13px; color: var(--text);
 }
-.fc-rate .icon { color: var(--star); }
+.fc-rate .icon { color: var(--star); width: 14px; height: 14px; }
+.fc-pill-sm {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: var(--gold); color: var(--gold-ink);
+  font-size: 10px; font-weight: 800; padding: 3px 9px; border-radius: 999px;
+}
+.fc-pill-sm .icon { width: 12px; height: 12px; color: var(--gold-ink); }
 .fc-dots {
-  position: absolute; bottom: 12px; inset-inline-end: 16px; z-index: 3;
-  display: flex; gap: 6px;
+  display: flex; justify-content: center; gap: 6px;
+  padding: 6px 16px 14px;
 }
 .fc-dot {
-  width: 7px; height: 7px; border-radius: 999px; background: rgba(255,255,255,.45);
+  width: 7px; height: 7px; border-radius: 999px; background: var(--surface-3);
   transition: width .25s, background .25s;
 }
 .fc-dot.on { width: 20px; background: var(--gold); }

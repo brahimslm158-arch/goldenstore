@@ -152,16 +152,32 @@ function toast(msg, type = 'info', ms = 3000) {
 }
 
 /* ----------------------------- Cards ----------------------------- */
-// Square poster card (horizontal rows)
+// Google Play-style poster card: feature image on top, icon + name + rating below
 function posterCard(a) {
   const rt = ratingOf(a);
-  return el('a', { href: `/app?slug=${encodeURIComponent(a.slug)}`, class: 'poster' },
-    el('div', { class: 'art' }, a.icon_url ? el('img', { src: a.icon_url, alt: a.name, loading: 'lazy' }) : ico('package', 'icon icon-lg')),
-    el('div', { class: 'nm' }, a.name),
-    rt
-      ? el('div', { class: 'rt' }, el('span', null, rt), ico('star', 'icon fill'))
-      : el('div', { class: 'rt' }, el('span', null, t('جديد'))),
-  );
+  const hasFeature = !!a.feature_url;
+  const card = el('a', { href: `/app?slug=${encodeURIComponent(a.slug)}`, class: `poster ${hasFeature ? 'poster-wide' : ''}` });
+  if (hasFeature) {
+    card.append(el('div', { class: 'poster-feat' }, el('img', { src: a.feature_url, alt: a.name, loading: 'lazy' })));
+    card.append(el('div', { class: 'poster-bottom' },
+      el('div', { class: 'poster-ico' }, a.icon_url ? el('img', { src: a.icon_url, alt: '' }) : ico('package', 'icon')),
+      el('div', { class: 'poster-info' },
+        el('div', { class: 'nm' }, a.name),
+        rt
+          ? el('div', { class: 'rt' }, el('span', null, rt), ico('star', 'icon fill'))
+          : el('div', { class: 'rt' }, el('span', null, t('جديد'))),
+      ),
+    ));
+  } else {
+    card.append(
+      el('div', { class: 'art' }, a.icon_url ? el('img', { src: a.icon_url, alt: a.name, loading: 'lazy' }) : ico('package', 'icon icon-lg')),
+      el('div', { class: 'nm' }, a.name),
+      rt
+        ? el('div', { class: 'rt' }, el('span', null, rt), ico('star', 'icon fill'))
+        : el('div', { class: 'rt' }, el('span', null, t('جديد'))),
+    );
+  }
+  return card;
 }
 
 // Full-width list row (recommended / search results)
@@ -187,12 +203,12 @@ function listRow(a, opts = {}) {
 }
 
 // Curved, auto-advancing "editors' choice" carousel built from feature graphics.
-// Slides glide to the left every few seconds and can be paused on hover / picked via dots.
+// Google Play style: clean image on top, text info below — no overlapping.
 function featureSlide(a) {
   const slide = el('a', { href: `/app?slug=${encodeURIComponent(a.slug)}`, class: 'fc-slide' });
   const media = el('div', { class: 'fc-media' });
   if (a.feature_url) {
-    media.style.backgroundImage = `url("${a.feature_url}")`;
+    media.append(el('img', { src: a.feature_url, alt: a.name, loading: 'lazy', class: 'fc-media-img' }));
   } else {
     media.classList.add('fc-media-fallback');
     media.append(a.icon_url
@@ -200,15 +216,19 @@ function featureSlide(a) {
       : ico('package', 'icon icon-lg'));
   }
   const rt = ratingOf(a);
+  const infoIcon = el('div', { class: 'fc-info-icon' },
+    a.icon_url ? el('img', { src: a.icon_url, alt: '' }) : ico('package', 'icon'));
   slide.append(
     media,
-    el('div', { class: 'fc-pill' }, ico('award', 'icon icon-sm'), t('اختيارات المحرّرين')),
-    el('div', { class: 'fc-body', dir: 'rtl' },
-      el('h3', null, a.name),
-      el('p', null, a.short_description || a.developer || t('تطبيق مميّز مختار لك')),
-      el('div', { class: 'fc-cta' },
-        el('span', { class: 'btn btn-primary' }, t('عرض')),
+    el('div', { class: 'fc-info' },
+      infoIcon,
+      el('div', { class: 'fc-info-text' },
+        el('h3', null, a.name),
+        el('p', null, a.short_description || a.developer || t('تطبيق مميّز مختار لك')),
+      ),
+      el('div', { class: 'fc-info-meta' },
         rt ? el('span', { class: 'fc-rate' }, ico('star', 'icon fill'), rt) : null,
+        el('span', { class: 'fc-pill-sm' }, ico('award', 'icon icon-sm'), t('مميّز')),
       ),
     ),
   );
