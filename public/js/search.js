@@ -31,11 +31,16 @@
     input.addEventListener('input', () => { clearTimeout(timer); timer = setTimeout(run, 300); });
     input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { clearTimeout(timer); run(); } });
 
+    const isGameSlug = (slug) => typeof slug === 'string' && slug.indexOf('game_') === 0;
+
     async function run() {
       const q = input.value.trim();
       const params = new URLSearchParams();
       if (q) params.set('q', q);
-      if (!q && initialCat) params.set('category', initialCat);
+      if (!q && initialCat) {
+        params.set('category', initialCat);
+        params.set('type', isGameSlug(initialCat) ? 'game' : 'app');
+      }
       params.set('limit', '40');
       params.set('sort', q ? 'popular' : 'recent');
 
@@ -72,7 +77,7 @@
         categories.forEach((c) => {
           list.append(el('a', { href: `/search?category=${c.slug}`, class: 'approw' },
             el('div', { class: 'art', style: { background: 'var(--surface-2)' } }, ico(c.icon, 'icon icon-lg')),
-            el('div', { class: 'info' }, el('div', { class: 'nm' }, c.name), el('div', { class: 'sub' }, `${c.count || 0} ${t('تطبيق')}`)),
+            el('div', { class: 'info' }, el('div', { class: 'nm' }, c.name), el('div', { class: 'sub' }, `${c.count || 0} ${isGameSlug(c.slug) ? t('لعبة') : t('تطبيق')}`)),
             ico('chevronStart', 'icon'),
           ));
         });

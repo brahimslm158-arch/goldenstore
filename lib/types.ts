@@ -76,6 +76,11 @@ export const APP_CATEGORIES: Category[] = [
   { slug: 'parenting',         name: 'أبوّة وأمومة',        icon: 'users',      position: 29 },
   { slug: 'events',            name: 'فعاليات',             icon: 'calendar',   position: 30 },
   { slug: 'comics',            name: 'قصص مصوّرة',          icon: 'book',       position: 31 },
+  { slug: 'vpn',               name: 'VPN وخصوصية',         icon: 'shieldCheck', position: 32 },
+  { slug: 'system',            name: 'أدوات النظام',        icon: 'settings',   position: 33 },
+  { slug: 'wallpapers',        name: 'خلفيات',              icon: 'image',      position: 34 },
+  { slug: 'files',             name: 'إدارة الملفات',       icon: 'package',    position: 35 },
+  { slug: 'connectivity',      name: 'اتصال وشبكات',        icon: 'globe',      position: 36 },
   { slug: 'other',             name: 'أخرى',                icon: 'sparkle',    position: 99 },
 ];
 
@@ -98,6 +103,10 @@ export const GAME_CATEGORIES: Category[] = [
   { slug: 'game_strategy',     name: 'استراتيجية',         icon: 'layers',     position: 15 },
   { slug: 'game_trivia',       name: 'معلومات عامة',       icon: 'info',       position: 16 },
   { slug: 'game_word',         name: 'كلمات',              icon: 'edit',       position: 17 },
+  { slug: 'game_family',       name: 'عائلية',             icon: 'users',      position: 18 },
+  { slug: 'game_shooter',      name: 'إطلاق نار',          icon: 'shield',     position: 19 },
+  { slug: 'game_action_adventure', name: 'حركة ومغامرة',   icon: 'compass',    position: 20 },
+  { slug: 'game_role_playing', name: 'ألعاب جماعية',       icon: 'users',      position: 21 },
   { slug: 'game_other',        name: 'ألعاب أخرى',         icon: 'gamepad',    position: 99 },
 ];
 

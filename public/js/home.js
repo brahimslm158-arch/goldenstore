@@ -36,7 +36,7 @@
     renderTabs();
     renderContent();
 
-    function baseQuery() { return ''; }
+    function baseQuery() { return 'type=app'; }
     function filt(apps) { return apps || []; }
 
     async function renderContent() {
@@ -137,7 +137,7 @@
     }
 
     async function renderCategories() {
-      const { categories } = await api('/api/categories');
+      const { categories } = await api('/api/categories?type=app');
       content.innerHTML = '';
       const list = el('div', { class: 'applist', style: { marginTop: '8px' } });
       categories.forEach((c) => {

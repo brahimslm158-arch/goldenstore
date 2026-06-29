@@ -18,7 +18,7 @@ import {
   verifyJwt,
 } from '../lib/auth.js';
 import { nowSec, randomId, safeExt, searchTerms, slugify, sanitizeText, sanitizeUrl, safeInt } from '../lib/utils.js';
-import { DEFAULT_CATEGORIES, type App, type Category, type Screenshot } from '../lib/types.js';
+import { DEFAULT_CATEGORIES, APP_CATEGORIES, GAME_CATEGORIES, type App, type Category, type Screenshot } from '../lib/types.js';
 
 export const config = { runtime: 'nodejs' };
 
@@ -268,7 +268,9 @@ app.post('/translate', async (c) => {
 });
 
 app.get('/categories', async (c) => {
-  // Get app counts per category
+  // type=app → app categories only, type=game → game categories only,
+  // anything else → the combined list (legacy compatibility).
+  const type = (c.req.query('type') || '').trim();
   const db = await firestore();
   const snap = await db.collection('apps').select('category').get();
   const counts: Record<string, number> = {};
@@ -276,7 +278,10 @@ app.get('/categories', async (c) => {
     const cat = (d.data() as any).category || 'other';
     counts[cat] = (counts[cat] || 0) + 1;
   });
-  const categories: Category[] = DEFAULT_CATEGORIES.map((c) => ({ ...c, count: counts[c.slug] || 0 }));
+  const source = type === 'app' ? APP_CATEGORIES
+    : type === 'game' ? GAME_CATEGORIES
+    : DEFAULT_CATEGORIES;
+  const categories: Category[] = source.map((c) => ({ ...c, count: counts[c.slug] || 0 }));
   return c.json({ categories });
 });
 
@@ -289,10 +294,48 @@ app.get('/apps', async (c) => {
   const limit = Math.min(Number(c.req.query('limit') || '24') || 24, 60);
   const offset = Math.max(Number(c.req.query('offset') || '0') || 0, 0);
 
+  // type=game → only games. type=app → everything that isn't a game, including
+  // legacy docs created before the app/game split that have no `type` field
+  // (so the apps view never goes empty before the one-time backfill runs).
+  const gameOnly = type === 'game';
+  const excludeGames = type === 'app';
+
   const db = await firestore();
+
+  const sortDocs = (docs: any[]) => {
+    if (sort === 'popular') docs.sort((a: any, b: any) =>
+      ((b.data().downloads || 0) - (a.data().downloads || 0)) || (ratingAverage(b.data()) - ratingAverage(a.data())));
+    else if (sort === 'stars' || sort === 'rating') docs.sort((a: any, b: any) =>
+      (ratingAverage(b.data()) - ratingAverage(a.data())) || ((b.data().rating_count || 0) - (a.data().rating_count || 0)));
+    else if (sort === 'name') docs.sort((a: any, b: any) => (a.data().name_lower || '').localeCompare(b.data().name_lower || ''));
+    else docs.sort((a: any, b: any) => (b.data().created_at || 0) - (a.data().created_at || 0));
+    return docs;
+  };
+
+  // "Apps" view excludes games in-memory (can't express "type != game OR missing"
+  // as an efficient Firestore filter), so always take the fetch-all path here.
+  if (excludeGames) {
+    let base: any = db.collection('apps');
+    if (category) base = base.where('category', '==', category);
+    if (starredOnly) base = base.where('stars', '>', 0);
+    if (q) {
+      const token = q.split(/\s+/).filter((w) => w.length >= 2)[0];
+      if (token) base = base.where('search_terms', 'array-contains', token);
+    }
+    const allSnap = await base.get();
+    let docs = sortDocs(allSnap.docs.filter((d: any) => d.data().type !== 'game'));
+    const total = docs.length;
+    docs = docs.slice(offset, offset + limit);
+    const apps = docs.map((d: any) => {
+      const a = appPublic(d);
+      return { ...a, icon_url: icon_url((d.data() as App).icon_key), feature_url: feature_url((d.data() as App).feature_key) };
+    });
+    return c.json({ apps, total });
+  }
+
   let query: any = db.collection('apps');
   if (category) query = query.where('category', '==', category);
-  if (type) query = query.where('type', '==', type);
+  if (gameOnly) query = query.where('type', '==', 'game');
   if (starredOnly) query = query.where('stars', '>', 0);
   if (q) {
     const token = q.split(/\s+/).filter((w) => w.length >= 2)[0];
@@ -314,20 +357,14 @@ app.get('/apps', async (c) => {
       // Composite index not yet created — fall back to unordered fetch + in-memory sort
       let fallback: any = db.collection('apps');
       if (category) fallback = fallback.where('category', '==', category);
-      if (type) fallback = fallback.where('type', '==', type);
+      if (gameOnly) fallback = fallback.where('type', '==', 'game');
       if (starredOnly) fallback = fallback.where('stars', '>', 0);
       if (q) {
         const token = q.split(/\s+/).filter((w) => w.length >= 2)[0];
         if (token) fallback = fallback.where('search_terms', 'array-contains', token);
       }
       const allSnap = await fallback.get();
-      let docs = allSnap.docs;
-      if (sort === 'popular') docs.sort((a: any, b: any) =>
-        ((b.data().downloads || 0) - (a.data().downloads || 0)) || (ratingAverage(b.data()) - ratingAverage(a.data())));
-      else if (sort === 'stars' || sort === 'rating') docs.sort((a: any, b: any) =>
-        (ratingAverage(b.data()) - ratingAverage(a.data())) || ((b.data().rating_count || 0) - (a.data().rating_count || 0)));
-      else if (sort === 'name') docs.sort((a: any, b: any) => (a.data().name_lower || '').localeCompare(b.data().name_lower || ''));
-      else docs.sort((a: any, b: any) => (b.data().created_at || 0) - (a.data().created_at || 0));
+      let docs = sortDocs(allSnap.docs);
       total = docs.length;
       docs = docs.slice(offset, offset + limit);
       snap = { docs };
@@ -760,6 +797,26 @@ app.get('/admin/apps', async (c) => {
     return { ...a, icon_url: icon_url(a.icon_key), feature_url: feature_url((a as any).feature_key) };
   });
   return c.json({ apps });
+});
+
+// One-time backfill: legacy docs created before the app/game split have no
+// `type` field, so type-filtered queries skip them. Set them all to 'app'.
+app.post('/admin/migrate-types', async (c) => {
+  const db = await firestore();
+  const snap = await db.collection('apps').get();
+  let updated = 0;
+  let batch = db.batch();
+  let pending = 0;
+  for (const d of snap.docs) {
+    const data = d.data() as any;
+    if (data.type === 'app' || data.type === 'game') continue;
+    batch.update(d.ref, { type: 'app' });
+    updated++;
+    pending++;
+    if (pending >= 400) { await batch.commit(); batch = db.batch(); pending = 0; }
+  }
+  if (pending > 0) await batch.commit();
+  return c.json({ ok: true, updated, total: snap.size });
 });
 
 // List update-requests / reports submitted by users.

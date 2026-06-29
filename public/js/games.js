@@ -10,6 +10,7 @@
     { key: 'foryou', label: 'محتوى يهمّك' },
     { key: 'top', label: 'الأكثر رواجًا' },
     { key: 'rated', label: 'الأعلى تقييماً' },
+    { key: 'categories', label: 'الفئات' },
   ];
 
   S.ready((user) => {
@@ -38,8 +39,9 @@
 
     async function renderContent() {
       content.innerHTML = '';
-      content.append(S.skeletonHome());
+      content.append(topTab === 'categories' ? S.skeletonList() : S.skeletonHome());
       try {
+        if (topTab === 'categories') return renderCategories();
         if (topTab === 'top') return renderTop();
         if (topTab === 'rated') return renderTopRated();
         return renderForYou();
@@ -47,6 +49,23 @@
         content.innerHTML = '';
         content.append(S.errorState(err));
       }
+    }
+
+    async function renderCategories() {
+      const { categories } = await api('/api/categories?type=game');
+      content.innerHTML = '';
+      const list = el('div', { class: 'applist', style: { marginTop: '8px' } });
+      categories.forEach((c) => {
+        list.append(el('a', { href: `/search?category=${c.slug}`, class: 'approw' },
+          el('div', { class: 'art', style: { background: 'var(--surface-2)' } }, ico(c.icon, 'icon icon-lg')),
+          el('div', { class: 'info' },
+            el('div', { class: 'nm' }, c.name),
+            el('div', { class: 'sub' }, `${c.count || 0} ${t('لعبة')}`),
+          ),
+          ico('chevronStart', 'icon'),
+        ));
+      });
+      content.append(el('div', { class: 'section' }, list));
     }
 
     async function renderForYou() {

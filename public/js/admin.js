@@ -5,6 +5,7 @@
   let me = null;
   let cats = [];
   let activeTab = 'dashboard';
+  let newKind = 'app';
 
   // ---------------- helpers ----------------
 
@@ -198,7 +199,8 @@
     const tabs = el('div', { class: 'admin-tabs' },
       tabBtn('dashboard', 'dashboard', 'لوحة المعلومات'),
       tabBtn('apps', 'apps', 'التطبيقات'),
-      tabBtn('new', 'plus', 'تطبيق جديد'),
+      tabBtn('games', 'gamepad', 'الألعاب'),
+      tabBtn('new', 'plus', 'إضافة جديد'),
       tabBtn('requests', 'flag', 'الطلبات والبلاغات'),
       el('span', { class: 'tab-spacer' }),
       (window.GSI18N && window.GSI18N.switcherEl ? window.GSI18N.switcherEl() : document.createComment('lang')),
@@ -214,7 +216,8 @@
     root.append(body);
 
     if (activeTab === 'dashboard') await renderDashboard(body);
-    else if (activeTab === 'apps') await renderAppsList(body);
+    else if (activeTab === 'apps') await renderAppsList(body, 'app');
+    else if (activeTab === 'games') await renderAppsList(body, 'game');
     else if (activeTab === 'new') await renderNewApp(body);
     else if (activeTab === 'requests') await renderRequests(body);
     else if (activeTab.startsWith('edit:')) await renderEditApp(body, activeTab.slice(5));
@@ -259,6 +262,18 @@
               return t;
             })(),
           ) : emptyMsg('لا توجد بيانات بعد', 'ارفع تطبيقك الأول لرؤية الإحصائيات.'),
+        ),
+        el('div', { class: 'panel' },
+          el('div', { class: 'panel-head' }, ico('refresh'), 'صيانة'),
+          el('div', { class: 'sub', style: 'margin-bottom:10px;' }, 'العناصر القديمة بلا نوع محدّد تُعامَل كـ«تطبيق». اضغط لتعيين النوع لها دفعة واحدة (آمن، يُشغَّل مرة واحدة).'),
+          el('button', { class: 'btn btn-secondary btn-sm', onclick: async (e) => {
+            const b = e.currentTarget; b.disabled = true;
+            try {
+              const r = await api('/api/admin/migrate-types', { method: 'POST' });
+              toast(`تم تعيين النوع لـ ${r.updated} عنصر (الإجمالي ${r.total})`, 'success');
+            } catch { toast('فشل التحديث', 'error'); }
+            b.disabled = false;
+          } }, ico('check'), 'تعيين النوع للعناصر القديمة'),
         ),
       );
     } catch (e) {
@@ -324,13 +339,25 @@
   }
 
   // -------- apps list --------
-  async function renderAppsList(body) {
+  async function renderAppsList(body, kind) {
+    kind = kind === 'game' ? 'game' : 'app';
+    const isGame = (a) => a.type === 'game';
+    const noun = kind === 'game' ? 'لعبة' : 'تطبيق';
     body.innerHTML = '<div class="center-spinner"><div class="spinner"></div></div>';
     try {
-      const { apps } = await api('/api/admin/apps');
+      const { apps: allApps } = await api('/api/admin/apps');
+      const apps = allApps.filter((a) => kind === 'game' ? isGame(a) : !isGame(a));
       body.innerHTML = '';
+
+      const head = el('div', { class: 'flex gap-md', style: 'align-items:center; justify-content:space-between; margin-bottom:14px; flex-wrap:wrap;' },
+        el('div', { style: 'font-weight:700; font-size:17px;' }, `${kind === 'game' ? 'الألعاب' : 'التطبيقات'} (${apps.length})`),
+        el('button', { class: 'btn btn-primary btn-sm', onclick: () => { newKind = kind; activeTab = 'new'; renderApp(); } },
+          ico('plus'), kind === 'game' ? 'إضافة لعبة' : 'إضافة تطبيق'),
+      );
+      body.append(head);
+
       if (!apps.length) {
-        body.append(emptyMsg('لا توجد تطبيقات بعد', 'أضف تطبيقاً جديداً من تبويب «تطبيق جديد».'));
+        body.append(emptyMsg(`لا توجد ${kind === 'game' ? 'ألعاب' : 'تطبيقات'} بعد`, `أضف ${noun}اً جديداً من زر «${kind === 'game' ? 'إضافة لعبة' : 'إضافة تطبيق'}».`));
         return;
       }
       const t = el('div', { class: 'table-wrap' },
@@ -338,7 +365,6 @@
           el('thead', null, el('tr', null,
             el('th', null, ''),
             el('th', null, 'الاسم'),
-            el('th', null, 'النوع'),
             el('th', null, 'التصنيف'),
             el('th', null, 'الإصدار'),
             el('th', null, 'الحجم'),
@@ -353,7 +379,6 @@
               el('div', null, a.name),
               (a.stars > 0) ? el('span', { class: 'star-pin', style: 'position:relative; top:auto; inset-inline-end:auto; display:inline-flex; margin-top:6px;' }, ico('star'), formatNum(a.stars)) : null,
             ),
-            el('td', { 'data-label': 'النوع' }, a.type === 'game' ? 'لعبة' : 'تطبيق'),
             el('td', { 'data-label': 'التصنيف' }, cats.find(c => c.slug === a.category)?.name || a.category),
             el('td', { 'data-label': 'الإصدار' }, a.version_name || '—'),
             el('td', { 'data-label': 'الحجم' }, formatBytes(a.size_bytes)),
@@ -366,7 +391,7 @@
                 try {
                   await api(`/api/admin/apps/${a.id}`, { method: 'DELETE' });
                   toast('تم الحذف', 'success');
-                  renderAppsList(body);
+                  renderAppsList(body, kind);
                 } catch { toast('فشل الحذف', 'error'); }
               } }, ico('trash'), 'حذف'),
             )),
@@ -448,14 +473,14 @@
 
     form.append(
       el('div', { class: 'panel' },
-        el('div', { class: 'panel-head' }, ico('plus'), 'إضافة تطبيق جديد'),
-        formField('name', 'اسم التطبيق', 'text', { required: true, placeholder: 'مثلاً: تطبيق محرر النصوص' }),
+        el('div', { class: 'panel-head' }, ico('plus'), newKind === 'game' ? 'إضافة لعبة جديدة' : 'إضافة تطبيق جديد'),
+        formField('name', 'الاسم', 'text', { required: true, placeholder: newKind === 'game' ? 'مثلاً: لعبة الألغاز' : 'مثلاً: تطبيق محرر النصوص' }),
         formField('package_name', 'اسم الحزمة (Package name)', 'text', { required: true, placeholder: 'com.example.app' }),
         formRow(
           formField('developer', 'المطوّر', 'text', { placeholder: 'اسم المطوّر' }),
           categoryField('category', null, 'type'),
         ),
-        typeField('type'),
+        typeField('type', newKind),
         formField('short_description', 'وصف مختصر', 'text', { placeholder: 'سطر واحد يصف التطبيق' }),
         formTextarea('description', 'الوصف الكامل', { placeholder: 'تفاصيل التطبيق وميزاته…', rows: 5 }),
         formRow(
