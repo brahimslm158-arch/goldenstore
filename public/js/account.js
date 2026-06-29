@@ -116,6 +116,8 @@
           langSettingItem(),
           settingItem('info', t('حول Golden Store'), t('الإصدار') + ' 2.0', null),
         ),
+        aboutStoreCard(),
+        contactCard(),
         el('div', { style: { padding: '24px 0' } },
           el('button', { class: 'btn btn-outline btn-block', onclick: () => S.signOut() },
             ico('logout', 'icon icon-sm'), t('تسجيل الخروج')),
@@ -166,6 +168,34 @@
 
     dropdown.append(trigger, menu);
     return dropdown;
+  }
+
+  function aboutStoreCard() {
+    return el('div', { class: 'store-card' },
+      el('div', { class: 'store-card-head' }, ico('shieldCheck', 'icon'), el('h3', null, t('عن Golden Store'))),
+      el('p', { class: 'store-card-text' },
+        t('Golden Store هو متجرك العربي لتحميل أحدث التطبيقات والألعاب المهكرة (Mod) والمدفوعة مجاناً بأحدث إصداراتها، مع ميزات مفتوحة بالكامل وبدون إعلانات. نختار المحتوى بعناية ونحدّثه باستمرار، ونوفّر تحميلاً مباشراً سريعاً وآمناً.')),
+    );
+  }
+
+  function contactCard() {
+    const links = [
+      { icon: 'facebook',  label: 'Facebook',  href: 'https://www.facebook.com/F.Pony.Z' },
+      { icon: 'instagram', label: 'Instagram', href: 'https://www.instagram.com/faycalzaouani' },
+      { icon: 'telegram',  label: 'Telegram',  href: 'https://t.me/goldenstore_10' },
+    ];
+    const list = el('div', { class: 'acct-list contact-list' });
+    links.forEach((l) => {
+      list.append(el('a', { class: 'acct-setting contact-row', href: l.href, target: '_blank', rel: 'noopener noreferrer' },
+        ico(l.icon, `icon fill brand-${l.icon}`),
+        el('span', { class: 'label' }, l.label),
+        ico('chevronStart', 'icon icon-sm'),
+      ));
+    });
+    return el('div', null,
+      el('div', { class: 'page-title', style: { padding: '8px 16px 0', fontSize: '15px' } }, t('تواصل معنا')),
+      list,
+    );
   }
 
   function settingItem(icon, label, value, onClick) {
