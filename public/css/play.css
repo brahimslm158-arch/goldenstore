@@ -646,7 +646,7 @@ input, select { font-family: inherit; }
   transition: max-height .28s ease, opacity .2s ease, padding .2s ease;
   padding: 0 12px;
 }
-.about-collapse.open .about-body { max-height: 360px; opacity: 1; padding: 4px 12px 14px; }
+.about-collapse.open .about-body { max-height: 600px; opacity: 1; padding: 4px 12px 14px; }
 .store-card-text { margin: 0; font-size: 13.5px; line-height: 1.9; color: var(--text-2); }
 
 .contact-row .brand-facebook,

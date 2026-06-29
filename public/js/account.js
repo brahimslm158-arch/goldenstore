@@ -118,7 +118,7 @@
         ),
         contactCard(),
         el('div', { style: { padding: '24px 0' } },
-          el('button', { class: 'btn btn-outline btn-block', onclick: () => S.signOut() },
+          el('button', { class: 'btn btn-outline btn-block', onclick: () => confirmSignOut() },
             ico('logout', 'icon icon-sm'), t('تسجيل الخروج')),
         ),
       );
@@ -167,6 +167,29 @@
 
     dropdown.append(trigger, menu);
     return dropdown;
+  }
+
+  function confirmSignOut() {
+    const overlay = el('div', { class: 'dialog-overlay', onclick: (e) => { if (e.target === overlay) close(); } });
+    function close() { overlay.remove(); document.removeEventListener('keydown', esc); }
+    function esc(e) { if (e.key === 'Escape') close(); }
+    const card = el('div', { class: 'dialog-card', dir: 'rtl' },
+      el('div', { class: 'dialog-head' },
+        el('div', { class: 'dialog-title' }, ico('logout', 'icon'), t('تسجيل الخروج')),
+        el('button', { class: 'dialog-close', 'aria-label': t('إغلاق'), onclick: () => close() }, ico('close')),
+      ),
+      el('div', { class: 'dialog-body' },
+        el('p', { class: 'store-card-text' }, t('هل تريد بالتأكيد تسجيل الخروج من حسابك؟ ستحتاج لتسجيل الدخول مجدداً للوصول إلى المتجر.')),
+      ),
+      el('div', { class: 'dialog-actions' },
+        el('button', { class: 'btn btn-secondary', onclick: () => close() }, t('إلغاء')),
+        el('button', { class: 'btn btn-danger', onclick: () => { close(); S.signOut(); } },
+          ico('logout', 'icon icon-sm'), t('تسجيل الخروج')),
+      ),
+    );
+    overlay.append(card);
+    document.addEventListener('keydown', esc);
+    document.body.append(overlay);
   }
 
   function aboutDropdown() {
