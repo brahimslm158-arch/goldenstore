@@ -186,7 +186,7 @@ function listRow(a, opts = {}) {
   );
 }
 
-// Google Play-style featured card: clean feature image on top, compact info bar below.
+// Google Play-style featured card: image with gradient + description overlay, compact info bar below.
 function featureSlide(a) {
   const slide = el('a', { href: `/app?slug=${encodeURIComponent(a.slug)}`, class: 'fc-slide' });
   const media = el('div', { class: 'fc-media' });
@@ -197,6 +197,11 @@ function featureSlide(a) {
     media.append(a.icon_url
       ? el('img', { class: 'fc-fallback-ico', src: a.icon_url, alt: '', loading: 'lazy' })
       : ico('package', 'icon icon-lg'));
+  }
+  // Description overlay on gradient at bottom of image
+  const desc = a.short_description || a.description || '';
+  if (desc) {
+    media.append(el('div', { class: 'fc-desc' }, desc));
   }
   const rt = ratingOf(a);
   slide.append(
