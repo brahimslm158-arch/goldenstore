@@ -62,27 +62,28 @@ function makeProvider() {
   return provider;
 }
 
-// Always use redirect on mobile/in-app — popups are unreliable there.
-function shouldUseRedirect() {
+// In-app webviews (Facebook, Instagram, TikTok, …) block popups AND break the
+// redirect handoff, so Google sign-in cannot complete inside them.
+function isInAppBrowser() {
   var ua = navigator.userAgent || '';
-  if (/FBAN|FBAV|Instagram|Line|Twitter|Snapchat|TikTok|WebView|wv\)/i.test(ua)) return true;
-  // Also use redirect on Android/iOS to avoid popup issues
-  if (/Android|iPhone|iPad|iPod/i.test(ua)) return true;
-  return false;
+  return /FBAN|FBAV|Instagram|Line|Twitter|Snapchat|TikTok|WebView|; wv\)/i.test(ua);
 }
 
+// Use a popup everywhere. signInWithRedirect is unreliable when the Firebase
+// authDomain differs from the app's domain (modern browsers partition the
+// third-party storage the redirect handoff relies on), which dropped the
+// session and bounced users back to the login screen. Popups keep the whole
+// flow on the app's own origin.
 async function signInWithGoogle() {
   initFirebase();
   if (!_auth) throw new Error('Firebase not initialized');
 
-  if (shouldUseRedirect()) {
-    _redirectPending = true;
-    await _auth.signInWithRedirect(makeProvider());
-    // Page will reload after redirect; this line won't execute.
-    return null;
+  if (isInAppBrowser()) {
+    var iae = new Error('in-app-browser');
+    iae.code = 'auth/in-app-browser';
+    throw iae;
   }
 
-  // Desktop: try popup first
   try {
     var result = await _auth.signInWithPopup(makeProvider());
     return result.user;
@@ -92,7 +93,8 @@ async function signInWithGoogle() {
     if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
       return null;
     }
-    // Popup blocked or unsupported: fall back to redirect.
+    // Popup blocked/unsupported: fall back to redirect as a last resort. The
+    // dedicated /login page processes getRedirectResult on return.
     if (code === 'auth/popup-blocked' ||
         code === 'auth/operation-not-supported-in-this-environment' ||
         code === 'auth/web-storage-unsupported') {

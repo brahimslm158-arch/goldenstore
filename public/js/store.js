@@ -466,7 +466,9 @@ function bottomNav(active) {
 }
 
 /* --------------------------- Auth gate --------------------------- */
-const GOOGLE_G = '<svg class="gico" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>';
+// Sign-in UI lives on the dedicated /login page (see login.html / login.js).
+// Other pages render optimistically from cache and redirect to /login when
+// there is no valid session.
 
 let _user = null;
 let _ready = [];
@@ -495,67 +497,6 @@ function cachedUser() {
   try { const v = localStorage.getItem(CACHE_KEY); return v ? JSON.parse(v) : null; } catch { return null; }
 }
 
-function authErrorMessage(e) {
-  const code = (e && e.code) || '';
-  switch (code) {
-    case 'auth/unauthorized-domain':
-      return `هذا النطاق (${location.hostname}) غير مُصرَّح به في Firebase. أضِفه في Authentication ← Settings ← Authorized domains.`;
-    case 'auth/operation-not-allowed':
-      return 'مزوّد Google غير مُفعَّل. فعّله في Firebase ← Authentication ← Sign-in method.';
-    case 'auth/network-request-failed':
-      return 'تعذّر الاتصال بالشبكة. تحقّق من الإنترنت وحاول مجدداً.';
-    case 'auth/popup-blocked':
-      return 'المتصفّح حظر النافذة المنبثقة. اسمح بالنوافذ المنبثقة ثم حاول مجدداً.';
-    default:
-      return `تعذّر تسجيل الدخول${code ? ' (' + code + ')' : ''}. حاول مجدداً.`;
-  }
-}
-
-function buildGate(loading) {
-  const errBox = el('div', { class: 'gate-error hidden' });
-  const btn = el('button', { class: 'gbtn', html: GOOGLE_G });
-  btn.append(document.createTextNode(' ' + t('متابعة باستخدام Google')));
-  function resetBtn() {
-    btn.disabled = false;
-    btn.lastChild && (btn.lastChild.textContent = ' ' + t('متابعة باستخدام Google'));
-  }
-  function showErr(msg) {
-    errBox.textContent = msg;
-    errBox.classList.remove('hidden');
-    toast(msg, 'error', 6000);
-    resetBtn();
-  }
-  btn.addEventListener('click', async () => {
-    errBox.classList.add('hidden');
-    btn.disabled = true;
-    btn.lastChild && (btn.lastChild.textContent = ' ' + t('جار تسجيل الدخول…'));
-    // Safety timeout: if sign-in hangs for 15s, re-enable button
-    const timeout = setTimeout(() => { resetBtn(); }, 15000);
-    try {
-      const result = await window.GAuth.signInWithGoogle();
-      clearTimeout(timeout);
-      if (!result) resetBtn();
-    } catch (e) {
-      clearTimeout(timeout);
-      console.error('signIn error:', e && e.code, e && e.message, e);
-      showErr(authErrorMessage(e));
-    }
-  });
-  return el('div', { class: 'gate' },
-    el('div', { class: 'logo' }, el('img', { src: '/images/logo.png', alt: 'Golden Store' })),
-    el('h1', null, 'Golden', el('b', null, 'Store')),
-    el('p', null, t('سجّل الدخول بحساب Google للوصول إلى المتجر وتنزيل التطبيقات.')),
-    loading ? el('div', { class: 'gate-spinner' }, el('div', { class: 'spinner' })) : btn,
-    errBox,
-    el('div', { class: 'terms' }, t('بالمتابعة فإنك توافق على شروط الاستخدام وسياسة الخصوصية لـ Golden Store.')),
-  );
-}
-
-function showGate(loading) {
-  if (_gateEl) _gateEl.remove();
-  _gateEl = buildGate(loading);
-  document.body.append(_gateEl);
-}
 function hideGate() { if (_gateEl) { _gateEl.remove(); _gateEl = null; } }
 
 function onAuthed(user) {
@@ -574,22 +515,29 @@ function ready(fn) {
   else _ready.push(fn);
 }
 
+let _redirectingToLogin = false;
+function goToLogin() {
+  if (_redirectingToLogin) return;
+  _redirectingToLogin = true;
+  const next = location.pathname + location.search;
+  location.replace('/login?next=' + encodeURIComponent(next));
+}
+
 function initAuth() {
   // Localhost-only preview bypass (never active in production).
   if (isLocalhost() && getQuery('devskip') === '1') { onAuthed(devUser()); return; }
 
   // Optimistic render: if the user signed in before, show the store immediately
   // and let Firebase confirm the session in the background (avoids login flash).
+  // Sign-in itself lives on the dedicated /login page.
   const cached = cachedUser();
   if (cached) onAuthed(cached);
-  else { document.body.style.overflow = 'hidden'; showGate(true); }
 
-  // Safety: if GAuth isn't available (SDK failed to load), show the button anyway
-  // so the user sees an error instead of an infinite spinner.
+  // Safety: if GAuth isn't available (SDK failed to load), send to the login
+  // page rather than getting stuck on a blank/optimistic screen.
   if (!window.GAuth || typeof window.GAuth.onAuthChange !== 'function') {
     console.error('GAuth not available — Firebase SDK may have failed to load');
-    showGate(false);
-    document.body.style.overflow = 'hidden';
+    if (!cached) goToLogin();
     return;
   }
 
@@ -602,18 +550,9 @@ function initAuth() {
       // No valid session: clear any stale cache and require sign-in.
       cacheUser(null);
       _user = null;
-      showGate(false);
-      document.body.style.overflow = 'hidden';
+      goToLogin();
     }
   });
-
-  // Safety timeout: if auth state isn't resolved within 8 seconds, show button
-  // (prevents infinite spinner if Firebase/network is slow).
-  setTimeout(() => {
-    if (!_user && _gateEl && _gateEl.querySelector('.gate-spinner')) {
-      showGate(false);
-    }
-  }, 8000);
 }
 
 async function signOut() {
