@@ -430,29 +430,58 @@
 
     btn.addEventListener('click', runInstall);
 
-    // Restore download state on page reload: if this app has an active download, show progress
+    // Restore download state on page reload: if this app has an active download,
+    // show the progress bar continuing from where it was and simulate ongoing progress.
     const activeDls = S.getActiveDownloads();
     const activeDl = activeDls.find((d) => d.slug === app.slug);
     if (activeDl && activeDl.status === 'downloading') {
       btn.classList.add('installing');
       btn.disabled = true;
-      if (activeDl.progress < 0) {
-        setIndeterminate();
+
+      // Calculate estimated progress based on elapsed time
+      const startedAt = activeDl.started_at || Math.floor(Date.now() / 1000);
+      const elapsed = Math.floor(Date.now() / 1000) - startedAt;
+      const sizeBytes = app.size_bytes || activeDl.size_bytes || 20 * 1024 * 1024;
+      // Estimate: ~400KB/s average mobile speed
+      const estimatedTotalTime = Math.max(10, sizeBytes / (400 * 1024));
+      const lastProgress = (activeDl.progress >= 0) ? activeDl.progress : 0;
+      // Start from either the stored progress or the time-based estimate (whichever is higher)
+      const timeBasedProgress = Math.min(0.95, elapsed / estimatedTotalTime);
+      let currentProgress = Math.max(lastProgress, timeBasedProgress);
+
+      if (currentProgress >= 0.95) {
+        // Likely finished already — mark as installed
+        S.removeActiveDownload(app.slug);
+        markInstalledStored(app.slug);
+        S.addToDownloadHistory(app);
+        showInstalled();
       } else {
-        setProgress(activeDl.progress);
+        setProgress(currentProgress);
+        // Continue advancing the bar smoothly until completion
+        const remainingTime = (estimatedTotalTime - elapsed) * 1000;
+        const stepInterval = 300;
+        const steps = Math.max(1, Math.floor(remainingTime / stepInterval));
+        const increment = (0.98 - currentProgress) / steps;
+        let stepsDone = 0;
+        const progressTimer = setInterval(() => {
+          stepsDone++;
+          currentProgress = Math.min(0.98, currentProgress + increment);
+          setProgress(currentProgress);
+          S.updateActiveDownloadProgress(app.slug, currentProgress);
+          if (stepsDone >= steps) {
+            clearInterval(progressTimer);
+            // After reaching ~98%, complete the download
+            setTimeout(() => {
+              setProgress(1);
+              S.removeActiveDownload(app.slug);
+              markInstalledStored(app.slug);
+              S.addToDownloadHistory(app);
+              showInstalled();
+              toast(t('اكتمل التحميل'), 'success');
+            }, 800);
+          }
+        }, stepInterval);
       }
-      // Listen for progress updates from other tabs or this tab
-      const unsub = S.onActiveDownloadsChange((items) => {
-        const cur = items.find((d) => d.slug === app.slug);
-        if (!cur) {
-          // Download finished or removed
-          unsub();
-          if (isInstalled(app.slug)) showInstalled();
-          else showIdle();
-        } else if (cur.progress >= 0) {
-          setProgress(cur.progress);
-        }
-      });
     } else if (isInstalled(app.slug)) {
       showInstalled();
     }

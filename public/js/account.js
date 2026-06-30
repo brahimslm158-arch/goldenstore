@@ -26,126 +26,63 @@
 
   // --- Library page (standalone, accessed from bottom nav) ---
   function renderLibraryPage(content) {
-    if (content.__libDlUnsub) {
-      content.__libDlUnsub();
-      content.__libDlUnsub = null;
-    }
-
     content.append(el('div', { class: 'page-title', style: { padding: '16px' } }, t('مكتبتي')));
     const body = el('div', { class: 'acct-body' });
     content.append(body);
 
-    const activeWrap = el('div', { class: 'lib-active-list' });
-    body.append(activeWrap);
+    const history = S.getDownloadHistory();
 
-    const historyWrap = el('div', { class: 'lib-history' });
-    body.append(historyWrap);
-
-    function renderActiveDownloads(items) {
-      activeWrap.innerHTML = '';
-      if (!items.length) return;
-
-      activeWrap.append(
-        el('div', { class: 'lib-active-header' },
-          ico('download', 'icon lib-active-ico'),
-          el('span', { class: 'lib-active-title' }, `${items.length} ${t('جارٍ التحميل')}`),
+    if (!history.length) {
+      body.append(
+        el('div', { class: 'empty-lib' },
+          el('div', { class: 'empty-lib-icon' }, ico('download', 'icon')),
+          el('h3', null, t('مكتبتك فارغة')),
+          el('p', null, t('ستظهر هنا التطبيقات التي قمت بتحميلها لتسهيل إعادة تحميلها في أي وقت.')),
+          el('a', { class: 'btn btn-primary', href: '/' }, t('تصفح التطبيقات')),
         ),
       );
-
-      const list = el('div', { class: 'lib-dl-list' });
-      items.forEach((item) => {
-        const progress = typeof item.progress === 'number' ? item.progress : 0;
-        const indeterminate = progress < 0;
-        const pct = indeterminate ? '' : `${Math.max(0, Math.min(100, Math.round(progress * 100)))}%`;
-        const sizeText = item.size_bytes ? formatBytes(item.size_bytes) : '';
-        list.append(
-          el('a', { href: `/app?slug=${encodeURIComponent(item.slug)}`, class: 'lib-dl-row' },
-            el('div', { class: 'art' },
-              item.icon_url
-                ? el('img', { src: item.icon_url, alt: item.name, loading: 'lazy' })
-                : ico('download', 'icon icon-lg'),
-            ),
-            el('div', { class: 'lib-info' },
-              el('div', { class: 'nm' }, item.name),
-              el('div', { class: 'sub' }, item.developer || 'Golden Store'),
-              el('div', { class: 'lib-dl-meta' },
-                el('span', { class: 'lib-dl-status' }, indeterminate
-                  ? t('جارٍ التحميل…')
-                  : `${t('جارٍ التحميل…')} ${pct}`),
-                sizeText ? el('span', { class: 'lib-dl-size' }, sizeText) : null,
-              ),
-              el('div', { class: 'lib-dl-progress', 'data-indeterminate': indeterminate ? '1' : '0' },
-                el('div', { class: 'lib-dl-fill', style: indeterminate ? {} : { width: `${Math.max(0, Math.min(100, Math.round(progress * 100)))}%` } }),
-              ),
-            ),
-            el('div', { class: 'lib-dl-cancel' },
-              el('div', { class: 'lib-dl-spinner' }),
-            ),
-          ),
-        );
-      });
-      activeWrap.append(list);
+      return;
     }
 
-    const history = S.getDownloadHistory();
-    const renderHistorySection = () => {
-      historyWrap.innerHTML = '';
+    const header = el('div', { class: 'lib-header' },
+      el('div', { class: 'lib-header-info' },
+        ico('package', 'icon lib-header-ico'),
+        el('span', { class: 'lib-count' }, `${history.length} ${t('تطبيق في مكتبتك')}`),
+      ),
+      el('button', { class: 'btn btn-sm btn-secondary', type: 'button', onclick: () => {
+        if (!confirm(t('حذف سجل التحميلات بالكامل؟'))) return;
+        S.clearDownloadHistory();
+        content.innerHTML = '';
+        renderLibraryPage(content);
+        toast(t('تم مسح السجل'), 'success');
+      } }, ico('trash', 'icon icon-sm'), t('مسح السجل')),
+    );
+    body.append(header);
 
-      if (!history.length) {
-        historyWrap.append(
-          el('div', { class: 'empty-lib' },
-            el('div', { class: 'empty-lib-icon' }, ico('download', 'icon')),
-            el('h3', null, t('مكتبتك فارغة')),
-            el('p', null, t('ستظهر هنا التطبيقات التي قمت بتحميلها لتسهيل إعادة تحميلها في أي وقت.')),
-            el('a', { class: 'btn btn-primary', href: '/' }, t('تصفح التطبيقات')),
-          ),
-        );
-        return;
-      }
-
-      const header = el('div', { class: 'lib-header' },
-        el('div', { class: 'lib-header-info' },
-          ico('package', 'icon lib-header-ico'),
-          el('span', { class: 'lib-count' }, `${history.length} ${t('تطبيق في مكتبتك')}`),
+    const list = el('div', { class: 'lib-list' });
+    history.forEach((item) => {
+      const row = el('a', { href: `/app?slug=${encodeURIComponent(item.slug)}`, class: 'lib-row' },
+        el('div', { class: 'art' },
+          item.icon_url
+            ? el('img', { src: item.icon_url, alt: item.name, loading: 'lazy' })
+            : ico('package', 'icon icon-lg'),
         ),
-        el('button', { class: 'btn btn-sm btn-secondary', type: 'button', onclick: () => {
-          if (!confirm(t('حذف سجل التحميلات بالكامل؟'))) return;
-          S.clearDownloadHistory();
-          renderLibraryPage(content);
-          toast(t('تم مسح السجل'), 'success');
-        } }, ico('trash', 'icon icon-sm'), t('مسح السجل')),
+        el('div', { class: 'lib-info' },
+          el('div', { class: 'nm' }, item.name),
+          el('div', { class: 'sub' }, item.developer || 'Golden Store'),
+          el('div', { class: 'meta' },
+            el('span', null, formatBytes(item.size_bytes || 0)),
+            el('span', null, '•'),
+            el('span', null, formatDate(item.downloaded_at)),
+          ),
+        ),
+        el('div', { class: 'lib-action' },
+          el('span', { class: 'lib-open-btn' }, ico('chevronStart', 'icon icon-sm')),
+        ),
       );
-      historyWrap.append(header);
-
-      const list = el('div', { class: 'lib-list' });
-      history.forEach((item) => {
-        const row = el('a', { href: `/app?slug=${encodeURIComponent(item.slug)}`, class: 'lib-row' },
-          el('div', { class: 'art' },
-            item.icon_url
-              ? el('img', { src: item.icon_url, alt: item.name, loading: 'lazy' })
-              : ico('package', 'icon icon-lg'),
-          ),
-          el('div', { class: 'lib-info' },
-            el('div', { class: 'nm' }, item.name),
-            el('div', { class: 'sub' }, item.developer || 'Golden Store'),
-            el('div', { class: 'meta' },
-              el('span', null, formatBytes(item.size_bytes || 0)),
-              el('span', null, '•'),
-              el('span', null, formatDate(item.downloaded_at)),
-            ),
-          ),
-          el('div', { class: 'lib-action' },
-            el('span', { class: 'lib-open-btn' }, ico('chevronStart', 'icon icon-sm')),
-          ),
-        );
-        list.append(row);
-      });
-      historyWrap.append(list);
-    };
-
-    renderHistorySection();
-    renderActiveDownloads(S.getActiveDownloads());
-    content.__libDlUnsub = S.onActiveDownloadsChange((items) => renderActiveDownloads(items));
+      list.append(row);
+    });
+    body.append(list);
   }
 
   // --- Settings page (profile + settings) ---
