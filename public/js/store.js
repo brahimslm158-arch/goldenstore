@@ -651,36 +651,6 @@ function onActiveDownloadsChange(fn) {
   };
 }
 
-/* ----------------------------- Points system ----------------------------- */
-async function getIdToken() {
-  try {
-    if (window.GAuth && typeof window.GAuth.ready === 'function') {
-      await window.GAuth.ready();
-    }
-    const user = window.GAuth && window.GAuth.getUser();
-    if (user && typeof user.getIdToken === 'function') return await user.getIdToken();
-  } catch {}
-  return null;
-}
-
-async function pointsApi(path, opts = {}) {
-  const token = await getIdToken();
-  if (!token) return null;
-  const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
-  const res = await fetch(`/api${path}`, {
-    method: opts.method || 'GET',
-    headers,
-    body: opts.body ? JSON.stringify(opts.body) : undefined,
-    credentials: 'include',
-  });
-  return res.json();
-}
-
-async function getPointsBalance() { return pointsApi('/points/balance'); }
-async function earnPoints(slug) {
-  return pointsApi('/points/earn', { method: 'POST', body: { slug } });
-}
-async function claimReward() { return pointsApi('/points/claim', { method: 'POST', body: {} }); }
 
 window.Store = {
   STORE, api, el, ico, t,
@@ -691,7 +661,6 @@ window.Store = {
   ready, signOut, getUser: () => _user,
   getDownloadHistory, addToDownloadHistory, clearDownloadHistory,
   getActiveDownloads, setActiveDownload, updateActiveDownloadProgress, removeActiveDownload, onActiveDownloadsChange,
-  getPointsBalance, earnPoints, claimReward,
 };
 
 document.addEventListener('DOMContentLoaded', boot);

@@ -47,7 +47,8 @@
 
       activeWrap.append(
         el('div', { class: 'lib-active-header' },
-          el('span', { class: 'lib-count' }, `${items.length} ${t('جارٍ التحميل')}`),
+          ico('download', 'icon lib-active-ico'),
+          el('span', { class: 'lib-active-title' }, `${items.length} ${t('جارٍ التحميل')}`),
         ),
       );
 
@@ -56,8 +57,9 @@
         const progress = typeof item.progress === 'number' ? item.progress : 0;
         const indeterminate = progress < 0;
         const pct = indeterminate ? '' : `${Math.max(0, Math.min(100, Math.round(progress * 100)))}%`;
+        const sizeText = item.size_bytes ? formatBytes(item.size_bytes) : '';
         list.append(
-          el('div', { class: 'lib-dl-row' },
+          el('a', { href: `/app?slug=${encodeURIComponent(item.slug)}`, class: 'lib-dl-row' },
             el('div', { class: 'art' },
               item.icon_url
                 ? el('img', { src: item.icon_url, alt: item.name, loading: 'lazy' })
@@ -66,12 +68,18 @@
             el('div', { class: 'lib-info' },
               el('div', { class: 'nm' }, item.name),
               el('div', { class: 'sub' }, item.developer || 'Golden Store'),
-              el('div', { class: 'lib-dl-status' }, indeterminate
-                ? t('جارٍ التحميل…')
-                : `${t('جارٍ التحميل…')} ${pct}`),
+              el('div', { class: 'lib-dl-meta' },
+                el('span', { class: 'lib-dl-status' }, indeterminate
+                  ? t('جارٍ التحميل…')
+                  : `${t('جارٍ التحميل…')} ${pct}`),
+                sizeText ? el('span', { class: 'lib-dl-size' }, sizeText) : null,
+              ),
               el('div', { class: 'lib-dl-progress', 'data-indeterminate': indeterminate ? '1' : '0' },
                 el('div', { class: 'lib-dl-fill', style: indeterminate ? {} : { width: `${Math.max(0, Math.min(100, Math.round(progress * 100)))}%` } }),
               ),
+            ),
+            el('div', { class: 'lib-dl-cancel' },
+              el('div', { class: 'lib-dl-spinner' }),
             ),
           ),
         );
@@ -82,8 +90,24 @@
     const history = S.getDownloadHistory();
     const renderHistorySection = () => {
       historyWrap.innerHTML = '';
+
+      if (!history.length) {
+        historyWrap.append(
+          el('div', { class: 'empty-lib' },
+            el('div', { class: 'empty-lib-icon' }, ico('download', 'icon')),
+            el('h3', null, t('مكتبتك فارغة')),
+            el('p', null, t('ستظهر هنا التطبيقات التي قمت بتحميلها لتسهيل إعادة تحميلها في أي وقت.')),
+            el('a', { class: 'btn btn-primary', href: '/' }, t('تصفح التطبيقات')),
+          ),
+        );
+        return;
+      }
+
       const header = el('div', { class: 'lib-header' },
-        el('span', { class: 'lib-count' }, `${history.length} ${t('تطبيق في مكتبتك')}`),
+        el('div', { class: 'lib-header-info' },
+          ico('package', 'icon lib-header-ico'),
+          el('span', { class: 'lib-count' }, `${history.length} ${t('تطبيق في مكتبتك')}`),
+        ),
         el('button', { class: 'btn btn-sm btn-secondary', type: 'button', onclick: () => {
           if (!confirm(t('حذف سجل التحميلات بالكامل؟'))) return;
           S.clearDownloadHistory();
@@ -92,18 +116,6 @@
         } }, ico('trash', 'icon icon-sm'), t('مسح السجل')),
       );
       historyWrap.append(header);
-
-      if (!history.length) {
-        historyWrap.append(
-          el('div', { class: 'empty-lib' },
-            ico('download', 'icon icon-xxl'),
-            el('h3', null, t('مكتبتك فارغة')),
-            el('p', null, t('ستظهر هنا التطبيقات التي قمت بتحميلها لتسهيل إعادة تحميلها في أي وقت.')),
-            el('a', { class: 'btn btn-primary', href: '/' }, t('تصفح التطبيقات')),
-          ),
-        );
-        return;
-      }
 
       const list = el('div', { class: 'lib-list' });
       history.forEach((item) => {
@@ -123,7 +135,7 @@
             ),
           ),
           el('div', { class: 'lib-action' },
-            el('span', { class: 'btn btn-sm btn-primary' }, ico('download', 'icon icon-sm'), t('إعادة تحميل')),
+            el('span', { class: 'lib-open-btn' }, ico('chevronStart', 'icon icon-sm')),
           ),
         );
         list.append(row);
@@ -152,9 +164,6 @@
         ),
       ),
     );
-
-    // Points card
-    content.append(pointsCard());
 
     // Settings title
     content.append(el('div', { class: 'page-title', style: { padding: '16px 16px 0' } }, t('الإعدادات')));
@@ -284,113 +293,6 @@
       el('div', { class: 'page-title', style: { padding: '8px 16px 0', fontSize: '15px' } }, t('تواصل معنا')),
       list,
     );
-  }
-
-  function statChip(label, value) {
-    return el('div', { class: 'points-stat' },
-      el('div', { class: 'stat-val' }, value),
-      el('div', { class: 'stat-label' }, label),
-    );
-  }
-
-  // --- Points card (نقاط التشغيل) ---
-  function pointsCard() {
-    const POINTS_TO_CLAIM = 1000;
-    const USD_PER_POINT = 1 / POINTS_TO_CLAIM; // 1000 نقطة = 1 دولار
-    let _claimedAmount = 0;
-    const card = el('div', { class: 'points-card' });
-    const balanceEl = el('div', { class: 'points-balance' }, '—');
-    const usdEl = el('div', { class: 'points-usd' }, '≈ 0.000$');
-    const progressBar = el('div', { class: 'points-progress-fill' });
-    const progressText = el('div', { class: 'points-progress-text' }, '...');
-    const valueStat = statChip(t('قيمتها الحالية'), '0.000$');
-    const claimedStat = statChip(t('سحبته إجمالاً'), '0.000$');
-    const claimBtn = el('button', { class: 'btn btn-primary points-claim-btn', type: 'button', disabled: true },
-      ico('gift', 'icon icon-sm'), t('مطالبة بالهدية'));
-    const statusEl = el('div', { class: 'points-status' });
-
-    function fmtUsd(n) { return (Math.round(n * 1000) / 1000).toFixed(3) + '$'; }
-
-    claimBtn.addEventListener('click', async () => {
-      claimBtn.disabled = true;
-      claimBtn.textContent = t('جارٍ المعالجة...');
-      try {
-        const res = await S.claimReward();
-        if (res && res.ok) {
-          S.toast(`${t('تمت المطالبة!')} ${res.reward_usd}$ — ${t('رصيدك الجديد')}: ${res.balance} ${t('نقطة')}`, 'success');
-          _claimedAmount += Number(res.reward_usd || 0);
-          updateUI(res.balance);
-        } else {
-          S.toast(t('رصيدك غير كافٍ. تحتاج 1000 نقطة.'), 'error');
-        }
-      } catch {
-        S.toast(t('حدث خطأ. حاول مرة أخرى.'), 'error');
-      }
-      claimBtn.disabled = false;
-      claimBtn.innerHTML = '';
-      claimBtn.append(ico('gift', 'icon icon-sm'), document.createTextNode(t('مطالبة بالهدية')));
-    });
-
-    function updateUI(balance) {
-      balanceEl.textContent = balance.toLocaleString();
-      const usd = balance * USD_PER_POINT;
-      usdEl.textContent = '≈ ' + fmtUsd(usd);
-      valueStat.querySelector('.stat-val').textContent = fmtUsd(usd);
-      claimedStat.querySelector('.stat-val').textContent = fmtUsd(_claimedAmount);
-      const pct = Math.min(100, Math.round((balance / POINTS_TO_CLAIM) * 100));
-      progressBar.style.width = pct + '%';
-      progressText.textContent = `${balance} / ${POINTS_TO_CLAIM} ${t('نقطة')}`;
-      claimBtn.disabled = balance < POINTS_TO_CLAIM;
-      if (balance >= POINTS_TO_CLAIM) {
-        claimBtn.classList.add('ready');
-        statusEl.textContent = t('يمكنك المطالبة بـ 1$ الآن!');
-        statusEl.style.color = 'var(--gold)';
-      } else {
-        claimBtn.classList.remove('ready');
-        const remaining = POINTS_TO_CLAIM - balance;
-        statusEl.textContent = `${t('تحتاج')} ${remaining} ${t('نقطة إضافية')}`;
-        statusEl.style.color = 'var(--text-3)';
-      }
-    }
-
-    card.append(
-      el('div', { class: 'points-header' },
-        el('div', { class: 'points-icon' },
-          el('img', { src: '/images/points.png', alt: 'Goldenstore', class: 'points-emblem' }),
-        ),
-        el('div', { class: 'points-title' },
-          el('div', { class: 'points-label' }, t('نقاط التشغيل')),
-          el('div', { class: 'points-hint' }, t('حمّل تطبيقات واكسب نقاط! 10 نقاط لكل تحميل')),
-        ),
-      ),
-      el('div', { class: 'points-body' },
-        el('div', { class: 'points-balance-row' },
-          el('img', { src: '/images/points.png', alt: '', class: 'points-coin' }),
-          el('div', { class: 'points-balance-main' },
-            el('div', { class: 'points-balance-num' },
-              balanceEl,
-              el('span', { class: 'points-unit' }, t('نقطة')),
-            ),
-            usdEl,
-          ),
-        ),
-        el('div', { class: 'points-progress' }, progressBar),
-        progressText,
-        statusEl,
-        el('div', { class: 'points-stats' }, valueStat, claimedStat),
-      ),
-      el('div', { class: 'points-actions' }, claimBtn),
-    );
-
-    // Load balance
-    S.getPointsBalance().then((data) => {
-      if (data && typeof data.balance === 'number') {
-        _claimedAmount = Number(data.claimed_amount || 0);
-        updateUI(data.balance);
-      } else updateUI(0);
-    }).catch(() => updateUI(0));
-
-    return card;
   }
 
   function settingItem(icon, label, value, onClick) {

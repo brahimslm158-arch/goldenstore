@@ -415,10 +415,6 @@
         S.addToDownloadHistory(app);
         showInstalled();
         toast(t('اكتمل التحميل وحفظ الملف في جهازك'), 'success');
-        // Earn points for this download (server prevents duplicates)
-        S.earnPoints(app.slug).then((r) => {
-          if (r && r.ok && r.earned) toast(`+${r.earned} ${t('نقطة!')} ${t('رصيدك')}: ${r.balance}`, 'success');
-        }).catch(() => {});
       } catch (e) {
         // Streaming failed (network/limits) — fall back to a normal download so
         // the user still gets the file, and don't fake an "installed" state.
@@ -429,14 +425,37 @@
         S.addToDownloadHistory(app);
         showIdle();
         toast(t('تعذر عرض شريط التقدم، وبدأ التنزيل بالطريقة العادية'), 'info');
-        S.earnPoints(app.slug).then((r) => {
-          if (r && r.ok && r.earned) toast(`+${r.earned} ${t('نقطة!')} ${t('رصيدك')}: ${r.balance}`, 'success');
-        }).catch(() => {});
       }
     }
 
     btn.addEventListener('click', runInstall);
-    if (isInstalled(app.slug)) showInstalled();
+
+    // Restore download state on page reload: if this app has an active download, show progress
+    const activeDls = S.getActiveDownloads();
+    const activeDl = activeDls.find((d) => d.slug === app.slug);
+    if (activeDl && activeDl.status === 'downloading') {
+      btn.classList.add('installing');
+      btn.disabled = true;
+      if (activeDl.progress < 0) {
+        setIndeterminate();
+      } else {
+        setProgress(activeDl.progress);
+      }
+      // Listen for progress updates from other tabs or this tab
+      const unsub = S.onActiveDownloadsChange((items) => {
+        const cur = items.find((d) => d.slug === app.slug);
+        if (!cur) {
+          // Download finished or removed
+          unsub();
+          if (isInstalled(app.slug)) showInstalled();
+          else showIdle();
+        } else if (cur.progress >= 0) {
+          setProgress(cur.progress);
+        }
+      });
+    } else if (isInstalled(app.slug)) {
+      showInstalled();
+    }
 
     // Split dropdown attached to the install button: request-update / report.
     const menu = el('div', { class: 'install-menu' },
