@@ -52,6 +52,19 @@ function onAuthChange(fn) {
   if (_resolved) fn(_currentUser);
 }
 
+// Resolves once Firebase has determined the initial auth state. This lets
+// callers (e.g. points earning) wait for the real user object instead of
+// racing the optimistic cached render.
+function ready() {
+  return new Promise(function (resolve) {
+    if (_resolved) { resolve(_currentUser); return; }
+    var done = false;
+    _listeners.push(function (user) { if (!done) { done = true; resolve(user); } });
+    // Safety timeout so callers never hang if the SDK never resolves.
+    setTimeout(function () { if (!done) { done = true; resolve(_currentUser); } }, 6000);
+  });
+}
+
 function getUser() {
   return _currentUser;
 }
@@ -114,6 +127,7 @@ async function signOut() {
 window.GAuth = {
   init: initFirebase,
   onAuthChange: onAuthChange,
+  ready: ready,
   getUser: getUser,
   signInWithGoogle: signInWithGoogle,
   signOut: signOut,
