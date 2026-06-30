@@ -535,7 +535,11 @@ function isLoggedIn() { return !!_user; }
 // All point operations are authorized server-side with a fresh Firebase ID
 // token, so the balance can never be forged from the client.
 async function authedApi(path, opts = {}) {
-  const token = window.GAuth && window.GAuth.getIdToken ? await window.GAuth.getIdToken() : null;
+  if (!window.GAuth || !window.GAuth.getIdToken) { const e = new Error('unauthorized'); e.status = 401; throw e; }
+  // Pages render optimistically from the cached user, so Firebase may not have
+  // resolved _currentUser yet. Wait for it before requesting an ID token.
+  let token = await window.GAuth.getIdToken();
+  if (!token && window.GAuth.ready) { await window.GAuth.ready(); token = await window.GAuth.getIdToken(); }
   if (!token) { const e = new Error('unauthorized'); e.status = 401; throw e; }
   const headers = Object.assign({ 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, opts.headers || {});
   return api(path, { ...opts, headers });
