@@ -345,7 +345,32 @@
       btn.disabled = true;
       fill.style.transition = 'none';
       fill.style.width = '0%';
-      label.textContent = `${t('جارٍ التحميل…')} 0%`;
+      label.textContent = `${t('جار التحميل…')} 0%`;
+
+      S.setActiveDownload({
+        slug: app.slug,
+        name: app.name,
+        icon_url: app.icon_url || null,
+        developer: app.developer || '',
+        size_bytes: app.size_bytes || 0,
+        progress: 0,
+        status: 'downloading',
+        started_at: Math.floor(Date.now() / 1000),
+      });
+
+      let finished = false;
+      let handoffTriggered = false;
+      const onHandoff = () => {
+        if (finished || handoffTriggered) return;
+        handoffTriggered = true;
+        try { fallbackDownload(app.slug); } catch {}
+      };
+      const cleanupHandoffListeners = () => {
+        window.removeEventListener('pagehide', onHandoff);
+        window.removeEventListener('beforeunload', onHandoff);
+      };
+      window.addEventListener('pagehide', onHandoff);
+      window.addEventListener('beforeunload', onHandoff);
 
       try {
         const res = await fetch(`/api/apps/${encodeURIComponent(app.slug)}/download?stream=1`, { credentials: 'include' });
@@ -355,36 +380,57 @@
         const reader = res.body.getReader();
         const chunks = [];
         let received = 0;
-        if (!total) setIndeterminate();
+        let lastProgressWrite = 0;
+        let lastProgressValue = -1;
+        const pushProgress = (value, force = false) => {
+          const now = Date.now();
+          if (!force && now - lastProgressWrite < 200 && Math.abs(value - lastProgressValue) < 0.02) return;
+          lastProgressWrite = now;
+          lastProgressValue = value;
+          S.updateActiveDownloadProgress(app.slug, value);
+        };
+        if (!total) {
+          setIndeterminate();
+          S.updateActiveDownloadProgress(app.slug, -1);
+        } else {
+          pushProgress(0, true);
+        }
         for (;;) {
-          const { done, value } = await reader.read();
-          if (done) break;
+          const { done: readDone, value } = await reader.read();
+          if (readDone) break;
           chunks.push(value);
           received += value.length;
-          if (total) setProgress(received / total);
+          if (total) {
+            setProgress(received / total);
+            pushProgress(received / total);
+          }
         }
         const blob = new Blob(chunks, { type: 'application/vnd.android.package-archive' });
         if (total) setProgress(1);
         saveBlob(blob, filename);
+        finished = true;
+        cleanupHandoffListeners();
+        S.removeActiveDownload(app.slug);
         markInstalledStored(app.slug);
         S.addToDownloadHistory(app);
         showInstalled();
-        toast(t('اكتمل التحميل وحُفظ الملف في جهازك'), 'success');
+        toast(t('اكتمل التحميل وحفظ الملف في جهازك'), 'success');
         // Earn points for this download (server prevents duplicates)
         S.earnPoints(app.slug).then((r) => {
-          if (r && r.no_auth) toast(t('سجّل الدخول لتجميع نقاط التشغيل والحصول على مكافآت!'), 'info');
-          else if (r && r.ok && r.earned) toast(`+${r.earned} ${t('نقطة!')} ${t('رصيدك')}: ${r.balance}`, 'success');
+          if (r && r.ok && r.earned) toast(`+${r.earned} ${t('نقطة!')} ${t('رصيدك')}: ${r.balance}`, 'success');
         }).catch(() => {});
       } catch (e) {
         // Streaming failed (network/limits) — fall back to a normal download so
         // the user still gets the file, and don't fake an "installed" state.
+        finished = true;
+        cleanupHandoffListeners();
         fallbackDownload(app.slug);
+        S.removeActiveDownload(app.slug);
         S.addToDownloadHistory(app);
         showIdle();
-        toast(t('تعذّر عرض شريط التقدّم، وبدأ التنزيل بالطريقة العادية'), 'info');
+        toast(t('تعذر عرض شريط التقدم، وبدأ التنزيل بالطريقة العادية'), 'info');
         S.earnPoints(app.slug).then((r) => {
-          if (r && r.no_auth) toast(t('سجّل الدخول لتجميع نقاط التشغيل والحصول على مكافآت!'), 'info');
-          else if (r && r.ok && r.earned) toast(`+${r.earned} ${t('نقطة!')} ${t('رصيدك')}: ${r.balance}`, 'success');
+          if (r && r.ok && r.earned) toast(`+${r.earned} ${t('نقطة!')} ${t('رصيدك')}: ${r.balance}`, 'success');
         }).catch(() => {});
       }
     }

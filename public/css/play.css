@@ -594,7 +594,21 @@ input, select { font-family: inherit; }
 .empty-lib p { color: var(--text-2); font-size: 14px; margin-bottom: 16px; }
 .lib-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
 .lib-count { font-size: 14px; color: var(--text-2); font-weight: 600; }
+.lib-active-list { margin-bottom: 14px; }
+.lib-active-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.lib-dl-list { display: flex; flex-direction: column; gap: 8px; }
+.lib-dl-row { display: flex; align-items: flex-start; gap: 12px; padding: 12px 10px; border-radius: 14px; background: linear-gradient(180deg, rgba(212, 175, 55, .08), rgba(255, 255, 255, 0)); border: 1px solid rgba(212, 175, 55, .12); }
+.lib-dl-row .lib-info { display: flex; flex-direction: column; gap: 4px; }
+.lib-dl-status { font-size: 12px; color: var(--gold-2, #ffd34d); font-weight: 600; }
+.lib-dl-progress { position: relative; overflow: hidden; height: 7px; border-radius: 999px; background: rgba(255, 255, 255, .08); }
+.lib-dl-fill { position: absolute; inset: 0 auto 0 0; width: 0%; border-radius: inherit; background: linear-gradient(90deg, var(--gold), var(--gold-2, #ffd34d)); transition: width .18s linear; }
+.lib-dl-progress[data-indeterminate="1"] .lib-dl-fill { width: 42%; animation: lib-dl-indeterminate 1.2s ease-in-out infinite; transform-origin: left center; }
+@keyframes lib-dl-indeterminate {
+  0% { transform: translateX(-120%); }
+  100% { transform: translateX(260%); }
+}
 .lib-list { display: flex; flex-direction: column; gap: 2px; }
+
 .lib-row { display: flex; align-items: center; gap: 12px; padding: 12px 8px; border-radius: 12px; color: var(--text); text-decoration: none; transition: background .12s; }
 .lib-row:hover { background: var(--surface-2); }
 .lib-row .art { width: 52px; height: 52px; border-radius: 12px; overflow: hidden; flex-shrink: 0; background: var(--surface-2); display: flex; align-items: center; justify-content: center; }

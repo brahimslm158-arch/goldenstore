@@ -596,9 +596,67 @@ function clearDownloadHistory() {
   try { localStorage.removeItem(DL_HISTORY_KEY); } catch {}
 }
 
+const ACTIVE_DL_KEY = 'gs_active_dl';
+function getActiveDownloadMap() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(ACTIVE_DL_KEY) || '{}');
+    return raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+  } catch {
+    return {};
+  }
+}
+function notifyActiveDownloads() {
+  try { window.dispatchEvent(new CustomEvent('gs-active-dl')); } catch {}
+}
+function writeActiveDownloadMap(map) {
+  try { localStorage.setItem(ACTIVE_DL_KEY, JSON.stringify(map)); } catch {}
+  notifyActiveDownloads();
+}
+function getActiveDownloads() {
+  return Object.values(getActiveDownloadMap()).sort((a, b) => (b.started_at || 0) - (a.started_at || 0));
+}
+function setActiveDownload(entry) {
+  if (!entry || !entry.slug) return null;
+  const map = getActiveDownloadMap();
+  map[entry.slug] = { ...(map[entry.slug] || {}), ...entry };
+  writeActiveDownloadMap(map);
+  return map[entry.slug];
+}
+function updateActiveDownloadProgress(slug, progress) {
+  if (!slug) return;
+  const map = getActiveDownloadMap();
+  const entry = map[slug];
+  if (!entry) return;
+  entry.progress = progress;
+  map[slug] = entry;
+  writeActiveDownloadMap(map);
+}
+function removeActiveDownload(slug) {
+  if (!slug) return;
+  const map = getActiveDownloadMap();
+  if (!map[slug]) return;
+  delete map[slug];
+  writeActiveDownloadMap(map);
+}
+function onActiveDownloadsChange(fn) {
+  const handler = () => fn(getActiveDownloads());
+  const onStorage = (e) => {
+    if (!e || e.key === ACTIVE_DL_KEY || e.key === null) handler();
+  };
+  window.addEventListener('gs-active-dl', handler);
+  window.addEventListener('storage', onStorage);
+  return () => {
+    window.removeEventListener('gs-active-dl', handler);
+    window.removeEventListener('storage', onStorage);
+  };
+}
+
 /* ----------------------------- Points system ----------------------------- */
 async function getIdToken() {
   try {
+    if (window.GAuth && typeof window.GAuth.ready === 'function') {
+      await window.GAuth.ready();
+    }
     const user = window.GAuth && window.GAuth.getUser();
     if (user && typeof user.getIdToken === 'function') return await user.getIdToken();
   } catch {}
@@ -620,8 +678,6 @@ async function pointsApi(path, opts = {}) {
 
 async function getPointsBalance() { return pointsApi('/points/balance'); }
 async function earnPoints(slug) {
-  const token = await getIdToken();
-  if (!token) return { no_auth: true };
   return pointsApi('/points/earn', { method: 'POST', body: { slug } });
 }
 async function claimReward() { return pointsApi('/points/claim', { method: 'POST', body: {} }); }
@@ -634,6 +690,7 @@ window.Store = {
   topbarSearch, topbarNav, bottomNav, avatarEl, themeToggleBtn, langSwitcherEl, toggleTheme, currentTheme,
   ready, signOut, getUser: () => _user,
   getDownloadHistory, addToDownloadHistory, clearDownloadHistory,
+  getActiveDownloads, setActiveDownload, updateActiveDownloadProgress, removeActiveDownload, onActiveDownloadsChange,
   getPointsBalance, earnPoints, claimReward,
 };
 
