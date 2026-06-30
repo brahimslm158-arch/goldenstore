@@ -976,3 +976,69 @@ input, select { font-family: inherit; }
   display: flex; align-items: center; justify-content: center;
   background: var(--surface-2); border-radius: 50%; width: 32px; height: 32px;
 }
+
+/* ---------- Points page (نقاط التشغيل) ---------- */
+.points-page { padding: 8px 16px 32px; max-width: 640px; margin: 0 auto; }
+.points-loading { display: flex; justify-content: center; padding: 48px 0; }
+.points-error { text-align: center; padding: 40px 16px; color: var(--text-2); }
+.points-error p { margin-bottom: 16px; }
+
+.points-hero {
+  text-align: center; padding: 28px 20px 24px; margin-top: 8px;
+  background: radial-gradient(120% 120% at 50% 0%, rgba(244,192,31,.18), transparent 60%), var(--surface);
+  border: 1px solid var(--border); border-radius: var(--radius);
+}
+.points-hero-icon { width: 96px; height: 96px; object-fit: contain; filter: drop-shadow(0 6px 16px rgba(244,192,31,.35)); }
+.points-balance { font-size: 44px; font-weight: 800; line-height: 1.1; margin-top: 8px; color: var(--text);
+  background: linear-gradient(180deg, var(--gold-2), var(--gold)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
+.points-balance-label { font-size: 14px; color: var(--text-2); margin-top: 2px; }
+.points-dollar { margin-top: 14px; display: inline-flex; flex-direction: column; gap: 2px;
+  padding: 8px 20px; background: var(--surface-2); border-radius: 999px; }
+.points-dollar-val { font-size: 22px; font-weight: 800; color: var(--text); }
+.points-dollar-label { font-size: 12px; color: var(--text-2); }
+
+.points-progress-card { margin-top: 16px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px 16px; }
+.points-progress-top { display: flex; justify-content: space-between; font-size: 13px; color: var(--text-2); margin-bottom: 8px; }
+.points-progress-goal { font-weight: 800; color: var(--gold); }
+.points-progress-bar { height: 8px; background: var(--surface-2); border-radius: 999px; overflow: hidden; }
+.points-progress-fill { height: 100%; background: linear-gradient(90deg, var(--gold), var(--gold-2)); border-radius: 999px; transition: width .5s ease; }
+.points-progress-hint { font-size: 12px; color: var(--text-2); margin-top: 8px; text-align: center; }
+
+.points-withdraw-btn { margin-top: 16px; }
+.points-withdraw-note { font-size: 12px; color: var(--text-2); text-align: center; margin-top: 8px; }
+
+.points-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 20px; }
+.points-stat { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 14px 8px; text-align: center; }
+.points-stat-val { font-size: 18px; font-weight: 800; color: var(--text); }
+.points-stat-label { font-size: 11px; color: var(--text-2); margin-top: 4px; line-height: 1.3; }
+
+.points-how { margin-top: 20px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px; }
+.points-how-title { display: flex; align-items: center; gap: 8px; font-weight: 700; margin-bottom: 10px; color: var(--text); }
+.points-how-list { margin: 0; padding-inline-start: 20px; color: var(--text-2); font-size: 13px; line-height: 1.9; }
+
+.points-history { margin-top: 20px; }
+.points-history-title { font-weight: 700; margin-bottom: 10px; color: var(--text); }
+.points-history-row { display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 12px 14px; margin-bottom: 8px; }
+.points-history-amount { font-weight: 800; color: var(--text); }
+.points-history-meta { font-size: 12px; color: var(--text-2); margin-top: 2px; }
+.points-status { font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; white-space: nowrap; }
+.points-status-pending { background: rgba(244,192,31,.15); color: var(--gold); }
+.points-status-approved { background: rgba(52,168,83,.15); color: #34a853; }
+.points-status-rejected { background: rgba(234,67,53,.15); color: #ea4335; }
+
+/* Withdraw modal form */
+.points-withdraw-form { display: flex; flex-direction: column; gap: 6px; }
+.points-label { font-size: 13px; font-weight: 600; color: var(--text-2); margin-top: 8px; }
+.points-input { width: 100%; padding: 12px 14px; border-radius: var(--radius-sm); border: 1px solid var(--border);
+  background: var(--surface-2); color: var(--text); font-size: 14px; font-family: inherit; }
+.points-input:focus { outline: none; border-color: var(--gold); }
+
+/* Account page points banner */
+.points-banner { display: flex; align-items: center; gap: 14px; margin: 16px; padding: 14px 16px;
+  background: radial-gradient(120% 140% at 0% 0%, rgba(244,192,31,.16), transparent 60%), var(--surface);
+  border: 1px solid var(--border); border-radius: var(--radius); text-decoration: none; }
+.points-banner-icon { width: 48px; height: 48px; object-fit: contain; flex-shrink: 0; }
+.points-banner-info { flex: 1; min-width: 0; }
+.points-banner-title { font-weight: 800; color: var(--text); font-size: 15px; }
+.points-banner-sub { font-size: 12px; color: var(--text-2); margin-top: 2px; }

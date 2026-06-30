@@ -11,6 +11,7 @@
           { "source": "/search", "destination": "/search.html" },
           { "source": "/featured", "destination": "/featured.html" },
           { "source": "/account", "destination": "/account.html" },
+          { "source": "/points", "destination": "/points.html" },
           { "source": "/books", "destination": "/books.html" },
           { "source": "/games", "destination": "/games.html" },
           { "source": "/admin", "destination": "/admin.html" },

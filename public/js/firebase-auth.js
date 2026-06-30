@@ -69,6 +69,19 @@ function getUser() {
   return _currentUser;
 }
 
+// Returns a fresh Firebase ID token for the signed-in user, or null. Used to
+// authenticate sensitive API calls (points earning/withdrawal) server-side.
+async function getIdToken(forceRefresh) {
+  try {
+    if (_currentUser && _currentUser.getIdToken) {
+      return await _currentUser.getIdToken(!!forceRefresh);
+    }
+  } catch (e) {
+    console.error('getIdToken failed', e);
+  }
+  return null;
+}
+
 function makeProvider() {
   var provider = new firebase.auth.GoogleAuthProvider();
   provider.setCustomParameters({ prompt: 'select_account' });
@@ -129,6 +142,7 @@ window.GAuth = {
   onAuthChange: onAuthChange,
   ready: ready,
   getUser: getUser,
+  getIdToken: getIdToken,
   signInWithGoogle: signInWithGoogle,
   signOut: signOut,
   isRedirectPending: function() { return _redirectPending; },

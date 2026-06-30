@@ -1229,11 +1229,14 @@ app.delete('/admin/apps/:id', async (c) => {
 });
 
 // ---------------- Points system (نقاط التشغيل) ----------------
-// Points are earned server-side only. Firebase ID token is verified to prevent forgery.
+// Points are earned server-side only. Firebase ID token is verified to prevent
+// forgery, and each app can award points to a given user only once. Withdrawals
+// require a minimum balance and are logged for manual admin review/payout.
 
-const POINTS_PER_DOWNLOAD = 10;
-const POINTS_TO_CLAIM = 1000;
-const CLAIM_REWARD_USD = 1;
+const POINTS_PER_DOWNLOAD = 10;     // points granted per first install of an app
+const POINTS_PER_DOLLAR = 1000;     // 1000 points = $1
+const MIN_WITHDRAW_USD = 5;          // minimum payout request
+const MIN_WITHDRAW_POINTS = MIN_WITHDRAW_USD * POINTS_PER_DOLLAR; // 5000
 
 async function requireFirebaseUser(c: any): Promise<{ uid: string; email?: string; name?: string } | null> {
   const authHeader = c.req.header('authorization') || '';
@@ -1242,23 +1245,44 @@ async function requireFirebaseUser(c: any): Promise<{ uid: string; email?: strin
   return verifyFirebaseToken(token);
 }
 
-// Get points balance
+function pointsConfig() {
+  return {
+    points_per_download: POINTS_PER_DOWNLOAD,
+    points_per_dollar: POINTS_PER_DOLLAR,
+    min_withdraw_usd: MIN_WITHDRAW_USD,
+    min_withdraw_points: MIN_WITHDRAW_POINTS,
+  };
+}
+
+// Get points balance + withdrawal history
 app.get('/points/balance', async (c) => {
   const user = await requireFirebaseUser(c);
   if (!user) return c.json({ error: 'unauthorized' }, 401);
 
   const db = await firestore();
   const doc = await db.collection('user_points').doc(user.uid).get();
-  if (!doc.exists) {
-    return c.json({ balance: 0, total_earned: 0, total_claimed: 0, claimed_amount: 0, earned_apps: [] });
-  }
-  const data = doc.data() as any;
+  const data = doc.exists ? (doc.data() as any) : {};
+  const balance = data.balance || 0;
+
+  // Recent withdrawal requests for this user
+  let withdrawals: any[] = [];
+  try {
+    const wsnap = await db.collection('withdrawals').where('uid', '==', user.uid).get();
+    withdrawals = wsnap.docs
+      .map((d: any) => ({ id: d.id, amount_usd: d.data().amount_usd, points_spent: d.data().points_spent, method: d.data().method || '', account: d.data().account || '', status: d.data().status || 'pending', ts: d.data().ts || 0 }))
+      .sort((a: any, b: any) => (b.ts || 0) - (a.ts || 0))
+      .slice(0, 50);
+  } catch {}
+
   return c.json({
-    balance: data.balance || 0,
+    balance,
+    dollars: Math.round((balance / POINTS_PER_DOLLAR) * 100) / 100,
     total_earned: data.total_earned || 0,
-    total_claimed: data.total_claimed || 0,
-    claimed_amount: data.claimed_amount || 0,
+    total_withdrawn_usd: data.withdrawn_amount || 0,
     earned_apps: data.earned_apps || [],
+    can_withdraw: balance >= MIN_WITHDRAW_POINTS,
+    withdrawals,
+    config: pointsConfig(),
   });
 });
 
@@ -1276,10 +1300,12 @@ app.post('/points/earn', async (c) => {
   const slug = String(body.slug || '').trim();
   if (!slug || !isValidSlug(slug)) return c.json({ error: 'invalid_slug' }, 400);
 
-  // Verify the app exists
+  // Verify the app exists and is a real, downloadable app (must have an APK).
+  // This blocks farming points off non-existent or non-downloadable slugs.
   const db = await firestore();
   const appSnap = await db.collection('apps').where('slug', '==', slug).limit(1).get();
   if (appSnap.empty) return c.json({ error: 'app_not_found' }, 404);
+  if (!(appSnap.docs[0].data() as any).apk_key) return c.json({ error: 'app_not_downloadable' }, 400);
 
   const pointsRef = db.collection('user_points').doc(user.uid);
 
@@ -1320,53 +1346,69 @@ app.post('/points/earn', async (c) => {
   return c.json({ ok: true, earned: result.earned, balance: result.balance });
 });
 
-// Claim reward
-app.post('/points/claim', async (c) => {
+// Request a withdrawal (payout). Minimum is MIN_WITHDRAW_USD. Points are
+// deducted atomically and a pending request is logged for admin review.
+app.post('/points/withdraw', async (c) => {
   const ip = getClientIp(c);
-  if (!rateLimit(ip, 'points-claim', 3, 300)) {
+  if (!rateLimit(ip, 'points-withdraw', 5, 300)) {
     return c.json({ error: 'rate_limit_exceeded' }, 429);
   }
 
   const user = await requireFirebaseUser(c);
   if (!user) return c.json({ error: 'unauthorized' }, 401);
 
+  const body = await c.req.json().catch(() => ({} as any));
+  const method = sanitizeText(body.method, 40);
+  const account = sanitizeText(body.account, 200);
+  if (!method) return c.json({ error: 'invalid_method' }, 400);
+  if (!account || account.length < 3) return c.json({ error: 'invalid_account' }, 400);
+  // Optional explicit amount in whole dollars; default = withdraw everything.
+  const requestedUsd = body.amount_usd != null ? Math.floor(Number(body.amount_usd)) : null;
+  if (requestedUsd != null && (!Number.isFinite(requestedUsd) || requestedUsd <= 0)) {
+    return c.json({ error: 'invalid_amount' }, 400);
+  }
+
   const db = await firestore();
   const pointsRef = db.collection('user_points').doc(user.uid);
+  const withdrawalRef = db.collection('withdrawals').doc();
 
   const result = await db.runTransaction(async (tx: any) => {
     const pointsDoc = await tx.get(pointsRef);
-    if (!pointsDoc.exists) return { error: 'insufficient_points' };
-    const data = pointsDoc.data() as any;
+    const data = pointsDoc.exists ? (pointsDoc.data() as any) : {};
     const balance = data.balance || 0;
 
-    if (balance < POINTS_TO_CLAIM) {
+    const maxUsd = Math.floor(balance / POINTS_PER_DOLLAR);
+    if (maxUsd < MIN_WITHDRAW_USD) {
       return { error: 'insufficient_points', balance };
     }
+    const amountUsd = requestedUsd == null ? maxUsd : requestedUsd;
+    if (amountUsd < MIN_WITHDRAW_USD) return { error: 'below_minimum', balance };
+    if (amountUsd > maxUsd) return { error: 'insufficient_points', balance };
 
-    const newBalance = balance - POINTS_TO_CLAIM;
-    const newTotalClaimed = (data.total_claimed || 0) + 1;
-    const newClaimedAmount = (data.claimed_amount || 0) + CLAIM_REWARD_USD;
+    const pointsSpent = amountUsd * POINTS_PER_DOLLAR;
+    const newBalance = balance - pointsSpent;
 
-    tx.update(pointsRef, {
+    tx.set(pointsRef, {
+      ...data,
       balance: newBalance,
-      total_claimed: newTotalClaimed,
-      claimed_amount: newClaimedAmount,
+      total_withdrawals: (data.total_withdrawals || 0) + 1,
+      withdrawn_amount: (data.withdrawn_amount || 0) + amountUsd,
       updated_at: nowSec(),
-    });
+    }, { merge: true });
 
-    // Log the claim
-    const claimRef = db.collection('points_claims').doc();
-    tx.set(claimRef, {
+    tx.set(withdrawalRef, {
       uid: user.uid,
       email: user.email || '',
       name: user.name || '',
-      points_spent: POINTS_TO_CLAIM,
-      reward_usd: CLAIM_REWARD_USD,
+      points_spent: pointsSpent,
+      amount_usd: amountUsd,
+      method,
+      account,
       status: 'pending',
       ts: nowSec(),
     });
 
-    return { ok: true, balance: newBalance, reward_usd: CLAIM_REWARD_USD, claim_id: claimRef.id };
+    return { ok: true, balance: newBalance, amount_usd: amountUsd, withdrawal_id: withdrawalRef.id };
   });
 
   if (result.error) {
@@ -1375,43 +1417,43 @@ app.post('/points/claim', async (c) => {
   return c.json(result);
 });
 
-// Admin: view all pending claims
-app.get('/admin/points/claims', async (c) => {
+// Admin: view all withdrawal requests
+app.get('/admin/points/withdrawals', requireAdmin, async (c) => {
   const db = await firestore();
   let docs: any[];
   try {
-    const snap = await db.collection('points_claims').orderBy('ts', 'desc').limit(200).get();
+    const snap = await db.collection('withdrawals').orderBy('ts', 'desc').limit(200).get();
     docs = snap.docs;
   } catch {
-    const snap = await db.collection('points_claims').get();
+    const snap = await db.collection('withdrawals').get();
     docs = snap.docs.sort((a: any, b: any) => (b.data().ts || 0) - (a.data().ts || 0)).slice(0, 200);
   }
-  const claims = docs.map((d: any) => ({ id: d.id, ...(d.data() as any) }));
-  return c.json({ claims });
+  const withdrawals = docs.map((d: any) => ({ id: d.id, ...(d.data() as any) }));
+  return c.json({ withdrawals });
 });
 
-// Admin: approve/reject a claim
-app.patch('/admin/points/claims/:id', async (c) => {
+// Admin: approve/reject a withdrawal request
+app.patch('/admin/points/withdrawals/:id', requireAdmin, async (c) => {
   const id = c.req.param('id');
   const body = await c.req.json().catch(() => ({} as any));
   const status = String(body.status || '').trim();
   if (!['approved', 'rejected'].includes(status)) return c.json({ error: 'invalid_status' }, 400);
 
   const db = await firestore();
-  const ref = db.collection('points_claims').doc(id);
+  const ref = db.collection('withdrawals').doc(id);
   const snap = await ref.get();
   if (!snap.exists) return c.json({ error: 'not_found' }, 404);
 
   const data = snap.data() as any;
 
-  // If rejecting, refund the points
+  // If rejecting a still-pending request, refund the spent points.
   if (status === 'rejected' && data.status === 'pending') {
     const pointsRef = db.collection('user_points').doc(data.uid);
     const FV = await getFieldValue();
     await pointsRef.update({
-      balance: FV.increment(data.points_spent || POINTS_TO_CLAIM),
-      total_claimed: FV.increment(-1),
-      claimed_amount: FV.increment(-(data.reward_usd || CLAIM_REWARD_USD)),
+      balance: FV.increment(data.points_spent || 0),
+      total_withdrawals: FV.increment(-1),
+      withdrawn_amount: FV.increment(-(data.amount_usd || 0)),
     });
   }
 

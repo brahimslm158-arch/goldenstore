@@ -462,6 +462,7 @@ const NAV_ITEMS_RAW = [
   { key: 'apps', label: 'التطبيقات', icon: 'apps', href: '/' },
   { key: 'games', label: 'الألعاب', icon: 'gamepad', href: '/games' },
   { key: 'library', label: 'مكتبتي', icon: 'download', href: '/account?tab=library' },
+  { key: 'points', label: 'نقاطي', icon: 'coin', href: '/points' },
   { key: 'account', label: 'أنت', icon: 'user', href: '/account' },
 ];
 function bottomNav(active) {
@@ -529,6 +530,30 @@ function ready(fn) {
 }
 
 function isLoggedIn() { return !!_user; }
+
+/* --------------------------- Points (نقاط التشغيل) --------------------------- */
+// All point operations are authorized server-side with a fresh Firebase ID
+// token, so the balance can never be forged from the client.
+async function authedApi(path, opts = {}) {
+  const token = window.GAuth && window.GAuth.getIdToken ? await window.GAuth.getIdToken() : null;
+  if (!token) { const e = new Error('unauthorized'); e.status = 401; throw e; }
+  const headers = Object.assign({ 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, opts.headers || {});
+  return api(path, { ...opts, headers });
+}
+
+function pointsBalance() { return authedApi('/api/points/balance', { timeoutMs: 10000 }); }
+function pointsWithdraw(payload) { return authedApi('/api/points/withdraw', { method: 'POST', body: payload, timeoutMs: 12000 }); }
+
+// Grant points for installing an app. Safe to call multiple times — the server
+// only awards once per app per user. Silently no-ops for signed-out users.
+async function earnPoints(slug) {
+  if (!_user || !slug) return null;
+  try {
+    const res = await authedApi('/api/points/earn', { method: 'POST', body: { slug }, timeoutMs: 10000 });
+    if (res && res.ok && res.earned) toast('+' + res.earned + ' ' + t('نقطة في حسابك'), 'success');
+    return res;
+  } catch (e) { return null; }
+}
 
 // Shows a login-required modal; returns a Promise that resolves to the user
 // (after successful sign-in) or rejects if cancelled.
@@ -703,6 +728,7 @@ window.Store = {
   spinner, skeletonHome, skeletonDetail, skeletonList, emptyState, errorState,
   topbarSearch, topbarNav, bottomNav, avatarEl, themeToggleBtn, langSwitcherEl, toggleTheme, currentTheme,
   ready, signOut, getUser: () => _user, isLoggedIn, requireAuth, goToLogin,
+  earnPoints, pointsBalance, pointsWithdraw,
   getDownloadHistory, addToDownloadHistory, clearDownloadHistory,
   getActiveDownloads, setActiveDownload, updateActiveDownloadProgress, removeActiveDownload, onActiveDownloadsChange,
 };

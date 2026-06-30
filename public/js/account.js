@@ -107,6 +107,18 @@
       ),
     );
 
+    // Points entry — quick access to the rewards page
+    content.append(
+      el('a', { class: 'points-banner', href: '/points' },
+        el('img', { src: '/images/points.png', alt: '', class: 'points-banner-icon' }),
+        el('div', { class: 'points-banner-info' },
+          el('div', { class: 'points-banner-title' }, t('نقاط التشغيل')),
+          el('div', { class: 'points-banner-sub' }, t('اكسب نقاطاً مع كل تثبيت واسحب أرباحك')),
+        ),
+        ico('chevronStart', 'icon icon-sm'),
+      ),
+    );
+
     // Settings title
     content.append(el('div', { class: 'page-title', style: { padding: '16px 16px 0' } }, t('الإعدادات')));
 
