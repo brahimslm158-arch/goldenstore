@@ -469,7 +469,7 @@ function bottomNav(active) {
   const nav = el('nav', { class: 'bottomnav' },
     el('div', { class: 'bottomnav-inner' },
       ...NAV_ITEMS_RAW.map((it) => el('a', { href: it.href, class: `navitem ${it.key === active ? 'active' : ''}` },
-        el('span', { class: 'pill-ico' }, ico(it.icon, it.key === active ? 'icon fill' : 'icon')),
+        el('span', { class: 'pill-ico' }, ico(it.icon, 'icon')),
         el('span', null, t(it.label)),
       )),
     ),
@@ -539,7 +539,7 @@ async function authedApi(path, opts = {}) {
   // Pages render optimistically from the cached user, so Firebase may not have
   // resolved _currentUser yet. Wait for it before requesting an ID token.
   let token = await window.GAuth.getIdToken();
-  if (!token && window.GAuth.ready) { await window.GAuth.ready(); token = await window.GAuth.getIdToken(); }
+  if (!token && window.GAuth.ready) { await window.GAuth.ready(); token = await window.GAuth.getIdToken(true); }
   if (!token) { const e = new Error('unauthorized'); e.status = 401; throw e; }
   const headers = Object.assign({ 'Content-Type': 'application/json', Authorization: 'Bearer ' + token }, opts.headers || {});
   return api(path, { ...opts, headers });

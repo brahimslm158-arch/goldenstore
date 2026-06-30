@@ -29,6 +29,10 @@
       renderContent(page, data);
     }).catch((e) => {
       loading.remove();
+      if (e && (e.status === 401 || e.message === 'unauthorized')) {
+        S.goToLogin();
+        return;
+      }
       page.append(
         el('div', { class: 'points-error' },
           el('p', null, t('تعذّر تحميل النقاط، حاول مجدداً')),
