@@ -619,7 +619,11 @@ async function pointsApi(path, opts = {}) {
 }
 
 async function getPointsBalance() { return pointsApi('/points/balance'); }
-async function earnPoints(slug) { return pointsApi('/points/earn', { method: 'POST', body: { slug } }); }
+async function earnPoints(slug) {
+  const token = await getIdToken();
+  if (!token) return { no_auth: true };
+  return pointsApi('/points/earn', { method: 'POST', body: { slug } });
+}
 async function claimReward() { return pointsApi('/points/claim', { method: 'POST', body: {} }); }
 
 window.Store = {

@@ -726,18 +726,33 @@ input, select { font-family: inherit; }
   display: flex; align-items: center; gap: 12px; padding: 18px 16px 0; position: relative;
 }
 .points-icon {
-  width: 52px; height: 52px; border-radius: 14px;
+  width: 68px; height: 68px; border-radius: 18px;
   background: radial-gradient(circle at 30% 25%, #2a2410, #15130b);
   display: flex; align-items: center; justify-content: center;
   flex-shrink: 0;
   border: 1px solid rgba(244,192,31,.35);
-  box-shadow: 0 4px 14px rgba(244,192,31,.22);
+  box-shadow: 0 6px 18px rgba(244,192,31,.26);
 }
-.points-emblem { width: 36px; height: 36px; object-fit: contain;
-  filter: drop-shadow(0 1px 3px rgba(0,0,0,.4)); }
-.points-coin { width: 34px; height: 34px; object-fit: contain;
-  filter: drop-shadow(0 2px 4px rgba(244,192,31,.35)); }
+.points-emblem { width: 50px; height: 50px; object-fit: contain;
+  filter: drop-shadow(0 2px 4px rgba(0,0,0,.45)); }
+.points-coin { width: 52px; height: 52px; object-fit: contain;
+  filter: drop-shadow(0 2px 6px rgba(244,192,31,.4)); }
 .points-icon .icon { width: 22px; height: 22px; }
+.points-balance-main { display: flex; flex-direction: column; gap: 2px; }
+.points-balance-num { display: flex; align-items: baseline; gap: 6px; }
+.points-usd { font-size: 15px; font-weight: 700; color: var(--gold-2, #ffd34d); }
+.points-stats {
+  display: flex; gap: 10px; margin-top: 14px;
+}
+.points-stat {
+  flex: 1; text-align: center; padding: 10px 8px; border-radius: 12px;
+  background: rgba(244,192,31,.07); border: 1px solid rgba(244,192,31,.18);
+}
+.points-stat .stat-val {
+  font-size: 18px; font-weight: 800; color: var(--gold);
+  font-variant-numeric: tabular-nums; line-height: 1.1;
+}
+.points-stat .stat-label { font-size: 11px; color: var(--text-2); margin-top: 3px; }
 .points-title { flex: 1; min-width: 0; }
 .points-label { font-size: 16px; font-weight: 700; color: var(--text); }
 .points-hint { font-size: 12px; color: var(--text-2); margin-top: 2px; }

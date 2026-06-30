@@ -232,16 +232,30 @@
     );
   }
 
+  function statChip(label, value) {
+    return el('div', { class: 'points-stat' },
+      el('div', { class: 'stat-val' }, value),
+      el('div', { class: 'stat-label' }, label),
+    );
+  }
+
   // --- Points card (نقاط التشغيل) ---
   function pointsCard() {
     const POINTS_TO_CLAIM = 1000;
+    const USD_PER_POINT = 1 / POINTS_TO_CLAIM; // 1000 نقطة = 1 دولار
+    let _claimedAmount = 0;
     const card = el('div', { class: 'points-card' });
     const balanceEl = el('div', { class: 'points-balance' }, '—');
+    const usdEl = el('div', { class: 'points-usd' }, '≈ 0.000$');
     const progressBar = el('div', { class: 'points-progress-fill' });
     const progressText = el('div', { class: 'points-progress-text' }, '...');
+    const valueStat = statChip(t('قيمتها الحالية'), '0.000$');
+    const claimedStat = statChip(t('سحبته إجمالاً'), '0.000$');
     const claimBtn = el('button', { class: 'btn btn-primary points-claim-btn', type: 'button', disabled: true },
       ico('gift', 'icon icon-sm'), t('مطالبة بالهدية'));
     const statusEl = el('div', { class: 'points-status' });
+
+    function fmtUsd(n) { return (Math.round(n * 1000) / 1000).toFixed(3) + '$'; }
 
     claimBtn.addEventListener('click', async () => {
       claimBtn.disabled = true;
@@ -250,6 +264,7 @@
         const res = await S.claimReward();
         if (res && res.ok) {
           S.toast(`${t('تمت المطالبة!')} ${res.reward_usd}$ — ${t('رصيدك الجديد')}: ${res.balance} ${t('نقطة')}`, 'success');
+          _claimedAmount += Number(res.reward_usd || 0);
           updateUI(res.balance);
         } else {
           S.toast(t('رصيدك غير كافٍ. تحتاج 1000 نقطة.'), 'error');
@@ -264,6 +279,10 @@
 
     function updateUI(balance) {
       balanceEl.textContent = balance.toLocaleString();
+      const usd = balance * USD_PER_POINT;
+      usdEl.textContent = '≈ ' + fmtUsd(usd);
+      valueStat.querySelector('.stat-val').textContent = fmtUsd(usd);
+      claimedStat.querySelector('.stat-val').textContent = fmtUsd(_claimedAmount);
       const pct = Math.min(100, Math.round((balance / POINTS_TO_CLAIM) * 100));
       progressBar.style.width = pct + '%';
       progressText.textContent = `${balance} / ${POINTS_TO_CLAIM} ${t('نقطة')}`;
@@ -293,20 +312,28 @@
       el('div', { class: 'points-body' },
         el('div', { class: 'points-balance-row' },
           el('img', { src: '/images/points.png', alt: '', class: 'points-coin' }),
-          balanceEl,
-          el('span', { class: 'points-unit' }, t('نقطة')),
+          el('div', { class: 'points-balance-main' },
+            el('div', { class: 'points-balance-num' },
+              balanceEl,
+              el('span', { class: 'points-unit' }, t('نقطة')),
+            ),
+            usdEl,
+          ),
         ),
         el('div', { class: 'points-progress' }, progressBar),
         progressText,
         statusEl,
+        el('div', { class: 'points-stats' }, valueStat, claimedStat),
       ),
       el('div', { class: 'points-actions' }, claimBtn),
     );
 
     // Load balance
     S.getPointsBalance().then((data) => {
-      if (data && typeof data.balance === 'number') updateUI(data.balance);
-      else updateUI(0);
+      if (data && typeof data.balance === 'number') {
+        _claimedAmount = Number(data.claimed_amount || 0);
+        updateUI(data.balance);
+      } else updateUI(0);
     }).catch(() => updateUI(0));
 
     return card;

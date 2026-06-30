@@ -372,7 +372,8 @@
         toast(t('اكتمل التحميل وحُفظ الملف في جهازك'), 'success');
         // Earn points for this download (server prevents duplicates)
         S.earnPoints(app.slug).then((r) => {
-          if (r && r.ok && r.earned) toast(`+${r.earned} ${t('نقطة!')} ${t('رصيدك')}: ${r.balance}`, 'success');
+          if (r && r.no_auth) toast(t('سجّل الدخول لتجميع نقاط التشغيل والحصول على مكافآت!'), 'info');
+          else if (r && r.ok && r.earned) toast(`+${r.earned} ${t('نقطة!')} ${t('رصيدك')}: ${r.balance}`, 'success');
         }).catch(() => {});
       } catch (e) {
         // Streaming failed (network/limits) — fall back to a normal download so
@@ -382,7 +383,8 @@
         showIdle();
         toast(t('تعذّر عرض شريط التقدّم، وبدأ التنزيل بالطريقة العادية'), 'info');
         S.earnPoints(app.slug).then((r) => {
-          if (r && r.ok && r.earned) toast(`+${r.earned} ${t('نقطة!')} ${t('رصيدك')}: ${r.balance}`, 'success');
+          if (r && r.no_auth) toast(t('سجّل الدخول لتجميع نقاط التشغيل والحصول على مكافآت!'), 'info');
+          else if (r && r.ok && r.earned) toast(`+${r.earned} ${t('نقطة!')} ${t('رصيدك')}: ${r.balance}`, 'success');
         }).catch(() => {});
       }
     }
