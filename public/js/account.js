@@ -11,6 +11,11 @@
   S.bottomNav(isLibraryView ? 'library' : 'account');
 
   S.ready((user) => {
+    // Account and library pages require login
+    if (!user) {
+      S.goToLogin();
+      return;
+    }
     root.innerHTML = '';
     root.append(S.topbarSearch(user));
 

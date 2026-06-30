@@ -372,8 +372,13 @@ function errorState(err) {
 
 /* ----------------------------- Chrome ----------------------------- */
 function avatarEl(user) {
+  if (!user) {
+    const btn = el('a', { href: '/login', class: 'avatar login-avatar', 'aria-label': t('تسجيل الدخول') });
+    btn.append(ico('user', 'icon'));
+    return btn;
+  }
   const a = el('a', { href: '/account', class: 'avatar', 'aria-label': t('حسابك') });
-  if (user && user.photoURL) a.append(el('img', { src: user.photoURL, alt: '', referrerpolicy: 'no-referrer' }));
+  if (user.photoURL) a.append(el('img', { src: user.photoURL, alt: '', referrerpolicy: 'no-referrer' }));
   else a.append(document.createTextNode(initials(user)));
   return a;
 }
@@ -477,6 +482,7 @@ function bottomNav(active) {
 // there is no valid session.
 
 let _user = null;
+let _authed = false;
 let _ready = [];
 let _gateEl = null;
 let _chromeDone = false;
@@ -506,8 +512,9 @@ function cachedUser() {
 function hideGate() { if (_gateEl) { _gateEl.remove(); _gateEl = null; } }
 
 function onAuthed(user) {
-  const firstRender = !_user;
+  const firstRender = !_authed;
   _user = user;
+  _authed = true;
   hideGate();
   document.body.style.overflow = '';
   if (firstRender) {
@@ -517,8 +524,47 @@ function onAuthed(user) {
 }
 
 function ready(fn) {
-  if (_user) { try { fn(_user); } catch (e) { console.error(e); } }
+  if (_authed) { try { fn(_user); } catch (e) { console.error(e); } }
   else _ready.push(fn);
+}
+
+function isLoggedIn() { return !!_user; }
+
+// Shows a login-required modal; returns a Promise that resolves to the user
+// (after successful sign-in) or rejects if cancelled.
+function requireAuth() {
+  if (_user) return Promise.resolve(_user);
+  return new Promise((resolve, reject) => {
+    const overlay = el('div', { class: 'dialog-overlay auth-required-overlay' });
+    overlay.addEventListener('click', (e) => { if (e.target === overlay) { overlay.remove(); reject(new Error('cancelled')); } });
+    const card = el('div', { class: 'dialog-card auth-required-card' },
+      el('div', { class: 'auth-required-header' },
+        el('img', { src: '/images/logo.png', alt: 'Golden Store', class: 'auth-logo' }),
+        el('h2', { class: 'auth-title' }, t('تسجيل الدخول مطلوب')),
+        el('p', { class: 'auth-desc' }, t('سجّل الدخول بحساب Google لتتمكن من تنزيل التطبيقات والتقييم والمزيد.')),
+      ),
+      el('button', { class: 'gbtn auth-google-btn', type: 'button', html: '<svg class="gico" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg><span class="gbtn-label">' + t('متابعة باستخدام Google') + '</span>', onclick: async () => {
+        try {
+          const user = await window.GAuth.signInWithGoogle();
+          if (user) {
+            cacheUser(user);
+            onAuthed(user);
+            overlay.remove();
+            resolve(user);
+          }
+        } catch (e) {
+          if (e && e.code === 'auth/in-app-browser') {
+            toast(t('افتح الرابط في المتصفح الخارجي لتسجيل الدخول'), 'error');
+          } else {
+            toast(t('تعذّر تسجيل الدخول، حاول مجدداً'), 'error');
+          }
+        }
+      } }),
+      el('button', { class: 'btn btn-secondary auth-cancel-btn', type: 'button', onclick: () => { overlay.remove(); reject(new Error('cancelled')); } }, t('إلغاء')),
+    );
+    overlay.append(card);
+    document.body.append(overlay);
+  });
 }
 
 let _redirectingToLogin = false;
@@ -535,15 +581,13 @@ function initAuth() {
 
   // Optimistic render: if the user signed in before, show the store immediately
   // and let Firebase confirm the session in the background (avoids login flash).
-  // Sign-in itself lives on the dedicated /login page.
   const cached = cachedUser();
   if (cached) onAuthed(cached);
 
-  // Safety: if GAuth isn't available (SDK failed to load), send to the login
-  // page rather than getting stuck on a blank/optimistic screen.
+  // If GAuth isn't available (SDK failed to load), allow browsing as guest.
   if (!window.GAuth || typeof window.GAuth.onAuthChange !== 'function') {
     console.error('GAuth not available — Firebase SDK may have failed to load');
-    if (!cached) goToLogin();
+    if (!cached) onAuthed(null);
     return;
   }
 
@@ -553,10 +597,10 @@ function initAuth() {
       cacheUser(user);
       onAuthed(user);
     } else {
-      // No valid session: clear any stale cache and require sign-in.
+      // No valid session: allow browsing as guest.
       cacheUser(null);
       _user = null;
-      goToLogin();
+      if (!_authed) onAuthed(null);
     }
   });
 }
@@ -658,7 +702,7 @@ window.Store = {
   posterCard, listRow, featureCarousel, categoryName,
   spinner, skeletonHome, skeletonDetail, skeletonList, emptyState, errorState,
   topbarSearch, topbarNav, bottomNav, avatarEl, themeToggleBtn, langSwitcherEl, toggleTheme, currentTheme,
-  ready, signOut, getUser: () => _user,
+  ready, signOut, getUser: () => _user, isLoggedIn, requireAuth, goToLogin,
   getDownloadHistory, addToDownloadHistory, clearDownloadHistory,
   getActiveDownloads, setActiveDownload, updateActiveDownloadProgress, removeActiveDownload, onActiveDownloadsChange,
 };
