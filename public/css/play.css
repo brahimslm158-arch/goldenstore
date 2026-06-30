@@ -708,6 +708,65 @@ input, select { font-family: inherit; }
 .modal img { max-width: 100%; max-height: 90vh; border-radius: 12px; }
 .modal .close { position: absolute; top: 16px; inset-inline-end: 16px; width: 44px; height: 44px; border-radius: 50%; background: rgba(255,255,255,.12); display: flex; align-items: center; justify-content: center; color: #fff; }
 
+/* ---------- Points card (نقاط التشغيل) ---------- */
+.points-card {
+  margin: 16px 0; border-radius: 18px; overflow: hidden;
+  background: linear-gradient(135deg, var(--surface) 0%, var(--surface-2) 100%);
+  border: 1px solid var(--line);
+}
+.points-header {
+  display: flex; align-items: center; gap: 12px; padding: 16px 16px 0;
+}
+.points-icon {
+  width: 44px; height: 44px; border-radius: 12px;
+  background: linear-gradient(135deg, #f4c01f, #d4a017);
+  display: flex; align-items: center; justify-content: center;
+  color: #1a1500; flex-shrink: 0;
+}
+.points-icon .icon { width: 22px; height: 22px; }
+.points-title { flex: 1; min-width: 0; }
+.points-label { font-size: 16px; font-weight: 700; color: var(--text); }
+.points-hint { font-size: 12px; color: var(--text-2); margin-top: 2px; }
+.points-body { padding: 16px; }
+.points-balance-row {
+  display: flex; align-items: baseline; gap: 6px;
+}
+.points-balance {
+  font-size: 40px; font-weight: 800; color: var(--gold);
+  line-height: 1; font-variant-numeric: tabular-nums;
+}
+.points-unit { font-size: 16px; color: var(--text-2); font-weight: 600; }
+.points-progress {
+  width: 100%; height: 8px; border-radius: 999px;
+  background: var(--surface-3); overflow: hidden; margin-top: 14px;
+}
+.points-progress-fill {
+  height: 100%; border-radius: 999px; width: 0%;
+  background: linear-gradient(90deg, #f4c01f, #ffdd57);
+  transition: width .6s ease;
+}
+.points-progress-text {
+  font-size: 12px; color: var(--text-2); margin-top: 6px; font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.points-status { font-size: 13px; margin-top: 4px; font-weight: 600; }
+.points-actions { padding: 0 16px 16px; }
+.points-claim-btn {
+  width: 100%; gap: 8px;
+  background: var(--surface-3); color: var(--text-3);
+}
+.points-claim-btn:not(:disabled) {
+  background: linear-gradient(135deg, #f4c01f, #d4a017);
+  color: #1a1500;
+}
+.points-claim-btn.ready {
+  animation: points-pulse 2s ease-in-out infinite;
+}
+@keyframes points-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(244,192,31,.5); }
+  50% { box-shadow: 0 0 0 8px rgba(244,192,31,0); }
+}
+
 .hidden { display: none !important; }
 
 /* ---------- Editors' choice carousel (Google Play style) ---------- */

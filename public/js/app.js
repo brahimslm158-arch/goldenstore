@@ -370,6 +370,10 @@
         S.addToDownloadHistory(app);
         showInstalled();
         toast(t('اكتمل التحميل وحُفظ الملف في جهازك'), 'success');
+        // Earn points for this download (server prevents duplicates)
+        S.earnPoints(app.slug).then((r) => {
+          if (r && r.ok && r.earned) toast(`+${r.earned} ${t('نقطة!')} ${t('رصيدك')}: ${r.balance}`, 'success');
+        }).catch(() => {});
       } catch (e) {
         // Streaming failed (network/limits) — fall back to a normal download so
         // the user still gets the file, and don't fake an "installed" state.
@@ -377,6 +381,9 @@
         S.addToDownloadHistory(app);
         showIdle();
         toast(t('تعذّر عرض شريط التقدّم، وبدأ التنزيل بالطريقة العادية'), 'info');
+        S.earnPoints(app.slug).then((r) => {
+          if (r && r.ok && r.earned) toast(`+${r.earned} ${t('نقطة!')} ${t('رصيدك')}: ${r.balance}`, 'success');
+        }).catch(() => {});
       }
     }
 

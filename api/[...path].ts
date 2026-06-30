@@ -3,7 +3,7 @@ import { cors } from 'hono/cors';
 import { getCookie, setCookie } from 'hono/cookie';
 import { getRequestListener } from '@hono/node-server';
 import crypto from 'node:crypto';
-import { firestore, getFieldValue } from '../lib/firebase.js';
+import { firestore, getFieldValue, verifyFirebaseToken } from '../lib/firebase.js';
 import {
   r2PresignPut,
   r2PresignGet,
@@ -1225,6 +1225,197 @@ app.delete('/admin/apps/:id', async (c) => {
   if (a.icon_key) await r2Delete(a.icon_key).catch(() => {});
   if (a.feature_key) await r2Delete(a.feature_key).catch(() => {});
   await ref.delete();
+  return c.json({ ok: true });
+});
+
+// ---------------- Points system (نقاط التشغيل) ----------------
+// Points are earned server-side only. Firebase ID token is verified to prevent forgery.
+
+const POINTS_PER_DOWNLOAD = 10;
+const POINTS_TO_CLAIM = 1000;
+const CLAIM_REWARD_USD = 1;
+
+async function requireFirebaseUser(c: any): Promise<{ uid: string; email?: string; name?: string } | null> {
+  const authHeader = c.req.header('authorization') || '';
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : '';
+  if (!token) return null;
+  return verifyFirebaseToken(token);
+}
+
+// Get points balance
+app.get('/points/balance', async (c) => {
+  const user = await requireFirebaseUser(c);
+  if (!user) return c.json({ error: 'unauthorized' }, 401);
+
+  const db = await firestore();
+  const doc = await db.collection('user_points').doc(user.uid).get();
+  if (!doc.exists) {
+    return c.json({ balance: 0, total_earned: 0, total_claimed: 0, claimed_amount: 0, earned_apps: [] });
+  }
+  const data = doc.data() as any;
+  return c.json({
+    balance: data.balance || 0,
+    total_earned: data.total_earned || 0,
+    total_claimed: data.total_claimed || 0,
+    claimed_amount: data.claimed_amount || 0,
+    earned_apps: data.earned_apps || [],
+  });
+});
+
+// Earn points after downloading an app
+app.post('/points/earn', async (c) => {
+  const ip = getClientIp(c);
+  if (!rateLimit(ip, 'points-earn', 20, 60)) {
+    return c.json({ error: 'rate_limit_exceeded' }, 429);
+  }
+
+  const user = await requireFirebaseUser(c);
+  if (!user) return c.json({ error: 'unauthorized' }, 401);
+
+  const body = await c.req.json().catch(() => ({} as any));
+  const slug = String(body.slug || '').trim();
+  if (!slug || !isValidSlug(slug)) return c.json({ error: 'invalid_slug' }, 400);
+
+  // Verify the app exists
+  const db = await firestore();
+  const appSnap = await db.collection('apps').where('slug', '==', slug).limit(1).get();
+  if (appSnap.empty) return c.json({ error: 'app_not_found' }, 404);
+
+  const pointsRef = db.collection('user_points').doc(user.uid);
+
+  // Use a transaction to prevent race conditions and double-earning
+  const result = await db.runTransaction(async (tx: any) => {
+    const pointsDoc = await tx.get(pointsRef);
+    const data = pointsDoc.exists ? (pointsDoc.data() as any) : {
+      balance: 0, total_earned: 0, total_claimed: 0, claimed_amount: 0,
+      earned_apps: [], created_at: nowSec(),
+    };
+
+    const earnedApps: string[] = data.earned_apps || [];
+
+    // Check if points were already earned for this app
+    if (earnedApps.includes(slug)) {
+      return { already_earned: true, balance: data.balance || 0 };
+    }
+
+    // Award points
+    const newBalance = (data.balance || 0) + POINTS_PER_DOWNLOAD;
+    const newTotalEarned = (data.total_earned || 0) + POINTS_PER_DOWNLOAD;
+    earnedApps.push(slug);
+
+    tx.set(pointsRef, {
+      ...data,
+      balance: newBalance,
+      total_earned: newTotalEarned,
+      earned_apps: earnedApps,
+      updated_at: nowSec(),
+    }, { merge: true });
+
+    return { already_earned: false, balance: newBalance, earned: POINTS_PER_DOWNLOAD };
+  });
+
+  if (result.already_earned) {
+    return c.json({ ok: false, error: 'already_earned', balance: result.balance });
+  }
+  return c.json({ ok: true, earned: result.earned, balance: result.balance });
+});
+
+// Claim reward
+app.post('/points/claim', async (c) => {
+  const ip = getClientIp(c);
+  if (!rateLimit(ip, 'points-claim', 3, 300)) {
+    return c.json({ error: 'rate_limit_exceeded' }, 429);
+  }
+
+  const user = await requireFirebaseUser(c);
+  if (!user) return c.json({ error: 'unauthorized' }, 401);
+
+  const db = await firestore();
+  const pointsRef = db.collection('user_points').doc(user.uid);
+
+  const result = await db.runTransaction(async (tx: any) => {
+    const pointsDoc = await tx.get(pointsRef);
+    if (!pointsDoc.exists) return { error: 'insufficient_points' };
+    const data = pointsDoc.data() as any;
+    const balance = data.balance || 0;
+
+    if (balance < POINTS_TO_CLAIM) {
+      return { error: 'insufficient_points', balance };
+    }
+
+    const newBalance = balance - POINTS_TO_CLAIM;
+    const newTotalClaimed = (data.total_claimed || 0) + 1;
+    const newClaimedAmount = (data.claimed_amount || 0) + CLAIM_REWARD_USD;
+
+    tx.update(pointsRef, {
+      balance: newBalance,
+      total_claimed: newTotalClaimed,
+      claimed_amount: newClaimedAmount,
+      updated_at: nowSec(),
+    });
+
+    // Log the claim
+    const claimRef = db.collection('points_claims').doc();
+    tx.set(claimRef, {
+      uid: user.uid,
+      email: user.email || '',
+      name: user.name || '',
+      points_spent: POINTS_TO_CLAIM,
+      reward_usd: CLAIM_REWARD_USD,
+      status: 'pending',
+      ts: nowSec(),
+    });
+
+    return { ok: true, balance: newBalance, reward_usd: CLAIM_REWARD_USD, claim_id: claimRef.id };
+  });
+
+  if (result.error) {
+    return c.json({ error: result.error, balance: result.balance || 0 }, 400);
+  }
+  return c.json(result);
+});
+
+// Admin: view all pending claims
+app.get('/admin/points/claims', async (c) => {
+  const db = await firestore();
+  let docs: any[];
+  try {
+    const snap = await db.collection('points_claims').orderBy('ts', 'desc').limit(200).get();
+    docs = snap.docs;
+  } catch {
+    const snap = await db.collection('points_claims').get();
+    docs = snap.docs.sort((a: any, b: any) => (b.data().ts || 0) - (a.data().ts || 0)).slice(0, 200);
+  }
+  const claims = docs.map((d: any) => ({ id: d.id, ...(d.data() as any) }));
+  return c.json({ claims });
+});
+
+// Admin: approve/reject a claim
+app.patch('/admin/points/claims/:id', async (c) => {
+  const id = c.req.param('id');
+  const body = await c.req.json().catch(() => ({} as any));
+  const status = String(body.status || '').trim();
+  if (!['approved', 'rejected'].includes(status)) return c.json({ error: 'invalid_status' }, 400);
+
+  const db = await firestore();
+  const ref = db.collection('points_claims').doc(id);
+  const snap = await ref.get();
+  if (!snap.exists) return c.json({ error: 'not_found' }, 404);
+
+  const data = snap.data() as any;
+
+  // If rejecting, refund the points
+  if (status === 'rejected' && data.status === 'pending') {
+    const pointsRef = db.collection('user_points').doc(data.uid);
+    const FV = await getFieldValue();
+    await pointsRef.update({
+      balance: FV.increment(data.points_spent || POINTS_TO_CLAIM),
+      total_claimed: FV.increment(-1),
+      claimed_amount: FV.increment(-(data.reward_usd || CLAIM_REWARD_USD)),
+    });
+  }
+
+  await ref.update({ status, resolved_at: nowSec() });
   return c.json({ ok: true });
 });
 

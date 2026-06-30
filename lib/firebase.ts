@@ -145,3 +145,14 @@ export async function getFieldValue() {
   const { FieldValue } = await import('firebase-admin/firestore');
   return FieldValue;
 }
+
+export async function verifyFirebaseToken(idToken: string): Promise<{ uid: string; email?: string; name?: string } | null> {
+  try {
+    const { getAuth } = await import('firebase-admin/auth');
+    const fbApp = await firebaseApp();
+    const decoded = await getAuth(fbApp).verifyIdToken(idToken);
+    return { uid: decoded.uid, email: decoded.email, name: decoded.name };
+  } catch {
+    return null;
+  }
+}

@@ -596,6 +596,32 @@ function clearDownloadHistory() {
   try { localStorage.removeItem(DL_HISTORY_KEY); } catch {}
 }
 
+/* ----------------------------- Points system ----------------------------- */
+async function getIdToken() {
+  try {
+    const user = window.GAuth && window.GAuth.getUser();
+    if (user && typeof user.getIdToken === 'function') return await user.getIdToken();
+  } catch {}
+  return null;
+}
+
+async function pointsApi(path, opts = {}) {
+  const token = await getIdToken();
+  if (!token) return null;
+  const headers = { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` };
+  const res = await fetch(`/api${path}`, {
+    method: opts.method || 'GET',
+    headers,
+    body: opts.body ? JSON.stringify(opts.body) : undefined,
+    credentials: 'include',
+  });
+  return res.json();
+}
+
+async function getPointsBalance() { return pointsApi('/points/balance'); }
+async function earnPoints(slug) { return pointsApi('/points/earn', { method: 'POST', body: { slug } }); }
+async function claimReward() { return pointsApi('/points/claim', { method: 'POST', body: {} }); }
+
 window.Store = {
   STORE, api, el, ico, t,
   formatBytes, formatCount, formatNum, formatDate, ratingOf, ratingValue, ratingCountOf, getQuery, toast,
@@ -604,6 +630,7 @@ window.Store = {
   topbarSearch, topbarNav, bottomNav, avatarEl, themeToggleBtn, langSwitcherEl, toggleTheme, currentTheme,
   ready, signOut, getUser: () => _user,
   getDownloadHistory, addToDownloadHistory, clearDownloadHistory,
+  getPointsBalance, earnPoints, claimReward,
 };
 
 document.addEventListener('DOMContentLoaded', boot);

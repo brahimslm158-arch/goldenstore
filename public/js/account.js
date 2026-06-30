@@ -99,6 +99,9 @@
       ),
     );
 
+    // Points card
+    content.append(pointsCard());
+
     // Settings title
     content.append(el('div', { class: 'page-title', style: { padding: '16px 16px 0' } }, t('الإعدادات')));
 
@@ -227,6 +230,83 @@
       el('div', { class: 'page-title', style: { padding: '8px 16px 0', fontSize: '15px' } }, t('تواصل معنا')),
       list,
     );
+  }
+
+  // --- Points card (نقاط التشغيل) ---
+  function pointsCard() {
+    const POINTS_TO_CLAIM = 1000;
+    const card = el('div', { class: 'points-card' });
+    const balanceEl = el('div', { class: 'points-balance' }, '—');
+    const progressBar = el('div', { class: 'points-progress-fill' });
+    const progressText = el('div', { class: 'points-progress-text' }, '...');
+    const claimBtn = el('button', { class: 'btn btn-primary points-claim-btn', type: 'button', disabled: true },
+      ico('gift', 'icon icon-sm'), t('مطالبة بالهدية'));
+    const statusEl = el('div', { class: 'points-status' });
+
+    claimBtn.addEventListener('click', async () => {
+      claimBtn.disabled = true;
+      claimBtn.textContent = t('جارٍ المعالجة...');
+      try {
+        const res = await S.claimReward();
+        if (res && res.ok) {
+          S.toast(`${t('تمت المطالبة!')} ${res.reward_usd}$ — ${t('رصيدك الجديد')}: ${res.balance} ${t('نقطة')}`, 'success');
+          updateUI(res.balance);
+        } else {
+          S.toast(t('رصيدك غير كافٍ. تحتاج 1000 نقطة.'), 'error');
+        }
+      } catch {
+        S.toast(t('حدث خطأ. حاول مرة أخرى.'), 'error');
+      }
+      claimBtn.disabled = false;
+      claimBtn.innerHTML = '';
+      claimBtn.append(ico('gift', 'icon icon-sm'), document.createTextNode(t('مطالبة بالهدية')));
+    });
+
+    function updateUI(balance) {
+      balanceEl.textContent = balance.toLocaleString();
+      const pct = Math.min(100, Math.round((balance / POINTS_TO_CLAIM) * 100));
+      progressBar.style.width = pct + '%';
+      progressText.textContent = `${balance} / ${POINTS_TO_CLAIM} ${t('نقطة')}`;
+      claimBtn.disabled = balance < POINTS_TO_CLAIM;
+      if (balance >= POINTS_TO_CLAIM) {
+        claimBtn.classList.add('ready');
+        statusEl.textContent = t('يمكنك المطالبة بـ 1$ الآن!');
+        statusEl.style.color = 'var(--gold)';
+      } else {
+        claimBtn.classList.remove('ready');
+        const remaining = POINTS_TO_CLAIM - balance;
+        statusEl.textContent = `${t('تحتاج')} ${remaining} ${t('نقطة إضافية')}`;
+        statusEl.style.color = 'var(--text-3)';
+      }
+    }
+
+    card.append(
+      el('div', { class: 'points-header' },
+        el('div', { class: 'points-icon' }, ico('star', 'icon fill')),
+        el('div', { class: 'points-title' },
+          el('div', { class: 'points-label' }, t('نقاط التشغيل')),
+          el('div', { class: 'points-hint' }, t('حمّل تطبيقات واكسب نقاط! 10 نقاط لكل تحميل')),
+        ),
+      ),
+      el('div', { class: 'points-body' },
+        el('div', { class: 'points-balance-row' },
+          balanceEl,
+          el('span', { class: 'points-unit' }, t('نقطة')),
+        ),
+        el('div', { class: 'points-progress' }, progressBar),
+        progressText,
+        statusEl,
+      ),
+      el('div', { class: 'points-actions' }, claimBtn),
+    );
+
+    // Load balance
+    S.getPointsBalance().then((data) => {
+      if (data && typeof data.balance === 'number') updateUI(data.balance);
+      else updateUI(0);
+    }).catch(() => updateUI(0));
+
+    return card;
   }
 
   function settingItem(icon, label, value, onClick) {
