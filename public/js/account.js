@@ -282,7 +282,9 @@
 
     card.append(
       el('div', { class: 'points-header' },
-        el('div', { class: 'points-icon' }, ico('star', 'icon fill')),
+        el('div', { class: 'points-icon' },
+          el('img', { src: '/images/points.png', alt: 'Goldenstore', class: 'points-emblem' }),
+        ),
         el('div', { class: 'points-title' },
           el('div', { class: 'points-label' }, t('نقاط التشغيل')),
           el('div', { class: 'points-hint' }, t('حمّل تطبيقات واكسب نقاط! 10 نقاط لكل تحميل')),
@@ -290,6 +292,7 @@
       ),
       el('div', { class: 'points-body' },
         el('div', { class: 'points-balance-row' },
+          el('img', { src: '/images/points.png', alt: '', class: 'points-coin' }),
           balanceEl,
           el('span', { class: 'points-unit' }, t('نقطة')),
         ),
