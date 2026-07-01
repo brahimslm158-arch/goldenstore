@@ -532,8 +532,51 @@ function ready(fn) {
 function isLoggedIn() { return !!_user; }
 
 /* --------------------------- Points (نقاط التشغيل) --------------------------- */
-// All point operations are authorized server-side with a fresh Firebase ID
-// token, so the balance can never be forged from the client.
+const POINTS_CONFIG = {
+  points_per_download: 10,
+  points_per_dollar: 1000,
+  min_withdraw_usd: 5,
+  min_withdraw_points: 5000,
+};
+
+function pointsDb() {
+  if (typeof firebase === 'undefined' || !firebase.database) {
+    throw new Error('firebase_database_unavailable');
+  }
+  return firebase.database();
+}
+
+async function currentPointsUser() {
+  if (!window.GAuth) return null;
+  let user = typeof window.GAuth.getUser === 'function' ? window.GAuth.getUser() : null;
+  if (!user && typeof window.GAuth.ready === 'function') {
+    user = await window.GAuth.ready();
+  }
+  if (!user && typeof window.GAuth.getUser === 'function') {
+    user = window.GAuth.getUser();
+  }
+  return user && user.uid ? user : null;
+}
+
+function unauthorizedError() {
+  const e = new Error('unauthorized');
+  e.status = 401;
+  return e;
+}
+
+function sanitizeText(value, maxLen) {
+  return String(value == null ? '' : value).trim().slice(0, maxLen);
+}
+
+function transactionPromise(ref, updateFn) {
+  return new Promise((resolve, reject) => {
+    ref.transaction(updateFn, (error, committed, snapshot) => {
+      if (error) reject(error);
+      else resolve({ committed, snapshot });
+    }, false);
+  });
+}
+
 async function authedApi(path, opts = {}) {
   if (!window.GAuth || !window.GAuth.getIdToken) { const e = new Error('unauthorized'); e.status = 401; throw e; }
   // Pages render optimistically from the cached user, so Firebase may not have
@@ -545,17 +588,152 @@ async function authedApi(path, opts = {}) {
   return api(path, { ...opts, headers });
 }
 
-function pointsBalance() { return authedApi('/api/points/balance', { timeoutMs: 10000 }); }
-function pointsWithdraw(payload) { return authedApi('/api/points/withdraw', { method: 'POST', body: payload, timeoutMs: 12000 }); }
+async function pointsBalance() {
+  const user = await currentPointsUser();
+  if (!user || !user.uid) throw unauthorizedError();
+  const db = pointsDb();
+  const uid = user.uid;
+  const [pointsSnap, withdrawalsSnap] = await Promise.all([
+    db.ref(`user_points/${uid}`).once('value'),
+    db.ref(`withdrawals/${uid}`).once('value').catch(() => null),
+  ]);
+
+  const state = pointsSnap && pointsSnap.val && pointsSnap.val() ? pointsSnap.val() : {};
+  const balance = Number(state.balance || 0);
+  const dollars = Number((balance / POINTS_CONFIG.points_per_dollar).toFixed(2));
+
+  let withdrawals = [];
+  try {
+    const raw = withdrawalsSnap && withdrawalsSnap.val ? (withdrawalsSnap.val() || {}) : {};
+    withdrawals = Object.entries(raw)
+      .map(([id, record]) => ({ id, ...(record && typeof record === 'object' ? record : {}) }))
+      .sort((a, b) => Number(b.ts || 0) - Number(a.ts || 0))
+      .slice(0, 50);
+  } catch {}
+
+  return {
+    balance,
+    dollars,
+    total_earned: Number(state.total_earned || 0),
+    total_withdrawn_usd: Number(state.withdrawn_amount || 0),
+    can_withdraw: balance >= POINTS_CONFIG.min_withdraw_points,
+    withdrawals,
+    config: POINTS_CONFIG,
+  };
+}
+
+async function pointsWithdraw(payload = {}) {
+  const user = await currentPointsUser();
+  if (!user || !user.uid) throw unauthorizedError();
+  const db = pointsDb();
+  const uid = user.uid;
+  const method = sanitizeText(payload.method, 40);
+  const account = sanitizeText(payload.account, 200);
+  const requestedAmount = payload.amount_usd == null || payload.amount_usd === ''
+    ? null
+    : Math.floor(Number(payload.amount_usd));
+  const pointsRef = db.ref(`user_points/${uid}`);
+  const withdrawalsRef = db.ref(`withdrawals/${uid}`);
+
+  let lastError = null;
+  let appliedAmount = null;
+  let withdrawalData = null;
+
+  const { committed, snapshot } = await transactionPromise(pointsRef, (current) => {
+    lastError = null;
+    const state = current && typeof current === 'object' ? current : {};
+    const balance = Number(state.balance || 0);
+    const totalEarned = Number(state.total_earned || 0);
+    const withdrawnAmount = Number(state.withdrawn_amount || 0);
+    const totalWithdrawals = Number(state.total_withdrawals || 0);
+    const earnedApps = state.earned_apps && typeof state.earned_apps === 'object' ? state.earned_apps : {};
+    const maxUsd = Math.floor(balance / POINTS_CONFIG.points_per_dollar);
+    const amountUsd = requestedAmount == null ? maxUsd : requestedAmount;
+
+    if (maxUsd < POINTS_CONFIG.min_withdraw_usd) {
+      lastError = 'insufficient_points';
+      return;
+    }
+    if (!Number.isFinite(amountUsd) || amountUsd < POINTS_CONFIG.min_withdraw_usd) {
+      lastError = 'below_minimum';
+      return;
+    }
+    if (amountUsd > maxUsd) {
+      lastError = 'insufficient_points';
+      return;
+    }
+
+    appliedAmount = amountUsd;
+    withdrawalData = {
+      uid,
+      email: user.email || '',
+      name: user.displayName || '',
+      points_spent: amountUsd * POINTS_CONFIG.points_per_dollar,
+      amount_usd: amountUsd,
+      method,
+      account,
+      status: 'pending',
+      ts: Date.now(),
+    };
+
+    return {
+      balance: balance - withdrawalData.points_spent,
+      total_earned: totalEarned,
+      withdrawn_amount: withdrawnAmount + amountUsd,
+      total_withdrawals: totalWithdrawals + 1,
+      earned_apps: earnedApps,
+      updated_at: Date.now(),
+    };
+  });
+
+  if (!committed) {
+    const e = new Error(lastError || 'withdraw_failed');
+    e.status = 400;
+    if (lastError) e.data = { error: lastError };
+    throw e;
+  }
+
+  const pushRef = withdrawalsRef.push();
+  await pushRef.set(withdrawalData);
+  const finalState = snapshot && snapshot.val ? (snapshot.val() || {}) : {};
+  return {
+    ok: true,
+    balance: Number(finalState.balance || 0),
+    amount_usd: appliedAmount,
+    withdrawal_id: pushRef.key,
+  };
+}
 
 // Grant points for installing an app. Safe to call multiple times — the server
 // only awards once per app per user. Silently no-ops for signed-out users.
 async function earnPoints(slug) {
-  if (!_user || !slug) return null;
+  if (!slug) return null;
+  const user = await currentPointsUser();
+  if (!user || !user.uid) return null;
   try {
-    const res = await authedApi('/api/points/earn', { method: 'POST', body: { slug }, timeoutMs: 10000 });
-    if (res && res.ok && res.earned) toast('+' + res.earned + ' ' + t('نقطة في حسابك'), 'success');
-    return res;
+    const db = pointsDb();
+    const uid = user.uid;
+    const ref = db.ref(`user_points/${uid}`);
+    let earned = 0;
+    await transactionPromise(ref, (current) => {
+      const state = current && typeof current === 'object' ? current : {};
+      const earnedApps = state.earned_apps && typeof state.earned_apps === 'object' ? state.earned_apps : {};
+      if (earnedApps[slug]) return;
+      earned = POINTS_CONFIG.points_per_download;
+      return {
+        balance: Number(state.balance || 0) + earned,
+        total_earned: Number(state.total_earned || 0) + earned,
+        withdrawn_amount: Number(state.withdrawn_amount || 0),
+        total_withdrawals: Number(state.total_withdrawals || 0),
+        earned_apps: Object.assign({}, earnedApps, { [slug]: true }),
+        updated_at: Date.now(),
+      };
+    });
+    if (earned) {
+      toast('+' + earned + ' ' + t('نقطة في حسابك'), 'success');
+      return { ok: true, earned };
+    }
+    return null;
   } catch (e) { return null; }
 }
 
@@ -732,7 +910,7 @@ window.Store = {
   spinner, skeletonHome, skeletonDetail, skeletonList, emptyState, errorState,
   topbarSearch, topbarNav, bottomNav, avatarEl, themeToggleBtn, langSwitcherEl, toggleTheme, currentTheme,
   ready, signOut, getUser: () => _user, isLoggedIn, requireAuth, goToLogin,
-  earnPoints, pointsBalance, pointsWithdraw,
+  pointsConfig: POINTS_CONFIG, earnPoints, pointsBalance, pointsWithdraw,
   getDownloadHistory, addToDownloadHistory, clearDownloadHistory,
   getActiveDownloads, setActiveDownload, updateActiveDownloadProgress, removeActiveDownload, onActiveDownloadsChange,
 };
