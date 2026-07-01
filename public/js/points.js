@@ -1,5 +1,5 @@
 // Points ("نقاط التشغيل") page — balance, dollar value, and withdrawal requests.
-// All figures come from the server; the client never trusts local state.
+// All figures come from Firebase RTDB via the authenticated client session.
 (function () {
   const S = window.Store;
   const { el, ico, t, toast, formatNum } = S;
@@ -95,6 +95,10 @@
       ),
     );
 
+    const referralWrap = el('div', { class: 'points-invite' });
+    page.append(referralWrap);
+    loadReferralSection(referralWrap, data);
+
     // --- How it works ---
     page.append(
       el('div', { class: 'points-how' },
@@ -135,6 +139,132 @@
       el('div', { class: 'points-stat-val' }, value),
       el('div', { class: 'points-stat-label' }, label),
     );
+  }
+
+  async function copyText(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', 'true');
+    ta.style.position = 'fixed';
+    ta.style.opacity = '0';
+    document.body.append(ta);
+    ta.select();
+    const ok = document.execCommand && document.execCommand('copy');
+    ta.remove();
+    if (!ok) throw new Error('copy_failed');
+    return true;
+  }
+
+  function referralToastError(code) {
+    if (code === 'invalid_code') return t('رمز غير صالح');
+    if (code === 'self_referral') return t('لا يمكنك استخدام رمزك الخاص');
+    if (code === 'already_referred') return t('لقد استخدمت رمز دعوة من قبل');
+    return t('تعذر تفعيل الرمز');
+  }
+
+  function renderReferralSection(container, data, referral) {
+    const cfg = data.config || {};
+    const code = referral.code || '';
+    const inviteUrl = referral.invite_url || (location.origin + '/points?ref=' + code);
+    const referredBy = referral.referred_by || '';
+    const title = el('div', { class: 'points-invite-title' }, t('ادعُ صديقاً واربح نقاطاً'));
+    const desc = el('div', { class: 'points-invite-desc' },
+      `${t('يحصل صديقك على')} ${cfg.referral_invitee || 5} ${t('نقاط')}, ${t('وتحصل أنت على')} ${cfg.referral_inviter || 10} ${t('نقاط عند تفعيله لرمزك.')}`,
+    );
+    const codePill = el('div', { class: 'points-code-pill' }, code);
+    const copyBtn = el('button', { class: 'btn btn-secondary points-invite-btn', type: 'button' }, t('نسخ'));
+    const shareBtn = el('button', { class: 'btn btn-secondary points-invite-btn', type: 'button' }, t('مشاركة'));
+    copyBtn.onclick = async () => {
+      try {
+        await copyText(code);
+        toast(t('تم نسخ الرمز'), 'success');
+      } catch {
+        toast(t('تعذر النسخ'), 'error');
+      }
+    };
+    shareBtn.onclick = async () => {
+      try {
+        if (navigator.share) {
+          await navigator.share({ title: document.title, text: code, url: inviteUrl });
+          toast(t('تمت المشاركة'), 'success');
+        } else {
+          await copyText(inviteUrl);
+          toast(t('تم نسخ الرابط'), 'success');
+        }
+      } catch {}
+    };
+
+    const statsLine = el('div', { class: 'points-invite-stats' },
+      `${t('دعوت')} ${formatNum(referral.referral_count || 0)} ${t('صديقاً')} • ${t('ربحت')} ${formatNum(referral.referral_points || 0)} ${t('نقطة')}`,
+    );
+
+    const redeemWrap = el('div', { class: 'points-invite-redeem' });
+    const pending = S.getPendingReferral ? S.getPendingReferral() : '';
+    let input = null;
+    let button = null;
+
+    async function submitReferral(auto = false) {
+      const value = (input.value || '').trim();
+      if (!value) {
+        if (!auto) toast(t('أدخل رمز صديقك'), 'error');
+        return;
+      }
+      button.disabled = true;
+      input.disabled = true;
+      try {
+        await S.applyReferral(value);
+        if (S.clearPendingReferral) S.clearPendingReferral();
+        toast('+' + (cfg.referral_invitee || 5) + ' ' + t('نقطة في حسابك'), 'success');
+        render();
+      } catch (e) {
+        button.disabled = false;
+        input.disabled = false;
+        const err = e && e.data && e.data.error;
+        if (auto && (err === 'invalid_code' || err === 'self_referral' || err === 'already_referred')) {
+          if (S.clearPendingReferral) S.clearPendingReferral();
+        }
+        if (!auto) toast(referralToastError(err), 'error');
+      }
+    }
+
+    if (referredBy) {
+      if (S.clearPendingReferral) S.clearPendingReferral();
+      redeemWrap.append(el('div', { class: 'points-invite-done' }, t('لقد فعّلت رمز دعوة ✓')));
+    } else {
+      input = el('input', { class: 'points-input points-invite-input', type: 'text', placeholder: t('أدخل رمز صديقك'), value: pending || '' });
+      button = el('button', { class: 'btn btn-primary points-invite-apply', type: 'button' }, t('تفعيل'));
+      redeemWrap.append(
+        el('div', { class: 'points-invite-redeem-row' },
+          input,
+          button,
+        ),
+      );
+      button.onclick = () => submitReferral(false);
+      if (pending) {
+        queueMicrotask(() => submitReferral(true));
+      }
+    }
+
+    container.innerHTML = '';
+    container.append(
+      el('div', { class: 'points-invite-head' }, title, desc),
+      el('div', { class: 'points-invite-code-row' }, codePill, el('div', { class: 'points-invite-actions' }, copyBtn, shareBtn)),
+      statsLine,
+      redeemWrap,
+    );
+  }
+
+  async function loadReferralSection(container, data) {
+    try {
+      const referral = await S.getReferral();
+      renderReferralSection(container, data, referral);
+    } catch (e) {
+      container.remove();
+    }
   }
 
   // --- Withdrawal request modal ---

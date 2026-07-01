@@ -1012,6 +1012,21 @@ input, select { font-family: inherit; }
 .points-stat-val { font-size: 18px; font-weight: 800; color: var(--text); }
 .points-stat-label { font-size: 11px; color: var(--text-2); margin-top: 4px; line-height: 1.3; }
 
+.points-invite { margin-top: 20px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px; }
+.points-invite-head { display: flex; flex-direction: column; gap: 8px; }
+.points-invite-title { font-weight: 800; color: var(--text); font-size: 16px; }
+.points-invite-desc { color: var(--text-2); font-size: 13px; line-height: 1.7; }
+.points-invite-code-row { margin-top: 14px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.points-code-pill { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 16px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--border); color: var(--gold); font-size: 20px; font-weight: 800; letter-spacing: 0.14em; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; direction: ltr; }
+.points-invite-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.points-invite-btn { min-width: 90px; }
+.points-invite-stats { margin-top: 12px; color: var(--text-2); font-size: 13px; }
+.points-invite-redeem { margin-top: 14px; }
+.points-invite-redeem-row { display: flex; gap: 10px; }
+.points-invite-input { flex: 1; text-align: center; letter-spacing: 0.08em; direction: ltr; }
+.points-invite-apply { min-width: 100px; }
+.points-invite-done { padding: 12px 14px; border-radius: var(--radius-sm); background: rgba(244,192,31,.12); color: var(--gold); font-weight: 700; text-align: center; }
+
 .points-how { margin-top: 20px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-sm); padding: 16px; }
 .points-how-title { display: flex; align-items: center; gap: 8px; font-weight: 700; margin-bottom: 10px; color: var(--text); }
 .points-how-list { margin: 0; padding-inline-start: 20px; color: var(--text-2); font-size: 13px; line-height: 1.9; }

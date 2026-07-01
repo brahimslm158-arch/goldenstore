@@ -139,6 +139,19 @@ function ratingOf(app) {
 
 function getQuery(name) { return new URLSearchParams(location.search).get(name) || ''; }
 
+const REF_PENDING_KEY = 'gs_ref_pending';
+function getPendingReferral() {
+  try { return localStorage.getItem(REF_PENDING_KEY) || ''; } catch { return ''; }
+}
+function clearPendingReferral() {
+  try { localStorage.removeItem(REF_PENDING_KEY); } catch {}
+}
+function setPendingReferral(code) {
+  const value = sanitizeText(code, 32);
+  if (!value) return;
+  try { localStorage.setItem(REF_PENDING_KEY, value); } catch {}
+}
+
 function toast(msg, type = 'info', ms = 3000) {
   let stack = document.querySelector('.toast-stack');
   if (!stack) { stack = el('div', { class: 'toast-stack' }); document.body.append(stack); }
@@ -537,7 +550,11 @@ const POINTS_CONFIG = {
   points_per_dollar: 1000,
   min_withdraw_usd: 5,
   min_withdraw_points: 5000,
+  referral_inviter: 10,
+  referral_invitee: 5,
 };
+
+const REFERRAL_CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
 function pointsDb() {
   if (typeof firebase === 'undefined' || !firebase.database) {
@@ -568,6 +585,30 @@ function sanitizeText(value, maxLen) {
   return String(value == null ? '' : value).trim().slice(0, maxLen);
 }
 
+function normalizeReferralCode(code) {
+  return sanitizeText(code, 32).toUpperCase();
+}
+
+function randomReferralCode() {
+  const bytes = new Uint8Array(6);
+  if (window.crypto && window.crypto.getRandomValues) {
+    window.crypto.getRandomValues(bytes);
+  } else {
+    for (let i = 0; i < bytes.length; i += 1) bytes[i] = Math.floor(Math.random() * 256);
+  }
+  let out = '';
+  for (let i = 0; i < bytes.length; i += 1) {
+    out += REFERRAL_CODE_ALPHABET[bytes[i] % REFERRAL_CODE_ALPHABET.length];
+  }
+  return out;
+}
+
+function referralError(code) {
+  const e = new Error(code);
+  e.data = { error: code };
+  return e;
+}
+
 // Rejects if the wrapped promise doesn't settle in time. Firebase RTDB
 // operations hang indefinitely (no rejection) when the database instance is
 // unreachable/not provisioned, which would otherwise leave the page spinning
@@ -595,6 +636,193 @@ function transactionPromise(ref, updateFn) {
   });
 }
 
+async function readOnce(ref, ms = 12000, label = 'timeout') {
+  return withTimeout(ref.once('value'), ms, label);
+}
+
+async function processReferralClaims(uid) {
+  if (!uid) return;
+  try {
+    const db = pointsDb();
+    const claimsRef = db.ref(`referral_claims/${uid}`);
+    const userRef = db.ref(`user_points/${uid}`);
+    const [claimsSnap, userSnap] = await withTimeout(Promise.all([
+      claimsRef.once('value'),
+      userRef.once('value'),
+    ]), 12000, 'referrals_timeout');
+
+    const state = userSnap && userSnap.val ? (userSnap.val() || {}) : {};
+    const referredInvitees = state.referred_invitees && typeof state.referred_invitees === 'object'
+      ? state.referred_invitees
+      : {};
+    const claims = [];
+    if (claimsSnap && claimsSnap.forEach) {
+      claimsSnap.forEach((child) => {
+        const val = child.val() || {};
+        const inviteeUid = sanitizeText(val.invitee_uid, 128);
+        if (!inviteeUid) return;
+        claims.push({ id: child.key, invitee_uid: inviteeUid, points: Number(val.points || 0), processed: !!val.processed });
+      });
+    }
+    if (!claims.length) return;
+
+    const byInvitee = new Map();
+    claims.forEach((claim) => {
+      if (!byInvitee.has(claim.invitee_uid)) byInvitee.set(claim.invitee_uid, []);
+      byInvitee.get(claim.invitee_uid).push(claim.id);
+    });
+    const newInvitees = Array.from(byInvitee.keys()).filter((inviteeUid) => !referredInvitees[inviteeUid]);
+    if (newInvitees.length) {
+      const txn = await transactionPromise(userRef, (current) => {
+        const currentState = current && typeof current === 'object' ? current : {};
+        const currentInvitees = currentState.referred_invitees && typeof currentState.referred_invitees === 'object'
+          ? currentState.referred_invitees
+          : {};
+        const stillNew = newInvitees.filter((inviteeUid) => !currentInvitees[inviteeUid]);
+        if (!stillNew.length) return currentState;
+        const next = Object.assign({}, currentState);
+        next.balance = Number(next.balance || 0) + (POINTS_CONFIG.referral_inviter * stillNew.length);
+        next.total_earned = Number(next.total_earned || 0) + (POINTS_CONFIG.referral_inviter * stillNew.length);
+        next.referral_points = Number(next.referral_points || 0) + (POINTS_CONFIG.referral_inviter * stillNew.length);
+        next.referral_count = Number(next.referral_count || 0) + stillNew.length;
+        next.referred_invitees = Object.assign({}, currentInvitees);
+        stillNew.forEach((inviteeUid) => { next.referred_invitees[inviteeUid] = true; });
+        next.updated_at = Date.now();
+        return next;
+      });
+    }
+    await Promise.all(claims.map((claim) => claimsRef.child(claim.id).update({ processed: true }).catch(() => {})));
+  } catch (e) {}
+}
+
+async function ensureReferralCode(user) {
+  if (!user || !user.uid) throw unauthorizedError();
+  const db = pointsDb();
+  const uid = user.uid;
+  const userRef = db.ref(`user_points/${uid}`);
+  const userSnap = await withTimeout(userRef.once('value'), 12000, 'referral_timeout');
+  const current = userSnap && userSnap.val ? (userSnap.val() || {}) : {};
+  if (current.referral_code) {
+    await withTimeout(transactionPromise(db.ref(`referral_codes/${current.referral_code}`), (value) => value || uid), 12000, 'referral_timeout').catch(() => {});
+    return current.referral_code;
+  }
+
+  for (let i = 0; i < 8; i += 1) {
+    const code = randomReferralCode();
+    const codeRef = db.ref(`referral_codes/${code}`);
+    const codeSnap = await withTimeout(codeRef.once('value'), 12000, 'referral_timeout');
+    if (codeSnap && codeSnap.exists && codeSnap.exists()) continue;
+    const codeTxn = await transactionPromise(codeRef, (value) => {
+      if (value && value !== uid) return value;
+      return uid;
+    });
+    if (!codeTxn.committed) continue;
+    const userTxn = await transactionPromise(userRef, (value) => {
+      const state = value && typeof value === 'object' ? value : {};
+      if (state.referral_code) return state;
+      const next = Object.assign({}, state, {
+        referral_code: code,
+        updated_at: Date.now(),
+      });
+      return next;
+    });
+    if (userTxn.committed) return code;
+    const latestSnap = await withTimeout(userRef.once('value'), 12000, 'referral_timeout');
+    const latest = latestSnap && latestSnap.val ? (latestSnap.val() || {}) : {};
+    if (latest.referral_code) {
+      if (latest.referral_code !== code) {
+        await withTimeout(codeRef.remove(), 12000, 'referral_timeout').catch(() => {});
+      }
+      return latest.referral_code;
+    }
+    await withTimeout(codeRef.remove(), 12000, 'referral_timeout').catch(() => {});
+  }
+
+  throw new Error('referral_code_unavailable');
+}
+
+async function getReferral() {
+  const user = await currentPointsUser();
+  if (!user || !user.uid) throw unauthorizedError();
+  const uid = user.uid;
+  await processReferralClaims(uid);
+  const code = await ensureReferralCode(user);
+  const db = pointsDb();
+  const snap = await withTimeout(db.ref(`user_points/${uid}`).once('value'), 12000, 'referral_timeout');
+  const state = snap && snap.val ? (snap.val() || {}) : {};
+  return {
+    code,
+    referred_by: state.referred_by || '',
+    referral_count: Number(state.referral_count || 0),
+    referral_points: Number(state.referral_points || 0),
+    invite_url: `${location.origin}/points?ref=${code}`,
+  };
+}
+
+async function applyReferral(rawCode) {
+  const code = normalizeReferralCode(rawCode);
+  if (!code || code.length !== 6 || !new RegExp(`^[${REFERRAL_CODE_ALPHABET}]{6}$`).test(code)) {
+    const e = referralError('invalid_code');
+    e.status = 400;
+    throw e;
+  }
+
+  const user = await currentPointsUser();
+  if (!user || !user.uid) throw unauthorizedError();
+  const db = pointsDb();
+  const uid = user.uid;
+  const codeSnap = await withTimeout(db.ref(`referral_codes/${code}`).once('value'), 12000, 'referral_timeout').catch(() => null);
+  if (!codeSnap || !codeSnap.exists || !codeSnap.exists()) {
+    const e = referralError('invalid_code');
+    e.status = 400;
+    throw e;
+  }
+  const inviterUid = codeSnap.val();
+  if (!inviterUid || typeof inviterUid !== 'string') {
+    const e = referralError('invalid_code');
+    e.status = 400;
+    throw e;
+  }
+  if (inviterUid === uid) {
+    const e = referralError('self_referral');
+    e.status = 400;
+    throw e;
+  }
+
+  const userRef = db.ref(`user_points/${uid}`);
+  let lastError = null;
+  const txn = await transactionPromise(userRef, (current) => {
+    lastError = null;
+    const state = current && typeof current === 'object' ? current : {};
+    if (state.referred_by) {
+      lastError = 'already_referred';
+      return;
+    }
+    const next = Object.assign({}, state);
+    next.balance = Number(next.balance || 0) + POINTS_CONFIG.referral_invitee;
+    next.total_earned = Number(next.total_earned || 0) + POINTS_CONFIG.referral_invitee;
+    next.referred_by = code;
+    next.updated_at = Date.now();
+    return next;
+  });
+  if (!txn.committed) {
+    const e = referralError(lastError || 'already_referred');
+    e.status = 400;
+    throw e;
+  }
+
+  try {
+    const claimRef = db.ref(`referral_claims/${inviterUid}`).push();
+    await withTimeout(claimRef.set({
+      invitee_uid: uid,
+      points: POINTS_CONFIG.referral_inviter,
+      ts: Date.now(),
+    }), 12000, 'referral_timeout');
+  } catch (e) {}
+
+  return { ok: true, invitee_reward: POINTS_CONFIG.referral_invitee };
+}
+
 async function authedApi(path, opts = {}) {
   if (!window.GAuth || !window.GAuth.getIdToken) { const e = new Error('unauthorized'); e.status = 401; throw e; }
   // Pages render optimistically from the cached user, so Firebase may not have
@@ -609,8 +837,9 @@ async function authedApi(path, opts = {}) {
 async function pointsBalance() {
   const user = await currentPointsUser();
   if (!user || !user.uid) throw unauthorizedError();
-  const db = pointsDb();
   const uid = user.uid;
+  await processReferralClaims(uid);
+  const db = pointsDb();
   const [pointsSnap, withdrawalsSnap] = await withTimeout(Promise.all([
     db.ref(`user_points/${uid}`).once('value'),
     db.ref(`withdrawals/${uid}`).once('value').catch(() => null),
@@ -722,8 +951,8 @@ async function pointsWithdraw(payload = {}) {
   };
 }
 
-// Grant points for installing an app. Safe to call multiple times — the server
-// only awards once per app per user. Silently no-ops for signed-out users.
+// Grant points for installing an app. Safe to call multiple times — the
+// database only awards once per app per user. Silently no-ops for signed-out users.
 async function earnPoints(slug) {
   if (!slug) return null;
   const user = await currentPointsUser();
@@ -736,7 +965,7 @@ async function earnPoints(slug) {
     await transactionPromise(ref, (current) => {
       const state = current && typeof current === 'object' ? current : {};
       const earnedApps = state.earned_apps && typeof state.earned_apps === 'object' ? state.earned_apps : {};
-      if (earnedApps[slug]) return;
+      if (earnedApps[slug]) return state;
       earned = POINTS_CONFIG.points_per_download;
       return {
         balance: Number(state.balance || 0) + earned,
@@ -754,7 +983,6 @@ async function earnPoints(slug) {
     return null;
   } catch (e) { return null; }
 }
-
 // Shows a login-required modal; returns a Promise that resolves to the user
 // (after successful sign-in) or rejects if cancelled.
 function requireAuth() {
@@ -801,6 +1029,9 @@ function goToLogin() {
 }
 
 function initAuth() {
+  const refCode = sanitizeText(getQuery('ref'), 32);
+  if (refCode) setPendingReferral(refCode);
+
   // Localhost-only preview bypass (never active in production).
   if (isLocalhost() && getQuery('devskip') === '1') { onAuthed(devUser()); return; }
 
@@ -928,7 +1159,8 @@ window.Store = {
   spinner, skeletonHome, skeletonDetail, skeletonList, emptyState, errorState,
   topbarSearch, topbarNav, bottomNav, avatarEl, themeToggleBtn, langSwitcherEl, toggleTheme, currentTheme,
   ready, signOut, getUser: () => _user, isLoggedIn, requireAuth, goToLogin,
-  pointsConfig: POINTS_CONFIG, earnPoints, pointsBalance, pointsWithdraw,
+  pointsConfig: POINTS_CONFIG, getReferral, applyReferral, getPendingReferral, clearPendingReferral,
+  earnPoints, pointsBalance, pointsWithdraw,
   getDownloadHistory, addToDownloadHistory, clearDownloadHistory,
   getActiveDownloads, setActiveDownload, updateActiveDownloadProgress, removeActiveDownload, onActiveDownloadsChange,
 };
