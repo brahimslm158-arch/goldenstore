@@ -568,6 +568,24 @@ function sanitizeText(value, maxLen) {
   return String(value == null ? '' : value).trim().slice(0, maxLen);
 }
 
+// Rejects if the wrapped promise doesn't settle in time. Firebase RTDB
+// operations hang indefinitely (no rejection) when the database instance is
+// unreachable/not provisioned, which would otherwise leave the page spinning
+// forever — this converts that into a normal error the UI can surface.
+function withTimeout(promise, ms, label) {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => {
+      const e = new Error(label || 'timeout');
+      e.code = 'timeout';
+      reject(e);
+    }, ms);
+    Promise.resolve(promise).then(
+      (v) => { clearTimeout(timer); resolve(v); },
+      (err) => { clearTimeout(timer); reject(err); },
+    );
+  });
+}
+
 function transactionPromise(ref, updateFn) {
   return new Promise((resolve, reject) => {
     ref.transaction(updateFn, (error, committed, snapshot) => {
@@ -593,10 +611,10 @@ async function pointsBalance() {
   if (!user || !user.uid) throw unauthorizedError();
   const db = pointsDb();
   const uid = user.uid;
-  const [pointsSnap, withdrawalsSnap] = await Promise.all([
+  const [pointsSnap, withdrawalsSnap] = await withTimeout(Promise.all([
     db.ref(`user_points/${uid}`).once('value'),
     db.ref(`withdrawals/${uid}`).once('value').catch(() => null),
-  ]);
+  ]), 12000, 'points_timeout');
 
   const state = pointsSnap && pointsSnap.val && pointsSnap.val() ? pointsSnap.val() : {};
   const balance = Number(state.balance || 0);
@@ -639,7 +657,7 @@ async function pointsWithdraw(payload = {}) {
   let appliedAmount = null;
   let withdrawalData = null;
 
-  const { committed, snapshot } = await transactionPromise(pointsRef, (current) => {
+  const { committed, snapshot } = await withTimeout(transactionPromise(pointsRef, (current) => {
     lastError = null;
     const state = current && typeof current === 'object' ? current : {};
     const balance = Number(state.balance || 0);
@@ -684,7 +702,7 @@ async function pointsWithdraw(payload = {}) {
       earned_apps: earnedApps,
       updated_at: Date.now(),
     };
-  });
+  }), 12000, 'withdraw_timeout');
 
   if (!committed) {
     const e = new Error(lastError || 'withdraw_failed');
