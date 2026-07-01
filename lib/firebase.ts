@@ -152,7 +152,11 @@ export async function verifyFirebaseToken(idToken: string): Promise<{ uid: strin
     const fbApp = await firebaseApp();
     const decoded = await getAuth(fbApp).verifyIdToken(idToken);
     return { uid: decoded.uid, email: decoded.email, name: decoded.name };
-  } catch {
+  } catch (err) {
+    // Surface the real reason (missing/misconfigured Firebase Admin credentials,
+    // project mismatch, expired token, …) in server logs. Silent failures here
+    // make the points page look broken with an opaque 401.
+    console.error('[firebase] verifyIdToken failed:', (err as any)?.message || err);
     return null;
   }
 }
