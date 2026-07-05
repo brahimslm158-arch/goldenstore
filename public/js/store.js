@@ -508,8 +508,8 @@ function topbarSearch(user) {
   return el('div', { class: 'topbar' },
     el('div', { class: 'topbar-home' },
       el('a', { href: '/', class: 'brand', 'aria-label': 'Golden Store' }, el('img', { src: '/images/logo.png', alt: 'Golden Store' })),
-      el('div', { class: 'tb-spacer' }),
       searchBtn,
+      el('div', { class: 'tb-spacer' }),
       bellBtn,
       avatarEl(user),
     ),
@@ -727,7 +727,7 @@ async function processReferralClaims(uid) {
     });
     const newInvitees = Array.from(byInvitee.keys()).filter((inviteeUid) => !referredInvitees[inviteeUid]);
     if (newInvitees.length) {
-      const txn = await transactionPromise(userRef, (current) => {
+      await withTimeout(transactionPromise(userRef, (current) => {
         const currentState = current && typeof current === 'object' ? current : {};
         const currentInvitees = currentState.referred_invitees && typeof currentState.referred_invitees === 'object'
           ? currentState.referred_invitees
@@ -743,9 +743,13 @@ async function processReferralClaims(uid) {
         stillNew.forEach((inviteeUid) => { next.referred_invitees[inviteeUid] = true; });
         next.updated_at = Date.now();
         return next;
-      });
+      }), 12000, 'referrals_timeout');
     }
-    await Promise.all(claims.map((claim) => claimsRef.child(claim.id).update({ processed: true }).catch(() => {})));
+    await withTimeout(
+      Promise.all(claims.map((claim) => claimsRef.child(claim.id).update({ processed: true }).catch(() => {}))),
+      12000,
+      'referrals_timeout',
+    ).catch(() => {});
   } catch (e) {}
 }
 
@@ -892,7 +896,7 @@ async function pointsBalance() {
   const user = await currentPointsUser();
   if (!user || !user.uid) throw unauthorizedError();
   const uid = user.uid;
-  await processReferralClaims(uid);
+  await withTimeout(processReferralClaims(uid), 8000, 'referrals_timeout').catch(() => {});
   const db = pointsDb();
   const [pointsSnap, withdrawalsSnap] = await withTimeout(Promise.all([
     db.ref(`user_points/${uid}`).once('value'),
