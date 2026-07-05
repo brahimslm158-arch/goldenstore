@@ -766,17 +766,17 @@ async function ensureReferralCode(user) {
   const db = pointsDb();
   const uid = user.uid;
   const userRef = db.ref(`user_points/${uid}`);
-  const userSnap = await withTimeout(userRef.once('value'), 12000, 'referral_timeout');
+  const userSnap = await withTimeout(userRef.once('value'), 6000, 'referral_timeout');
   const current = userSnap && userSnap.val ? (userSnap.val() || {}) : {};
   if (current.referral_code) {
-    await withTimeout(transactionPromise(db.ref(`referral_codes/${current.referral_code}`), (value) => value || uid), 12000, 'referral_timeout').catch(() => {});
+    await withTimeout(transactionPromise(db.ref(`referral_codes/${current.referral_code}`), (value) => value || uid), 6000, 'referral_timeout').catch(() => {});
     return current.referral_code;
   }
 
   for (let i = 0; i < 8; i += 1) {
     const code = randomReferralCode();
     const codeRef = db.ref(`referral_codes/${code}`);
-    const codeSnap = await withTimeout(codeRef.once('value'), 12000, 'referral_timeout');
+    const codeSnap = await withTimeout(codeRef.once('value'), 6000, 'referral_timeout');
     if (codeSnap && codeSnap.exists && codeSnap.exists()) continue;
     const codeTxn = await transactionPromise(codeRef, (value) => {
       if (value && value !== uid) return value;
@@ -793,15 +793,15 @@ async function ensureReferralCode(user) {
       return next;
     });
     if (userTxn.committed) return code;
-    const latestSnap = await withTimeout(userRef.once('value'), 12000, 'referral_timeout');
+    const latestSnap = await withTimeout(userRef.once('value'), 6000, 'referral_timeout');
     const latest = latestSnap && latestSnap.val ? (latestSnap.val() || {}) : {};
     if (latest.referral_code) {
       if (latest.referral_code !== code) {
-        await withTimeout(codeRef.remove(), 12000, 'referral_timeout').catch(() => {});
+        await withTimeout(codeRef.remove(), 6000, 'referral_timeout').catch(() => {});
       }
       return latest.referral_code;
     }
-    await withTimeout(codeRef.remove(), 12000, 'referral_timeout').catch(() => {});
+    await withTimeout(codeRef.remove(), 6000, 'referral_timeout').catch(() => {});
   }
 
   throw new Error('referral_code_unavailable');

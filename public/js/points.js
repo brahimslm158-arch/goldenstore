@@ -312,7 +312,16 @@
       const referral = await S.getReferral();
       renderReferralSection(container, data, referral);
     } catch (e) {
-      container.remove();
+      container.innerHTML = '';
+      const retryBtn = el('button', { class: 'btn btn-secondary', type: 'button' }, t('إعادة المحاولة'));
+      retryBtn.onclick = () => loadReferralSection(container, data);
+      container.append(
+        el('div', { class: 'points-invite-head' },
+          el('div', { class: 'points-invite-title' }, t('ادعُ صديقاً واربح نقاطاً')),
+          el('div', { class: 'points-invite-desc' }, t('تعذّر تحميل بيانات الدعوة')),
+        ),
+        retryBtn,
+      );
     }
   }
 
