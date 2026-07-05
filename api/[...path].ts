@@ -193,6 +193,54 @@ function icon_url(icon_key?: string): string | null {
   }
 }
 
+function notificationPublic(doc: any) {
+  const d = doc.data ? (doc.data() || {}) : {};
+  const type = d.type === 'new_app' || d.type === 'update' ? d.type : 'announcement';
+  return {
+    id: doc.id,
+    title: sanitizeText(d.title, 200),
+    body: sanitizeText(d.body, 1000),
+    type,
+    app_slug: sanitizeText(d.app_slug, 120),
+    created_at: Number(d.created_at || 0),
+  };
+}
+
+async function listNotifications(db: any, limit?: number) {
+  let docs: any[];
+  try {
+    let query: any = db.collection('notifications').orderBy('created_at', 'desc');
+    if (typeof limit === 'number') query = query.limit(limit);
+    const snap = await query.get();
+    docs = snap.docs;
+  } catch (err: any) {
+    if (err?.code === 9 || err?.code === 3 || /index/i.test(err?.message ?? '')) {
+      const snap = await db.collection('notifications').get();
+      docs = snap.docs.sort((a: any, b: any) => (b.data().created_at || 0) - (a.data().created_at || 0));
+      if (typeof limit === 'number') docs = docs.slice(0, limit);
+    } else {
+      throw err;
+    }
+  }
+  return docs.map((d: any) => notificationPublic(d));
+}
+
+async function addNotification(db: any, data: any) {
+  const title = sanitizeText(data.title, 200);
+  if (!title) throw new Error('notification_title_required');
+  const body = sanitizeText(data.body, 1000);
+  const type = data.type === 'new_app' || data.type === 'update' ? data.type : 'announcement';
+  const app_slug = sanitizeText(data.app_slug, 120);
+  const created_at = Number(data.created_at || nowSec());
+  return db.collection('notifications').add({
+    title,
+    body,
+    type,
+    app_slug: app_slug || '',
+    created_at,
+  });
+}
+
 // ---------------- public ----------------
 
 app.get('/store', (c) => {
@@ -200,6 +248,13 @@ app.get('/store', (c) => {
     name: process.env.STORE_NAME || 'Goldenstore',
     domain: process.env.STORE_DOMAIN || 'goldenstore.me',
   });
+});
+
+app.get('/notifications', async (c) => {
+  const limit = Math.min(Number(c.req.query('limit') || '30') || 30, 50);
+  const db = await firestore();
+  const notifications = await listNotifications(db, limit);
+  return c.json({ notifications });
 });
 
 // ---------------- i18n machine translation (free MT + Firestore cache) ----------------
@@ -838,6 +893,34 @@ app.get('/admin/requests', async (c) => {
   return c.json({ requests });
 });
 
+app.get('/admin/notifications', async (c) => {
+  const db = await firestore();
+  const notifications = await listNotifications(db);
+  return c.json({ notifications });
+});
+
+app.post('/admin/notifications', async (c) => {
+  const body = await c.req.json().catch(() => ({} as any));
+  const db = await firestore();
+  const title = sanitizeText(body.title, 200);
+  const text = sanitizeText(body.body, 1000);
+  if (!title) return c.json({ error: 'title_required' }, 400);
+  const ref = await addNotification(db, {
+    title,
+    body: text,
+    type: 'announcement',
+    created_at: nowSec(),
+  });
+  return c.json({ ok: true, id: ref.id });
+});
+
+app.delete('/admin/notifications/:id', async (c) => {
+  const id = c.req.param('id');
+  const db = await firestore();
+  await db.collection('notifications').doc(id).delete().catch(() => {});
+  return c.json({ ok: true });
+});
+
 // Delete (dismiss/resolve) a request.
 app.delete('/admin/requests/:id', async (c) => {
   const id = c.req.param('id');
@@ -1029,6 +1112,16 @@ app.post('/admin/apps', async (c) => {
   const db = await firestore();
   const ref = await db.collection('apps').add(docData);
 
+  try {
+    await addNotification(db, {
+      type: 'new_app',
+      title: name,
+      body: '',
+      app_slug: slug,
+      created_at: now,
+    });
+  } catch {}
+
   // Add screenshots if provided
   const screenshotKeys: string[] = Array.isArray(body.screenshot_keys) ? body.screenshot_keys.slice(0, 20) : [];
   for (let i = 0; i < screenshotKeys.length; i++) {
@@ -1052,6 +1145,7 @@ app.patch('/admin/apps/:id', async (c) => {
   const ref = db.collection('apps').doc(id);
   const snap = await ref.get();
   if (!snap.exists) return c.json({ error: 'not_found' }, 404);
+  const old = snap.data() as App;
   // Input length limits
   if (('name' in body && String(body.name).length > 200) ||
       ('package_name' in body && String(body.package_name).length > 200) ||
@@ -1076,7 +1170,7 @@ app.patch('/admin/apps/:id', async (c) => {
   if ('min_sdk' in body) update.min_sdk = Number(body.min_sdk) || undefined;
   // Recompute search terms if relevant fields changed
   if ('name' in body || 'developer' in body || 'short_description' in body || 'package_name' in body) {
-    const merged = { ...(snap.data() as App), ...update };
+    const merged = { ...old, ...update };
     update.search_terms = searchTerms(
       merged.name,
       merged.developer,
@@ -1085,7 +1179,23 @@ app.patch('/admin/apps/:id', async (c) => {
     );
   }
 
+  const versionChanged =
+    ('version_name' in update && String(update.version_name ?? '') !== String(old.version_name ?? '')) ||
+    ('version_code' in update && Number(update.version_code ?? 0) !== Number(old.version_code ?? 0));
+
   await ref.update(update as any);
+  if (versionChanged) {
+    try {
+      const merged = { ...old, ...update };
+      await addNotification(db, {
+        type: 'update',
+        title: merged.name,
+        body: `إصدار جديد ${merged.version_name || ''}`.trim(),
+        app_slug: merged.slug,
+        created_at: nowSec(),
+      });
+    } catch {}
+  }
   return c.json({ ok: true });
 });
 

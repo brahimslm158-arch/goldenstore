@@ -9,6 +9,7 @@
   --surface-2: #232328;
   --surface-3: #2c2c31;
   --line: #2e2e33;
+  --border: var(--line);
   --text: #e8e8ea;
   --text-2: #a8abb3;
   --text-3: #82858d;
@@ -39,6 +40,7 @@
   --surface-2: #eceef2;
   --surface-3: #e0e3ea;
   --line: #dde0e6;
+  --border: var(--line);
   --text: #1a1c20;
   --text-2: #555a62;
   --text-3: #828892;
@@ -99,12 +101,18 @@ input, select { font-family: inherit; }
 }
 /* Play-style home header: logo (start) ........ bell + avatar (end) */
 .topbar { padding: 10px 16px 8px; }
-.topbar-home { display: flex; align-items: center; gap: 6px; height: 48px; }
+.topbar-home { display: flex; align-items: center; gap: 6px; height: 48px; width: 100%; max-width: var(--maxw); margin: 0 auto; }
 .topbar-home .tb-spacer { flex: 1; }
 .brand { flex-shrink: 0; height: 40px; display: flex; align-items: center; }
 .brand img { height: 40px; width: auto; object-fit: contain; }
+.topbar-home .icon-btn {
+  width: 40px; height: 40px; flex-shrink: 0;
+  background: var(--surface-2); border: 1px solid var(--border);
+}
+.topbar-home .icon-btn:hover { background: var(--surface-3); }
+.topbar-home .icon-btn .icon { width: 22px; height: 22px; }
 .bell-btn { position: relative; }
-.bell-btn .icon { width: 24px; height: 24px; color: var(--text); }
+.bell-btn .icon { width: 22px; height: 22px; color: var(--text); }
 .bell-dot {
   position: absolute; top: 9px; inset-inline-end: 10px;
   width: 8px; height: 8px; border-radius: 50%;
@@ -245,6 +253,7 @@ input, select { font-family: inherit; }
   overflow-x: auto; scrollbar-width: none;
   border-bottom: 1px solid var(--line);
   position: sticky; top: 66px; z-index: 35; background: var(--bg);
+  width: 100%; max-width: var(--maxw); margin: 0 auto;
 }
 .tabs::-webkit-scrollbar { display: none; }
 .tab {
@@ -648,18 +657,16 @@ input, select { font-family: inherit; }
 }
 /* Desktop */
 @media (min-width: 960px) {
+  :root { --maxw: 900px; }
   .content { max-width: 900px; }
-  .topbar-home { max-width: 900px; margin: 0 auto; }
   .poster-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
   .applist.two-col { grid-template-columns: repeat(3, 1fr); }
   .bottomnav-inner { max-width: 600px; margin: 0 auto; }
-  .tabs { max-width: 900px; margin-left: auto; margin-right: auto; }
   .fc-track { max-width: 900px; margin: 0 auto; }
 }
 @media (min-width: 1200px) {
+  :root { --maxw: 1100px; }
   .content { max-width: 1100px; }
-  .topbar-home { max-width: 1100px; }
-  .tabs { max-width: 1100px; }
   .applist.two-col { grid-template-columns: repeat(4, 1fr); }
 }
 
@@ -946,6 +953,34 @@ input, select { font-family: inherit; }
 .dialog-err:not(:empty) { padding-bottom: 4px; }
 .dialog-actions { display: flex; gap: 10px; justify-content: flex-end; padding: 14px 18px 18px; }
 
+/* ---------- Notifications sheet ---------- */
+.notif-row {
+  display: flex;
+  gap: 12px;
+  padding: 12px 0;
+  text-decoration: none;
+  color: var(--text);
+  border-bottom: 1px solid var(--line);
+}
+.notif-row:last-child { border-bottom: 0; }
+.notif-row:active { opacity: .9; }
+.notif-ico {
+  width: 40px; height: 40px; border-radius: 12px;
+  background: var(--surface-2); color: var(--primary);
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+  border: 1px solid var(--border);
+}
+.notif-ico .icon { width: 20px; height: 20px; }
+.notif-info { flex: 1; min-width: 0; }
+.notif-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.notif-top strong { font-size: 15px; font-weight: 700; }
+.notif-type { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; }
+.notif-type-announcement { background: rgba(244,192,31,.14); color: var(--gold); }
+.notif-type-new_app { background: rgba(168,199,250,.14); color: var(--primary); }
+.notif-type-update { background: rgba(52,168,83,.14); color: #34a853; }
+.notif-body { margin-top: 4px; font-size: 13px; color: var(--text-2); line-height: 1.65; white-space: pre-wrap; }
+.notif-meta { margin-top: 4px; font-size: 12px; color: var(--text-3); }
+
 /* ---------- Review identity (signed-in author) ---------- */
 .review-identity {
   display: flex; align-items: center; gap: 10px;
@@ -978,7 +1013,7 @@ input, select { font-family: inherit; }
 }
 
 /* ---------- Points page (نقاط التشغيل) ---------- */
-.points-page { padding: 8px 16px 32px; max-width: 640px; margin: 0 auto; }
+.points-page { padding: 8px 16px 32px; max-width: 640px; margin: 0 auto; width: 100%; }
 .points-loading { display: flex; justify-content: center; padding: 48px 0; }
 .points-error { text-align: center; padding: 40px 16px; color: var(--text-2); }
 .points-error p { margin-bottom: 16px; }
@@ -1041,6 +1076,22 @@ input, select { font-family: inherit; }
 .points-status-pending { background: rgba(244,192,31,.15); color: var(--gold); }
 .points-status-approved { background: rgba(52,168,83,.15); color: #34a853; }
 .points-status-rejected { background: rgba(234,67,53,.15); color: #ea4335; }
+
+@media (max-width: 600px) {
+  .points-page { padding-inline: 12px; }
+  .points-hero { padding: 24px 16px 20px; }
+  .points-balance { font-size: 38px; }
+  .points-dollar { padding-inline: 16px; }
+  .points-stats { grid-template-columns: repeat(2, 1fr); }
+  .points-invite-redeem-row { flex-direction: column; }
+  .points-invite-apply { width: 100%; }
+  .points-history-row { flex-direction: column; align-items: flex-start; }
+  .points-history-row .points-status { align-self: flex-start; }
+}
+
+@media (max-width: 380px) {
+  .points-stats { grid-template-columns: 1fr; }
+}
 
 /* Withdraw modal form */
 .points-withdraw-form { display: flex; flex-direction: column; gap: 6px; }

@@ -1045,6 +1045,24 @@ section { margin: 56px 0; }
 .req-card .req-detail { font-size: 14px; color: var(--text-2); }
 .req-card a { color: var(--gold); word-break: break-all; }
 
+.notif-list { display: flex; flex-direction: column; gap: 10px; }
+.notif-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--bg-3);
+}
+.notif-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.notif-badge { font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 999px; }
+.notif-badge.announcement { background: rgba(214,180,106,.18); color: var(--gold); }
+.notif-badge.new_app { background: rgba(47,123,255,.18); color: #6fa8ff; }
+.notif-badge.update { background: rgba(94,169,108,.18); color: #7fd38c; }
+.notif-body { font-size: 14px; color: var(--text-2); white-space: pre-wrap; line-height: 1.7; }
+.notif-meta { font-size: 13px; color: var(--text-3); }
+
 /* ============== Theme toggle ============== */
 .theme-toggle { display: inline-flex; align-items: center; justify-content: center; }
 .theme-toggle .icon { width: 20px; height: 20px; }

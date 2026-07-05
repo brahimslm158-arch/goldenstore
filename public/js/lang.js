@@ -54,6 +54,11 @@
     'إلغاء': { en: 'Cancel', fr: 'Annuler', es: 'Cancelar' },
     'إرسال': { en: 'Send', fr: 'Envoyer', es: 'Enviar' },
     'جديد': { en: 'New', fr: 'Nouveau', es: 'Nuevo' },
+    'الإشعارات': { en: 'Notifications', fr: 'Notifications', es: 'Notificaciones' },
+    'لا توجد إشعارات بعد': { en: 'No notifications yet', fr: 'Aucune notification pour l’instant', es: 'Todavía no hay notificaciones' },
+    'تطبيق جديد': { en: 'New app', fr: 'Nouvelle app', es: 'Nueva app' },
+    'تحديث': { en: 'Update', fr: 'Mise à jour', es: 'Actualización' },
+    'إعلان': { en: 'Announcement', fr: 'Annonce', es: 'Anuncio' },
 
     // actions (machine translation gets these wrong, e.g. تثبيت -> "stabilisation")
     'تثبيت': { en: 'Install', fr: 'Installer', es: 'Instalar' },

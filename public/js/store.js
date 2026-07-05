@@ -400,63 +400,117 @@ function initials(user) {
   return n.trim().charAt(0).toUpperCase();
 }
 
-// Google Play–style home header: brand logo (start), search bar (center), avatar (end).
-function topbarSearch(user) {
-  const searchInput = el('input', { type: 'text', class: 'topbar-search-input', placeholder: t('ابحث عن تطبيقات وألعاب'), 'aria-label': t('بحث'), autocomplete: 'off' });
-  const suggestBox = el('div', { class: 'search-suggest' });
-  let suggestTimer = null;
+const NOTIF_SEEN_KEY = 'gs_notif_seen';
 
-  searchInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') {
-      const q = searchInput.value.trim();
-      suggestBox.innerHTML = '';
-      suggestBox.classList.remove('open');
-      if (q) location.href = `/search?q=${encodeURIComponent(q)}`;
-    }
-    if (e.key === 'Escape') { suggestBox.innerHTML = ''; suggestBox.classList.remove('open'); }
-  });
-
-  searchInput.addEventListener('input', () => {
-    clearTimeout(suggestTimer);
-    const q = searchInput.value.trim();
-    if (q.length < 2) { suggestBox.innerHTML = ''; suggestBox.classList.remove('open'); return; }
-    suggestTimer = setTimeout(async () => {
-      try {
-        const res = await api(`/api/apps?q=${encodeURIComponent(q)}&limit=6`, { timeoutMs: 5000 });
-        const apps = (res.apps || []).slice(0, 6);
-        suggestBox.innerHTML = '';
-        if (!apps.length) { suggestBox.classList.remove('open'); return; }
-        apps.forEach((a) => {
-          const row = el('a', { href: `/app?slug=${encodeURIComponent(a.slug)}`, class: 'suggest-row' },
-            el('div', { class: 'suggest-icon' }, a.icon_url ? el('img', { src: a.icon_url, alt: '' }) : ico('package', 'icon')),
-            el('div', { class: 'suggest-info' },
-              el('div', { class: 'suggest-name' }, a.name),
-              el('div', { class: 'suggest-dev' }, a.developer || ''),
-            ),
-          );
-          suggestBox.append(row);
-        });
-        // "عرض الكل" link
-        suggestBox.append(el('a', { href: `/search?q=${encodeURIComponent(q)}`, class: 'suggest-all' }, t('عرض كل النتائج')));
-        suggestBox.classList.add('open');
-      } catch {}
-    }, 300);
-  });
-
-  // Close suggestions on outside click
-  document.addEventListener('click', (e) => {
-    if (!searchBar.contains(e.target)) { suggestBox.innerHTML = ''; suggestBox.classList.remove('open'); }
-  });
-
-  const searchBar = el('div', { class: 'topbar-search-bar' },
-    ico('search', 'icon search-ico'),
-    searchInput,
-    suggestBox,
+function notifSeenAt() {
+  try { return Number(localStorage.getItem(NOTIF_SEEN_KEY) || 0) || 0; } catch { return 0; }
+}
+function setNotifSeenAt(ts) {
+  try { localStorage.setItem(NOTIF_SEEN_KEY, String(Math.max(0, Number(ts || 0) || 0))); } catch {}
+}
+function maxNotifCreated(list) {
+  return (list || []).reduce((max, n) => Math.max(max, Number(n && n.created_at || 0) || 0), 0);
+}
+function notifUnreadCount(list) {
+  const seen = notifSeenAt();
+  return (list || []).reduce((count, n) => count + (Number(n && n.created_at || 0) > seen ? 1 : 0), 0);
+}
+async function fetchNotifications() {
+  try {
+    const res = await api('/api/notifications?limit=30');
+    return Array.isArray(res.notifications) ? res.notifications : [];
+  } catch {
+    return [];
+  }
+}
+async function refreshBellBadge() {
+  const badge = document.querySelector('.bell-btn .bell-badge');
+  if (!badge) return;
+  try {
+    const list = await fetchNotifications();
+    const count = notifUnreadCount(list);
+    badge.textContent = count ? String(count) : '';
+    badge.classList.toggle('hidden', !count);
+  } catch {
+    badge.textContent = '';
+    badge.classList.add('hidden');
+  }
+}
+async function openNotifications() {
+  const overlay = el('div', { class: 'dialog-overlay' });
+  const card = el('div', { class: 'dialog-card' });
+  overlay.addEventListener('click', (e) => { if (e.target === overlay) overlay.remove(); });
+  card.append(
+    el('div', { class: 'dialog-head' },
+      el('div', { class: 'dialog-title' }, ico('bell'), t('الإشعارات')),
+      el('button', { class: 'dialog-close', type: 'button', onclick: () => overlay.remove(), 'aria-label': t('إغلاق') }, ico('close')),
+    ),
+    el('div', { class: 'dialog-body' },
+      el('div', { class: 'notifications-loading' }, el('div', { class: 'spinner' })),
+    ),
   );
+  overlay.append(card);
+  document.body.append(overlay);
+
+  let list = [];
+  try {
+    list = await fetchNotifications();
+  } catch {}
+  const seen = maxNotifCreated(list);
+  if (seen) setNotifSeenAt(Math.max(notifSeenAt(), seen));
+  await refreshBellBadge();
+
+  const body = card.querySelector('.dialog-body');
+  body.innerHTML = '';
+  if (!list.length) {
+    body.append(emptyState(t('لا توجد إشعارات بعد'), '', 'bell'));
+    return;
+  }
+
+  list.forEach((n) => {
+    const type = n.type === 'new_app' || n.type === 'update' || n.type === 'announcement' ? n.type : 'announcement';
+    const row = n.app_slug
+      ? el('a', { class: 'notif-row', href: `/app?slug=${encodeURIComponent(n.app_slug)}` })
+      : el('div', { class: 'notif-row' });
+    row.append(
+      el('div', { class: 'notif-ico' }, ico(type === 'new_app' ? 'package' : type === 'update' ? 'download' : 'bell')),
+      el('div', { class: 'notif-info' },
+        el('div', { class: 'notif-top' },
+          el('strong', null, n.title || ''),
+          el('span', { class: `notif-type notif-type-${type}` }, type === 'new_app' ? t('تطبيق جديد') : type === 'update' ? t('تحديث') : t('إعلان')),
+        ),
+        n.body ? el('div', { class: 'notif-body' }, n.body) : null,
+        el('div', { class: 'notif-meta' }, S.formatDate ? S.formatDate(n.created_at) : ''),
+      ),
+    );
+    body.append(row);
+  });
+}
+
+// Google Play–style home header: brand logo (start), search + bell + avatar (end).
+function topbarSearch(user) {
+  const bellBadge = el('span', { class: 'bell-badge hidden' });
+  const searchBtn = el('button', {
+    class: 'icon-btn',
+    type: 'button',
+    'aria-label': t('بحث'),
+    title: t('بحث'),
+    onclick: () => { location.href = '/search'; },
+  }, ico('search'));
+  const bellBtn = el('button', {
+    class: 'bell-btn icon-btn',
+    type: 'button',
+    'aria-label': t('الإشعارات'),
+    title: t('الإشعارات'),
+    onclick: openNotifications,
+  }, ico('bell'), bellBadge);
+  Promise.resolve().then(() => refreshBellBadge());
   return el('div', { class: 'topbar' },
     el('div', { class: 'topbar-home' },
       el('a', { href: '/', class: 'brand', 'aria-label': 'Golden Store' }, el('img', { src: '/images/logo.png', alt: 'Golden Store' })),
-      searchBar,
+      el('div', { class: 'tb-spacer' }),
+      searchBtn,
+      bellBtn,
       avatarEl(user),
     ),
   );
@@ -1158,6 +1212,7 @@ window.Store = {
   posterCard, listRow, featureCarousel, categoryName,
   spinner, skeletonHome, skeletonDetail, skeletonList, emptyState, errorState,
   topbarSearch, topbarNav, bottomNav, avatarEl, themeToggleBtn, langSwitcherEl, toggleTheme, currentTheme,
+  fetchNotifications, notifUnreadCount, openNotifications,
   ready, signOut, getUser: () => _user, isLoggedIn, requireAuth, goToLogin,
   pointsConfig: POINTS_CONFIG, getReferral, applyReferral, getPendingReferral, clearPendingReferral,
   earnPoints, pointsBalance, pointsWithdraw,

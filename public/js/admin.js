@@ -296,6 +296,7 @@
       tabBtn('games', 'gamepad', 'الألعاب'),
       tabBtn('new', 'plus', 'إضافة جديد'),
       tabBtn('requests', 'flag', 'الطلبات والبلاغات'),
+      tabBtn('notifications', 'bell', 'الإشعارات'),
       el('span', { class: 'tab-spacer' }),
       (window.GSI18N && window.GSI18N.switcherEl ? window.GSI18N.switcherEl() : document.createComment('lang')),
       themeToggleBtn(),
@@ -314,6 +315,7 @@
     else if (activeTab === 'games') await renderAppsList(body, 'game');
     else if (activeTab === 'new') await renderNewApp(body);
     else if (activeTab === 'requests') await renderRequests(body);
+    else if (activeTab === 'notifications') await renderNotifications(body);
     else if (activeTab.startsWith('edit:')) await renderEditApp(body, activeTab.slice(5));
   }
 
@@ -400,6 +402,131 @@
       body.innerHTML = '';
       body.append(emptyMsg('تعذر التحميل', e.message));
     }
+  }
+
+  async function renderNotifications(body) {
+    body.innerHTML = '<div class="center-spinner"><div class="spinner"></div></div>';
+    try {
+      body.innerHTML = '';
+
+      const titleInput = el('input', {
+        class: 'input',
+        type: 'text',
+        placeholder: 'عنوان الإشعار',
+        'aria-label': 'عنوان الإشعار',
+      });
+      const bodyInput = el('textarea', {
+        class: 'input',
+        rows: 4,
+        placeholder: 'النص',
+        'aria-label': 'النص',
+      });
+      const publishBtn = el('button', { class: 'btn btn-primary', type: 'button' }, ico('bell'), 'نشر إشعار');
+      const listWrap = el('div', { class: 'panel' });
+      const list = el('div', { class: 'notif-list' });
+
+      async function load() {
+        list.innerHTML = '<div class="center-spinner"><div class="spinner"></div></div>';
+        try {
+          const res = await api('/api/admin/notifications');
+          const notifications = res.notifications || [];
+          list.innerHTML = '';
+          if (!notifications.length) {
+            list.append(emptyMsg('لا توجد إشعارات بعد', 'ستظهر هنا الإشعارات المنشورة والتنبيهات الآلية.'));
+            return;
+          }
+          notifications.forEach((n) => list.append(notificationCard(n, load)));
+        } catch (e) {
+          list.innerHTML = '';
+          list.append(emptyMsg('تعذر التحميل', e.message));
+        }
+      }
+
+      publishBtn.onclick = async () => {
+        const title = titleInput.value.trim();
+        const bodyText = bodyInput.value.trim();
+        if (!title) { toast('أدخل عنوان الإشعار', 'error'); return; }
+        publishBtn.disabled = true;
+        try {
+          await api('/api/admin/notifications', {
+            method: 'POST',
+            body: { title, body: bodyText },
+          });
+          titleInput.value = '';
+          bodyInput.value = '';
+          toast('تم نشر الإشعار', 'success');
+          await load();
+        } catch (e) {
+          toast(e.message || 'تعذر النشر', 'error');
+        } finally {
+          publishBtn.disabled = false;
+        }
+      };
+
+      listWrap.append(
+        el('div', { class: 'panel-head' }, ico('bell'), 'الإشعارات'),
+        list,
+      );
+      body.append(
+        el('div', { class: 'panel' },
+          el('div', { class: 'panel-head' }, ico('bell'), 'نشر إشعار جديد'),
+          el('div', { class: 'form' },
+            el('div', { class: 'field' },
+              el('label', null, 'عنوان الإشعار'),
+              titleInput,
+            ),
+            el('div', { class: 'field' },
+              el('label', null, 'النص'),
+              bodyInput,
+            ),
+            publishBtn,
+          ),
+        ),
+        listWrap,
+      );
+
+      await load();
+    } catch (e) {
+      body.innerHTML = '';
+      body.append(emptyMsg('تعذر التحميل', e.message));
+    }
+  }
+
+  function notificationCard(n, refreshList) {
+    const type = n.type === 'new_app' || n.type === 'update' || n.type === 'announcement' ? n.type : 'announcement';
+    const badgeLabel = type === 'new_app' ? 'تطبيق جديد' : type === 'update' ? 'تحديث' : 'إعلان';
+    const card = el('div', { class: 'notif-card' });
+    const delBtn = el('button', {
+      class: 'btn btn-sm btn-secondary',
+      type: 'button',
+      onclick: async () => {
+        delBtn.disabled = true;
+        try {
+          await api(`/api/admin/notifications/${n.id}`, { method: 'DELETE' });
+          toast('تم الحذف', 'success');
+            if (refreshList) {
+              await refreshList();
+            } else {
+              card.remove();
+            }
+        } catch {
+          delBtn.disabled = false;
+          toast('تعذر الحذف', 'error');
+        }
+      },
+    }, ico('trash'), 'حذف');
+
+    card.append(
+      el('div', { class: 'notif-top' },
+        el('span', { class: `notif-badge ${type}` }, badgeLabel),
+        el('strong', null, n.title || ''),
+        el('span', { class: 'tab-spacer' }),
+        el('span', { class: 'notif-meta' }, formatDate(n.created_at)),
+        delBtn,
+      ),
+      n.body ? el('div', { class: 'notif-body' }, n.body) : null,
+    );
+    return card;
   }
 
   function requestCard(r, body) {
