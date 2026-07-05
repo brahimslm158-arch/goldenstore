@@ -64,6 +64,7 @@ html[data-theme] .tabs {
   transition: background-color .25s ease, border-color .25s ease, color .2s ease;
 }
 
+html { overflow-x: clip; }
 html, body {
   background: var(--bg);
   color: var(--text);
@@ -72,7 +73,6 @@ html, body {
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
-  overflow-x: hidden;
 }
 
 body { min-height: 100vh; width: 100%; max-width: 100vw; overscroll-behavior-x: none; }
@@ -94,8 +94,6 @@ input, select { font-family: inherit; }
   min-height: 100vh;
   padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px));
   position: relative;
-  overflow-x: hidden;
-  touch-action: pan-y;
 }
 
 /* ---------- Top bar (search) ---------- */
