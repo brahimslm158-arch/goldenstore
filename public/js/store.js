@@ -892,25 +892,56 @@ async function authedApi(path, opts = {}) {
   return api(path, { ...opts, headers });
 }
 
+// REST read fallback: the realtime SDK connection (websocket/long-polling) is
+// blocked on some networks/browsers, which made the points page fail even
+// though the database itself is reachable over plain HTTPS.
+async function rtdbRestGet(path) {
+  const base = (typeof firebase !== 'undefined' && firebase.app && firebase.app().options.databaseURL) || '';
+  if (!base) throw new Error('rtdb_unavailable');
+  const url = `${base.replace(/\/+$/, '')}/${path}.json`;
+  let token = null;
+  try {
+    token = window.GAuth && window.GAuth.getIdToken ? await window.GAuth.getIdToken() : null;
+  } catch {}
+  let res = await withTimeout(fetch(token ? `${url}?auth=${encodeURIComponent(token)}` : url), 10000, 'points_timeout');
+  if (!res.ok && token && (res.status === 401 || res.status === 403)) {
+    res = await withTimeout(fetch(url), 10000, 'points_timeout');
+  }
+  if (!res.ok) { const e = new Error('rtdb_rest_failed'); e.status = res.status; throw e; }
+  return res.json();
+}
+
 async function pointsBalance() {
   const user = await currentPointsUser();
   if (!user || !user.uid) throw unauthorizedError();
   const uid = user.uid;
   await withTimeout(processReferralClaims(uid), 8000, 'referrals_timeout').catch(() => {});
-  const db = pointsDb();
-  const [pointsSnap, withdrawalsSnap] = await withTimeout(Promise.all([
-    db.ref(`user_points/${uid}`).once('value'),
-    db.ref(`withdrawals/${uid}`).once('value').catch(() => null),
-  ]), 12000, 'points_timeout');
 
-  const state = pointsSnap && pointsSnap.val && pointsSnap.val() ? pointsSnap.val() : {};
+  let state = {};
+  let rawWithdrawals = {};
+  try {
+    const db = pointsDb();
+    const [pointsSnap, withdrawalsSnap] = await withTimeout(Promise.all([
+      db.ref(`user_points/${uid}`).once('value'),
+      db.ref(`withdrawals/${uid}`).once('value').catch(() => null),
+    ]), 7000, 'points_timeout');
+    state = pointsSnap && pointsSnap.val && pointsSnap.val() ? pointsSnap.val() : {};
+    rawWithdrawals = withdrawalsSnap && withdrawalsSnap.val ? (withdrawalsSnap.val() || {}) : {};
+  } catch (sdkErr) {
+    const [restState, restWithdrawals] = await Promise.all([
+      rtdbRestGet(`user_points/${uid}`),
+      rtdbRestGet(`withdrawals/${uid}`).catch(() => null),
+    ]);
+    state = restState && typeof restState === 'object' ? restState : {};
+    rawWithdrawals = restWithdrawals && typeof restWithdrawals === 'object' ? restWithdrawals : {};
+  }
+
   const balance = Number(state.balance || 0);
   const dollars = Number((balance / POINTS_CONFIG.points_per_dollar).toFixed(2));
 
   let withdrawals = [];
   try {
-    const raw = withdrawalsSnap && withdrawalsSnap.val ? (withdrawalsSnap.val() || {}) : {};
-    withdrawals = Object.entries(raw)
+    withdrawals = Object.entries(rawWithdrawals)
       .map(([id, record]) => ({ id, ...(record && typeof record === 'object' ? record : {}) }))
       .sort((a, b) => Number(b.ts || 0) - Number(a.ts || 0))
       .slice(0, 50);
