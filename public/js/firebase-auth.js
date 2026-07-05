@@ -95,11 +95,16 @@ function isInAppBrowser() {
   return /FBAN|FBAV|Instagram|Line|Twitter|Snapchat|TikTok|WebView|; wv\)/i.test(ua);
 }
 
-// Use a popup everywhere. signInWithRedirect is unreliable when the Firebase
-// authDomain differs from the app's domain (modern browsers partition the
-// third-party storage the redirect handoff relies on), which dropped the
-// session and bounced users back to the login screen. Popups keep the whole
-// flow on the app's own origin.
+// Detect our native GoldenStore Android app — uses redirect flow instead of
+// popup because WebView popups lack window.opener.
+function isGoldenStoreApp() {
+  var ua = navigator.userAgent || '';
+  return /GoldenStoreApp/i.test(ua);
+}
+
+// Use a popup in regular browsers. In the GoldenStore app, use redirect flow
+// because WebView popup windows don't support window.opener / postMessage
+// back to the main WebView, causing a white page after account selection.
 async function signInWithGoogle() {
   initFirebase();
   if (!_auth) throw new Error('Firebase not initialized');
@@ -108,6 +113,13 @@ async function signInWithGoogle() {
     var iae = new Error('in-app-browser');
     iae.code = 'auth/in-app-browser';
     throw iae;
+  }
+
+  // Native app: always use redirect (popup can't communicate back)
+  if (isGoldenStoreApp()) {
+    _redirectPending = true;
+    await _auth.signInWithRedirect(makeProvider());
+    return null;
   }
 
   try {
