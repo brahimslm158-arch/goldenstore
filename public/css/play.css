@@ -55,9 +55,13 @@
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
-/* Smooth theme transition */
-*, *::before, *::after {
-  transition: background-color .25s ease, border-color .25s ease, color .2s ease, fill .2s ease;
+/* Smooth theme transition — scoped to avoid layout jank on rapid re-renders */
+html[data-theme] body,
+html[data-theme] .bottomnav,
+html[data-theme] .topbar,
+html[data-theme] .topbar-nav,
+html[data-theme] .tabs {
+  transition: background-color .25s ease, border-color .25s ease, color .2s ease;
 }
 
 html, body {
@@ -504,6 +508,7 @@ input, select { font-family: inherit; }
 }
 
 /* ---------- Bottom nav ---------- */
+.sidebar-brand { display: none; }
 .bottomnav {
   position: fixed; bottom: 0; inset-inline: 0; z-index: 50;
   background: var(--surface);
@@ -655,19 +660,531 @@ input, select { font-family: inherit; }
   .applist.two-col { grid-template-columns: repeat(2, 1fr); gap: 4px 16px; }
   .applist.two-col .approw .art { width: 52px; height: 52px; }
 }
-/* Desktop */
+
+/* ====================================================================
+   DESKTOP — Professional sidebar layout (≥ 960px)
+   ==================================================================== */
 @media (min-width: 960px) {
-  :root { --maxw: 900px; }
-  .content { max-width: 900px; }
-  .poster-grid { grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); }
-  .applist.two-col { grid-template-columns: repeat(3, 1fr); }
-  .bottomnav-inner { max-width: 600px; margin: 0 auto; }
-  .fc-track { max-width: 900px; margin: 0 auto; }
+  :root {
+    --maxw: 100%;
+    --sidebar-w: 240px;
+    --nav-h: 0px;
+  }
+
+  /* --- Sidebar brand (visible only on desktop) --- */
+  .sidebar-brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 18px 24px;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--line);
+    text-decoration: none;
+    color: var(--text);
+  }
+  .sidebar-brand img {
+    width: 38px;
+    height: 38px;
+    border-radius: 10px;
+    object-fit: contain;
+  }
+  .sidebar-brand-text {
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: 0.2px;
+    white-space: nowrap;
+  }
+  .sidebar-brand-text b {
+    color: var(--gold);
+  }
+
+  /* --- Sidebar navigation (was bottom nav) --- */
+  .bottomnav {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    inset-inline-start: 0;
+    width: var(--sidebar-w);
+    height: 100vh;
+    border-top: none;
+    border-inline-end: 1px solid var(--line);
+    background: var(--surface);
+    padding-bottom: 0;
+    z-index: 50;
+  }
+  .bottomnav-inner {
+    flex-direction: column;
+    height: auto;
+    max-width: none;
+    padding: 20px 12px 20px;
+    gap: 2px;
+  }
+  .navitem {
+    flex: none;
+    flex-direction: row;
+    justify-content: flex-start;
+    gap: 14px;
+    padding: 13px 18px;
+    border-radius: 14px;
+    font-size: 15px;
+    font-weight: 500;
+    color: var(--text-2);
+    transition: background .12s, color .12s;
+  }
+  .navitem:hover {
+    background: var(--surface-2);
+    color: var(--text);
+  }
+  .navitem.active {
+    background: var(--nav-bg);
+    color: var(--nav);
+    font-weight: 700;
+  }
+  .navitem .pill-ico {
+    width: auto;
+    height: auto;
+    border-radius: 0;
+    background: none !important;
+  }
+  .navitem .pill-ico .icon {
+    width: 22px;
+    height: 22px;
+  }
+  .navitem.active .pill-ico {
+    background: none !important;
+  }
+
+  /* --- Shell / main content offset by sidebar --- */
+  .shell {
+    max-width: none;
+    margin-inline-start: var(--sidebar-w);
+    padding-bottom: 0;
+    min-height: 100vh;
+  }
+
+  /* --- Topbar adjustments for desktop --- */
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 40;
+    padding: 12px 32px 8px;
+    max-width: none;
+  }
+  .topbar-home {
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+  .topbar-search-bar {
+    max-width: 520px;
+    height: 46px;
+    font-size: 15px;
+  }
+  .topbar-nav {
+    padding: 10px 32px;
+    max-width: 1200px;
+    margin: 0 auto;
+  }
+
+  /* --- Tabs (horizontal) centered on desktop --- */
+  .tabs {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 4px 32px 0;
+    top: 66px;
+  }
+
+  /* --- Content sections wider --- */
+  .content {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 16px 32px 40px;
+  }
+  .section-head {
+    padding: 0 4px;
+    margin-bottom: 16px;
+  }
+  .section-head h2 {
+    font-size: 22px;
+  }
+
+  /* --- Horizontal poster rows: larger posters --- */
+  .hrow {
+    padding: 0 4px 8px;
+    gap: 18px;
+  }
+  .poster {
+    width: 120px;
+  }
+  .poster .art {
+    width: 120px;
+    height: 120px;
+    border-radius: 22px;
+  }
+  .poster .nm {
+    font-size: 14px;
+    margin-top: 10px;
+  }
+
+  /* Poster grid (wrapping) */
+  .poster-grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 20px 16px;
+    padding: 4px;
+  }
+
+  /* --- App list rows on desktop --- */
+  .applist {
+    padding: 0;
+  }
+  .approw {
+    padding: 14px 16px;
+    border-radius: 16px;
+    gap: 16px;
+    transition: background .12s;
+  }
+  .approw:hover {
+    background: var(--surface);
+  }
+  .approw .art {
+    width: 64px;
+    height: 64px;
+    border-radius: 16px;
+  }
+  .approw .nm {
+    font-size: 16px;
+    font-weight: 600;
+  }
+  .approw .sub {
+    font-size: 13px;
+    margin-top: 3px;
+  }
+  .approw .meta-line {
+    font-size: 13px;
+    margin-top: 5px;
+  }
+  .applist.two-col {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 4px 20px;
+  }
+  .applist.two-col .approw {
+    padding: 12px 12px;
+  }
+  .applist.two-col .approw .art {
+    width: 56px;
+    height: 56px;
+    border-radius: 14px;
+  }
+
+  /* --- Feature carousel desktop --- */
+  .feature-carousel {
+    margin: 8px 4px 16px;
+    border-radius: 20px;
+  }
+  .fc-media {
+    aspect-ratio: 2.4 / 1;
+  }
+  .fc-bar {
+    padding: 12px 18px;
+  }
+  .fc-bar-ico {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+  }
+  .fc-bar-name {
+    font-size: 16px;
+  }
+  .fc-bar-sub {
+    font-size: 13px;
+  }
+  .fc-bar-btn {
+    font-size: 14px;
+    padding: 9px 24px;
+  }
+
+  /* --- App detail page: 2-column header on desktop --- */
+  .detail {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: 16px 32px 40px;
+  }
+  .d-head {
+    gap: 24px;
+  }
+  .d-icon {
+    width: 100px;
+    height: 100px;
+    border-radius: 24px;
+  }
+  .d-name {
+    font-size: 30px;
+  }
+  .d-dev {
+    font-size: 16px;
+    margin-top: 6px;
+  }
+  .d-sub {
+    font-size: 13px;
+    margin-top: 6px;
+  }
+  .d-stats {
+    margin: 28px 0 8px;
+    max-width: 600px;
+  }
+  .d-stat .v {
+    font-size: 17px;
+  }
+  .d-stat .l {
+    font-size: 12px;
+  }
+  .d-actions {
+    max-width: 500px;
+  }
+  .d-note {
+    max-width: 500px;
+    text-align: start;
+  }
+  .d-section {
+    margin-top: 36px;
+  }
+  .d-section h3 {
+    font-size: 20px;
+  }
+  .d-desc {
+    font-size: 15px;
+    line-height: 1.9;
+    max-width: 700px;
+  }
+  .shots img {
+    height: 340px;
+    border-radius: 18px;
+  }
+
+  /* --- Login gate desktop --- */
+  .gate .logo {
+    width: 120px;
+    height: 120px;
+    border-radius: 28px;
+  }
+  .gate h1 {
+    font-size: 32px;
+  }
+  .gate p {
+    font-size: 16px;
+    max-width: 420px;
+  }
+  .gate .gbtn {
+    font-size: 16px;
+    padding: 15px 28px;
+    min-width: 300px;
+  }
+
+  /* --- Account page desktop --- */
+  .acct-page {
+    max-width: 800px;
+    margin: 0 auto;
+    padding: 24px 32px;
+  }
+  .acct-head .avatar-lg {
+    width: 88px;
+    height: 88px;
+    font-size: 32px;
+  }
+  .acct-info .nm {
+    font-size: 24px;
+  }
+
+  /* --- Points page desktop (wider) --- */
+  .points-page {
+    max-width: 800px;
+    padding: 16px 32px 40px;
+  }
+  .points-hero {
+    padding: 36px 32px 32px;
+    border-radius: 24px;
+  }
+  .points-hero-icon {
+    width: 120px;
+    height: 120px;
+  }
+  .points-balance {
+    font-size: 56px;
+  }
+  .points-balance-label {
+    font-size: 16px;
+  }
+  .points-dollar {
+    padding: 10px 28px;
+  }
+  .points-dollar-val {
+    font-size: 26px;
+  }
+  .points-stats {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+    margin-top: 28px;
+  }
+  .points-stat {
+    padding: 20px 14px;
+    border-radius: 16px;
+  }
+  .points-stat-val {
+    font-size: 22px;
+  }
+  .points-stat-label {
+    font-size: 12px;
+    margin-top: 6px;
+  }
+  .points-invite {
+    border-radius: 16px;
+    padding: 24px;
+  }
+  .points-how {
+    border-radius: 16px;
+    padding: 24px;
+  }
+  .points-progress-card {
+    border-radius: 16px;
+    padding: 18px 24px;
+  }
+
+  /* --- Dialog on desktop: centered card --- */
+  .dialog-overlay {
+    align-items: center;
+    padding: 32px;
+  }
+  .dialog-card {
+    max-width: 520px;
+    border-radius: 20px;
+  }
+
+  /* --- Auth required card desktop --- */
+  .auth-required-card {
+    max-width: 440px;
+    margin: 60px auto;
+    padding: 48px 32px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 24px;
+  }
+  .auth-logo {
+    width: 80px;
+    height: 80px;
+    border-radius: 20px;
+  }
+  .auth-title {
+    font-size: 24px;
+  }
+  .auth-desc {
+    font-size: 15px;
+  }
+
+  /* --- Skeleton loaders desktop --- */
+  .sk-hrow {
+    gap: 18px;
+  }
+  .sk-row {
+    padding: 14px 16px;
+  }
+
+  /* --- Notification dialog desktop --- */
+  .notif-row {
+    padding: 14px 0;
+    gap: 14px;
+  }
+  .notif-top strong {
+    font-size: 16px;
+  }
+
+  /* --- Search page desktop --- */
+  .search-pill {
+    max-width: 600px;
+  }
+
+  /* --- View toggle desktop --- */
+  .view-toggle {
+    padding: 3px;
+    border-radius: 12px;
+  }
+  .view-toggle button {
+    width: 36px;
+    height: 34px;
+    border-radius: 10px;
+  }
 }
+
+/* Large desktop (≥ 1200px) */
 @media (min-width: 1200px) {
-  :root { --maxw: 1100px; }
-  .content { max-width: 1100px; }
-  .applist.two-col { grid-template-columns: repeat(4, 1fr); }
+  :root {
+    --sidebar-w: 280px;
+  }
+  .navitem {
+    padding: 14px 22px;
+    font-size: 15px;
+  }
+  .content {
+    max-width: 1400px;
+  }
+  .topbar-home {
+    max-width: 1400px;
+  }
+  .tabs {
+    max-width: 1400px;
+  }
+  .poster {
+    width: 140px;
+  }
+  .poster .art {
+    width: 140px;
+    height: 140px;
+    border-radius: 24px;
+  }
+  .poster .nm {
+    font-size: 15px;
+  }
+  .poster-grid {
+    grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+    gap: 24px 18px;
+  }
+  .applist.two-col {
+    grid-template-columns: repeat(4, 1fr);
+  }
+  .approw .art {
+    width: 68px;
+    height: 68px;
+  }
+  .detail {
+    max-width: 1100px;
+  }
+  .d-icon {
+    width: 120px;
+    height: 120px;
+  }
+  .d-name {
+    font-size: 34px;
+  }
+  .fc-media {
+    aspect-ratio: 2.8 / 1;
+  }
+  .points-page {
+    max-width: 900px;
+  }
+  .acct-page {
+    max-width: 900px;
+  }
+}
+
+/* Extra-large desktop (≥ 1600px) */
+@media (min-width: 1600px) {
+  .content {
+    max-width: 1600px;
+  }
+  .applist.two-col {
+    grid-template-columns: repeat(5, 1fr);
+  }
+  .poster-grid {
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  }
 }
 
 /* Settings */
@@ -1013,17 +1530,46 @@ input, select { font-family: inherit; }
 }
 
 /* ---------- Points page (نقاط التشغيل) ---------- */
-.points-page { padding: 8px 16px 32px; max-width: 640px; margin: 0 auto; width: 100%; }
+.points-page {
+  padding: 8px 16px 32px; max-width: 640px; margin: 0 auto; width: 100%;
+  /* GPU-composited layer to prevent paint jank */
+  will-change: contents;
+  contain: layout style;
+}
 .points-loading { display: flex; justify-content: center; padding: 48px 0; }
 .points-error { text-align: center; padding: 40px 16px; color: var(--text-2); }
 .points-error p { margin-bottom: 16px; }
+
+/* Smooth fade-in for points content */
+@keyframes pts-fade {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.points-hero,
+.points-progress-card,
+.points-withdraw-btn,
+.points-stats,
+.points-invite,
+.points-how,
+.points-history {
+  animation: pts-fade .35s ease both;
+}
+.points-progress-card { animation-delay: .05s; }
+.points-stats { animation-delay: .1s; }
+.points-invite { animation-delay: .15s; }
+.points-how { animation-delay: .2s; }
+.points-history { animation-delay: .25s; }
 
 .points-hero {
   text-align: center; padding: 28px 20px 24px; margin-top: 8px;
   background: radial-gradient(120% 120% at 50% 0%, rgba(244,192,31,.18), transparent 60%), var(--surface);
   border: 1px solid var(--border); border-radius: var(--radius);
 }
-.points-hero-icon { width: 96px; height: 96px; object-fit: contain; filter: drop-shadow(0 6px 16px rgba(244,192,31,.35)); }
+.points-hero-icon {
+  width: 96px; height: 96px; object-fit: contain;
+  filter: drop-shadow(0 6px 16px rgba(244,192,31,.35));
+  margin: 0 auto;
+}
 .points-balance { font-size: 44px; font-weight: 800; line-height: 1.1; margin-top: 8px; color: var(--text);
   background: linear-gradient(180deg, var(--gold-2), var(--gold)); -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent; }
 .points-balance-label { font-size: 14px; color: var(--text-2); margin-top: 2px; }

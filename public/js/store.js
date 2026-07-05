@@ -533,11 +533,19 @@ const NAV_ITEMS_RAW = [
   { key: 'account', label: 'أنت', icon: 'user', href: '/account' },
 ];
 function bottomNav(active) {
+  const brand = el('a', { href: '/', class: 'sidebar-brand', 'aria-label': 'Golden Store' },
+    el('img', { src: '/images/logo.png', alt: 'Golden Store' }),
+    el('span', { class: 'sidebar-brand-text' },
+      el('span', null, 'Golden'),
+      el('b', null, 'Store'),
+    ),
+  );
   const nav = el('nav', { class: 'bottomnav' },
     el('div', { class: 'bottomnav-inner' },
+      brand,
       ...NAV_ITEMS_RAW.map((it) => el('a', { href: it.href, class: `navitem ${it.key === active ? 'active' : ''}` },
         el('span', { class: 'pill-ico' }, ico(it.icon, 'icon')),
-        el('span', null, t(it.label)),
+        el('span', { class: 'nav-label' }, t(it.label)),
       )),
     ),
   );
@@ -703,7 +711,7 @@ async function processReferralClaims(uid) {
     const [claimsSnap, userSnap] = await withTimeout(Promise.all([
       claimsRef.once('value'),
       userRef.once('value'),
-    ]), 12000, 'referrals_timeout');
+    ]), 6000, 'referrals_timeout');
 
     const state = userSnap && userSnap.val ? (userSnap.val() || {}) : {};
     const referredInvitees = state.referred_invitees && typeof state.referred_invitees === 'object'
@@ -743,11 +751,11 @@ async function processReferralClaims(uid) {
         stillNew.forEach((inviteeUid) => { next.referred_invitees[inviteeUid] = true; });
         next.updated_at = Date.now();
         return next;
-      }), 12000, 'referrals_timeout');
+      }), 6000, 'referrals_timeout');
     }
     await withTimeout(
       Promise.all(claims.map((claim) => claimsRef.child(claim.id).update({ processed: true }).catch(() => {}))),
-      12000,
+      6000,
       'referrals_timeout',
     ).catch(() => {});
   } catch (e) {}
@@ -803,10 +811,10 @@ async function getReferral() {
   const user = await currentPointsUser();
   if (!user || !user.uid) throw unauthorizedError();
   const uid = user.uid;
-  await processReferralClaims(uid);
+  processReferralClaims(uid).catch(() => {});
   const code = await ensureReferralCode(user);
   const db = pointsDb();
-  const snap = await withTimeout(db.ref(`user_points/${uid}`).once('value'), 12000, 'referral_timeout');
+  const snap = await withTimeout(db.ref(`user_points/${uid}`).once('value'), 8000, 'referral_timeout');
   const state = snap && snap.val ? (snap.val() || {}) : {};
   return {
     code,
@@ -915,7 +923,8 @@ async function pointsBalance() {
   const user = await currentPointsUser();
   if (!user || !user.uid) throw unauthorizedError();
   const uid = user.uid;
-  await withTimeout(processReferralClaims(uid), 8000, 'referrals_timeout').catch(() => {});
+  // Process referral claims in the background — don't block balance display
+  withTimeout(processReferralClaims(uid), 8000, 'referrals_timeout').catch(() => {});
 
   let state = {};
   let rawWithdrawals = {};

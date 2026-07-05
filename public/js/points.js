@@ -7,11 +7,16 @@
 
   S.bottomNav('points');
 
+  let _rendering = false;
+
   S.ready((user) => {
     render(user);
   });
 
   function render(user = (S.getUser ? S.getUser() : null)) {
+    if (_rendering) return;
+    _rendering = true;
+
     root.innerHTML = '';
     root.append(S.topbarNav(t('نقاط التشغيل')));
 
@@ -19,6 +24,7 @@
     root.append(page);
 
     if (!user) {
+      _rendering = false;
       renderAuthRequired(page);
       return;
     }
@@ -28,9 +34,11 @@
     page.append(loading);
 
     S.pointsBalance().then((data) => {
+      _rendering = false;
       loading.remove();
       renderContent(page, data);
     }).catch((e) => {
+      _rendering = false;
       loading.remove();
       if (e && (e.status === 401 || e.message === 'unauthorized')) {
         renderAuthRequired(page);
