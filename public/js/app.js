@@ -7,6 +7,12 @@
 
   const slug = getQuery('slug');
 
+  // True when running inside the Golden Store native Android wrapper, where the
+  // GSAndroid JS bridge is available for real device downloads.
+  function isNativeApp() {
+    return !!(window.GSAndroid && typeof window.GSAndroid.downloadApk === 'function');
+  }
+
   function sdkName(sdk) {
     const map = { 21: t('أندرويد') + ' 5.0', 22: '5.1', 23: '6.0', 24: '7.0', 25: '7.1', 26: '8.0', 27: '8.1', 28: '9', 29: '10', 30: '11', 31: '12', 32: '12L', 33: '13', 34: '14', 35: '15' };
     return map[sdk] || (sdk ? `SDK ${sdk}` : '—');
@@ -344,6 +350,24 @@
       // Require login before downloading
       if (!S.isLoggedIn()) {
         try { await S.requireAuth(); } catch { return; }
+      }
+
+      // Native Android app: blob/<a download> don't persist files inside a
+      // WebView, so hand off to the native DownloadManager bridge which saves
+      // the APK to the device's Downloads and shows an "open to install" notice.
+      if (isNativeApp()) {
+        try {
+          const dlUrl = `${location.origin}/api/apps/${encodeURIComponent(app.slug)}/download`;
+          window.GSAndroid.downloadApk(dlUrl, filename);
+          markInstalledStored(app.slug);
+          S.addToDownloadHistory(app);
+          showInstalled();
+          toast(t('بدأ تنزيل الملف في جهازك، افتحه من الإشعارات للتثبيت'), 'success');
+          S.earnPoints(app.slug);
+        } catch (e) {
+          fallbackDownload(app.slug);
+        }
+        return;
       }
 
       btn.classList.add('installing');

@@ -480,7 +480,7 @@ async function openNotifications() {
           el('span', { class: `notif-type notif-type-${type}` }, type === 'new_app' ? t('تطبيق جديد') : type === 'update' ? t('تحديث') : t('إعلان')),
         ),
         n.body ? el('div', { class: 'notif-body' }, n.body) : null,
-        el('div', { class: 'notif-meta' }, S.formatDate ? S.formatDate(n.created_at) : ''),
+        el('div', { class: 'notif-meta' }, formatDate(n.created_at)),
       ),
     );
     body.append(row);

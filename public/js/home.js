@@ -98,11 +98,13 @@
         recommended.forEach((a) => usedSlugs.add(a.slug));
       }
 
-      // Directly under "موصى به لك": grid/list toggle showing the rest of the
-      // apps. Fall back to the full catalog when there's nothing left over
-      // (small stores) so the toggle is never empty.
-      let others = allApps.filter((a) => !usedSlugs.has(a.slug));
-      if (!others.length) others = allApps;
+      // Directly under "موصى به لك": grid/list toggle showing the FULL catalog.
+      // Show every app here (recommended ones first) so nothing is ever hidden
+      // from the grid/list view — apps highlighted in the row above still appear
+      // in the browsable grid below.
+      const leftover = allApps.filter((a) => !usedSlugs.has(a.slug));
+      const inRecommended = allApps.filter((a) => usedSlugs.has(a.slug));
+      const others = [...inRecommended, ...leftover];
       if (others.length) content.append(toggleSection('', others));
     }
 
