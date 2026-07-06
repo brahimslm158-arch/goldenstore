@@ -239,10 +239,15 @@ async function addNotification(db: any, data: any) {
     app_slug: app_slug || '',
     created_at,
   });
-  // Fire-and-forget FCM push to all registered (logged-in) devices.
-  sendPushToRegistered(db, { title, body, type, app_slug: app_slug || '', id: ref.id }).catch(
-    (err) => console.error('[fcm] push failed:', err?.message || err),
-  );
+  // Push to all registered (logged-in) devices. This MUST be awaited: on
+  // serverless (Vercel) the function is frozen/killed once the response is
+  // returned, so a fire-and-forget push would be cut off before it reaches
+  // FCM and notifications would never arrive on closed devices.
+  try {
+    await sendPushToRegistered(db, { title, body, type, app_slug: app_slug || '', id: ref.id });
+  } catch (err: any) {
+    console.error('[fcm] push failed:', err?.message || err);
+  }
   return ref;
 }
 

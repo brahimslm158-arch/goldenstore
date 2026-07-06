@@ -13,6 +13,12 @@
     return !!(window.GSAndroid && typeof window.GSAndroid.downloadApk === 'function');
   }
 
+  const apkStateHandlers = Object.create(null);
+  window.__gsApkDownloadUpdate = function (slug, status, progress) {
+    const h = apkStateHandlers[slug];
+    if (h) h(status, (typeof progress === 'number' ? progress : -1));
+  };
+
   function sdkName(sdk) {
     const map = { 21: t('أندرويد') + ' 5.0', 22: '5.1', 23: '6.0', 24: '7.0', 25: '7.1', 26: '8.0', 27: '8.1', 28: '9', 29: '10', 30: '11', 31: '12', 32: '12L', 33: '13', 34: '14', 35: '15' };
     return map[sdk] || (sdk ? `SDK ${sdk}` : '—');
@@ -310,16 +316,18 @@
     const label = el('span', { class: 'install-label', 'data-noi18n': '' }, t('تثبيت'));
     const fill = el('span', { class: 'install-fill' });
     const btn = el('button', { class: 'btn btn-primary btn-lg install-btn', type: 'button' }, fill, label);
+    let nativeActiveDownloadRegistered = false;
 
     function setProgress(ratio) {
       const pct = Math.max(0, Math.min(100, Math.round(ratio * 100)));
+      btn.classList.remove('indeterminate');
       fill.style.transition = 'width .15s linear';
       fill.style.width = pct + '%';
-      label.textContent = `${t('جارٍ التحميل…')} ${pct}%`;
+      label.textContent = `${t('جارٍ التنزيل…')} ${pct}%`;
     }
     function setIndeterminate() {
       btn.classList.add('indeterminate');
-      label.textContent = t('جارٍ التحميل…');
+      label.textContent = t('جارٍ التنزيل…');
     }
     function resetBar() {
       btn.classList.remove('installing', 'indeterminate');
@@ -340,6 +348,57 @@
       label.textContent = t('تثبيت');
     }
 
+    apkStateHandlers[app.slug] = function (status, progress) {
+      if (status === 'downloading') {
+        btn.classList.add('installing');
+        btn.disabled = true;
+        if (!nativeActiveDownloadRegistered) {
+          S.setActiveDownload({
+            slug: app.slug,
+            name: app.name,
+            icon_url: app.icon_url || null,
+            developer: app.developer || '',
+            size_bytes: app.size_bytes || 0,
+            progress: progress >= 0 ? progress : 0,
+            status: 'downloading',
+            started_at: Math.floor(Date.now() / 1000),
+          });
+          nativeActiveDownloadRegistered = true;
+        } else {
+          S.updateActiveDownloadProgress(app.slug, progress);
+        }
+        if (progress >= 0) setProgress(progress);
+        else setIndeterminate();
+        return;
+      }
+      if (status === 'downloaded') {
+        setProgress(1);
+        btn.classList.add('installing');
+        btn.disabled = true;
+        label.textContent = t('تم التنزيل، جارٍ التثبيت…');
+        S.removeActiveDownload(app.slug);
+        S.addToDownloadHistory(app);
+        S.earnPoints(app.slug);
+        return;
+      }
+      if (status === 'installing') {
+        btn.classList.add('installing');
+        btn.disabled = true;
+        label.textContent = t('جارٍ التثبيت…');
+        return;
+      }
+      if (status === 'installed') {
+        markInstalledStored(app.slug);
+        showInstalled();
+        return;
+      }
+      if (status === 'failed') {
+        S.removeActiveDownload(app.slug);
+        showIdle();
+        toast(t('تعذّر التنزيل، حاول مجدداً'), 'error');
+      }
+    };
+
     const filename = `${app.slug || 'app'}-${app.version_name || ''}.apk`.replace(/-+/g, '-');
 
     async function runInstall() {
@@ -356,16 +415,29 @@
       // WebView, so hand off to the native DownloadManager bridge which saves
       // the APK to the device's Downloads and shows an "open to install" notice.
       if (isNativeApp()) {
+        const dlUrl = `${location.origin}/api/apps/${encodeURIComponent(app.slug)}/download`;
+        btn.classList.add('installing');
+        btn.disabled = true;
+        setIndeterminate();
+        S.setActiveDownload({
+          slug: app.slug,
+          name: app.name,
+          icon_url: app.icon_url || null,
+          developer: app.developer || '',
+          size_bytes: app.size_bytes || 0,
+          progress: 0,
+          status: 'downloading',
+          started_at: Math.floor(Date.now() / 1000),
+        });
+        nativeActiveDownloadRegistered = true;
         try {
-          const dlUrl = `${location.origin}/api/apps/${encodeURIComponent(app.slug)}/download`;
-          window.GSAndroid.downloadApk(dlUrl, filename);
-          markInstalledStored(app.slug);
-          S.addToDownloadHistory(app);
-          showInstalled();
-          toast(t('بدأ تنزيل الملف في جهازك، افتحه من الإشعارات للتثبيت'), 'success');
-          S.earnPoints(app.slug);
+          window.GSAndroid.downloadApk(dlUrl, filename, app.slug || '', app.package_name || '');
+          toast(t('بدأ التنزيل…'), 'info');
         } catch (e) {
+          delete apkStateHandlers[app.slug];
+          S.removeActiveDownload(app.slug);
           fallbackDownload(app.slug);
+          showIdle();
         }
         return;
       }
@@ -374,7 +446,7 @@
       btn.disabled = true;
       fill.style.transition = 'none';
       fill.style.width = '0%';
-      label.textContent = `${t('جار التحميل…')} 0%`;
+      label.textContent = `${t('جارٍ التنزيل…')} 0%`;
 
       S.setActiveDownload({
         slug: app.slug,
@@ -464,7 +536,10 @@
     // show the progress bar continuing from where it was and simulate ongoing progress.
     const activeDls = S.getActiveDownloads();
     const activeDl = activeDls.find((d) => d.slug === app.slug);
-    if (activeDl && activeDl.status === 'downloading') {
+    if (activeDl && isNativeApp()) {
+      S.removeActiveDownload(app.slug);
+    }
+    if (activeDl && activeDl.status === 'downloading' && !isNativeApp()) {
       btn.classList.add('installing');
       btn.disabled = true;
 
