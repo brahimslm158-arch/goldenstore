@@ -225,6 +225,25 @@ async function listNotifications(db: any, limit?: number) {
   return docs.map((d: any) => notificationPublic(d));
 }
 
+// Public URL of the store logo, shown as the notification large icon for
+// announcements (and as a fallback for app-specific notifications).
+const STORE_LOGO_URL =
+  process.env.STORE_LOGO_URL || 'https://goldenstore.vercel.app/images/logo.png';
+
+// Resolve the real app icon URL for a notification tied to an app, so the
+// pushed notification shows the actual app's logo instead of a generic icon.
+async function resolveNotificationImage(db: any, app_slug: string): Promise<string> {
+  if (!app_slug) return '';
+  try {
+    const snap = await db.collection('apps').where('slug', '==', app_slug).limit(1).get();
+    if (snap.empty) return '';
+    const url = icon_url((snap.docs[0].data() as any).icon_key);
+    return url || '';
+  } catch {
+    return '';
+  }
+}
+
 async function addNotification(db: any, data: any) {
   const title = sanitizeText(data.title, 200);
   if (!title) throw new Error('notification_title_required');
@@ -245,7 +264,15 @@ async function addNotification(db: any, data: any) {
   // FCM and notifications would never arrive on closed devices.
   let push: PushResult = { targeted: 0, success: 0, failure: 0, errors: [] };
   try {
-    push = await sendPushToRegistered(db, { title, body, type, app_slug: app_slug || '', id: ref.id });
+    const image = await resolveNotificationImage(db, app_slug);
+    push = await sendPushToRegistered(db, {
+      title,
+      body,
+      type,
+      app_slug: app_slug || '',
+      id: ref.id,
+      image,
+    });
   } catch (err: any) {
     console.error('[fcm] push failed:', err?.message || err);
     push.errors.push('exception: ' + (err?.message || String(err)));
@@ -260,7 +287,7 @@ type PushResult = { targeted: number; success: number; failure: number; errors: 
 
 async function sendPushToRegistered(
   db: any,
-  n: { title: string; body: string; type: string; app_slug: string; id: string },
+  n: { title: string; body: string; type: string; app_slug: string; id: string; image?: string },
 ): Promise<PushResult> {
   const result: PushResult = { targeted: 0, success: 0, failure: 0, errors: [] };
   let tokensSnap: any;
@@ -279,10 +306,20 @@ async function sendPushToRegistered(
   if (tokens.length === 0) return result;
 
   const msg = await messaging();
-  const dataPayload = {
+  // Data-only payload: the Android client builds the notification natively in
+  // GoldenFirebaseMessagingService so it can show the real store/app logo as
+  // the large icon and a per-type label ("تطبيق جديد" / "تحديث" / "إشعار") in
+  // every app state (foreground, background, killed). Sending a `notification`
+  // block would make the system draw a plain notification (no large icon /
+  // custom styling) whenever the app is in the background.
+  const dataPayload: Record<string, string> = {
+    title: n.title,
+    body: n.body || '',
     type: n.type,
     app_slug: n.app_slug || '',
     notification_id: n.id,
+    image: n.image || '',
+    store_logo: STORE_LOGO_URL,
   };
   // Send in batches of 500 (FCM multicast limit).
   const invalidTokens: string[] = [];
@@ -292,11 +329,9 @@ async function sendPushToRegistered(
     try {
       resp = await msg.sendEachForMulticast({
         tokens: batch,
-        notification: { title: n.title, body: n.body || undefined },
         data: dataPayload,
         android: {
           priority: 'high',
-          notification: { channelId: 'gs_main', sound: 'default' },
         },
       });
     } catch (err: any) {
