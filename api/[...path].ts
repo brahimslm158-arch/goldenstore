@@ -1328,6 +1328,19 @@ app.post('/admin/apps/:id/apk', async (c) => {
   if (old.apk_key && old.apk_key !== newKey) {
     await r2Delete(old.apk_key).catch(() => {});
   }
+
+  // Replacing the APK is an update — notify users (store + FCM push).
+  try {
+    const newVersion = body.version_name ? String(body.version_name) : (old.version_name || '');
+    await addNotification(db, {
+      type: 'update',
+      title: old.name,
+      body: `إصدار جديد ${newVersion}`.trim(),
+      app_slug: old.slug,
+      created_at: nowSec(),
+    });
+  } catch {}
+
   return c.json({ ok: true });
 });
 

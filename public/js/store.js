@@ -505,13 +505,14 @@ function topbarSearch(user) {
     onclick: openNotifications,
   }, ico('bell'), bellBadge);
   Promise.resolve().then(() => refreshBellBadge());
+  // Profile avatar moved to the bottom nav ("أنت"); the search button now sits
+  // where the avatar used to be (top end).
   return el('div', { class: 'topbar' },
     el('div', { class: 'topbar-home' },
       el('a', { href: '/', class: 'brand', 'aria-label': 'Golden Store' }, el('img', { src: '/images/logo.png', alt: 'Golden Store' })),
-      searchBtn,
       el('div', { class: 'tb-spacer' }),
       bellBtn,
-      avatarEl(user),
+      searchBtn,
     ),
   );
 }
@@ -543,10 +544,18 @@ function bottomNav(active) {
   const nav = el('nav', { class: 'bottomnav' },
     el('div', { class: 'bottomnav-inner' },
       brand,
-      ...NAV_ITEMS_RAW.map((it) => el('a', { href: it.href, class: `navitem ${it.key === active ? 'active' : ''}` },
-        el('span', { class: 'pill-ico' }, ico(it.icon, 'icon')),
-        el('span', { class: 'nav-label' }, t(it.label)),
-      )),
+      ...NAV_ITEMS_RAW.map((it) => {
+        // The account tab ("أنت") shows the signed-in user's profile picture
+        // instead of a generic icon.
+        const isAccount = it.key === 'account';
+        const iconNode = (isAccount && _user && _user.photoURL)
+          ? el('span', { class: 'pill-ico nav-avatar' }, el('img', { src: _user.photoURL, alt: '', referrerpolicy: 'no-referrer' }))
+          : el('span', { class: 'pill-ico' }, ico(it.icon, 'icon'));
+        return el('a', { href: it.href, class: `navitem ${it.key === active ? 'active' : ''}` },
+          iconNode,
+          el('span', { class: 'nav-label' }, t(it.label)),
+        );
+      }),
     ),
   );
   document.body.append(nav);
@@ -1261,7 +1270,9 @@ function onActiveDownloadsChange(fn) {
       'html,body{-webkit-text-size-adjust:100%;touch-action:manipulation;}' +
       '*{-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;}' +
       'body{-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none;}' +
-      'input,textarea,[contenteditable="true"]{-webkit-user-select:text;user-select:text;}';
+      'input,textarea,[contenteditable="true"]{-webkit-user-select:text;user-select:text;}' +
+      '.bottomnav .nav-avatar{display:flex;align-items:center;justify-content:center;}' +
+      '.bottomnav .nav-avatar img{width:24px;height:24px;border-radius:50%;object-fit:cover;display:block;}';
     (document.head || document.documentElement).appendChild(style);
     document.addEventListener('gesturestart', function (e) { e.preventDefault(); }, { passive: false });
     // Block pinch-zoom via multi-touch.
