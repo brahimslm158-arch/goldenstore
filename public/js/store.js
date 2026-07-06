@@ -1250,6 +1250,76 @@ function onActiveDownloadsChange(fn) {
 }
 
 
+/* --------------- Native app integration (Capacitor/WebView) --------------- */
+// Disable pinch/double-tap zoom, long-press text selection and the callout
+// menu so the store feels like a native app. Inputs stay selectable so search
+// and forms keep working.
+(function injectNativeUx() {
+  try {
+    var style = document.createElement('style');
+    style.textContent =
+      'html,body{-webkit-text-size-adjust:100%;touch-action:manipulation;}' +
+      '*{-webkit-touch-callout:none;-webkit-tap-highlight-color:transparent;}' +
+      'body{-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none;}' +
+      'input,textarea,[contenteditable="true"]{-webkit-user-select:text;user-select:text;}';
+    (document.head || document.documentElement).appendChild(style);
+    document.addEventListener('gesturestart', function (e) { e.preventDefault(); }, { passive: false });
+    // Block pinch-zoom via multi-touch.
+    document.addEventListener('touchmove', function (e) {
+      if (e.touches && e.touches.length > 1) e.preventDefault();
+    }, { passive: false });
+  } catch (e) {}
+})();
+
+// FCM push token bridge. The native app fetches its FCM token and calls
+// window.__gsRegisterPushToken(token). We forward it to the backend only for
+// logged-in users, so pushes reach registered users only.
+(function pushBridge() {
+  var currentToken = null;
+  var registeredToken = null;
+
+  async function registerIfPossible() {
+    if (!currentToken) return;
+    if (registeredToken === currentToken) return;
+    try {
+      if (!window.Store || !window.Store.isLoggedIn || !window.Store.isLoggedIn()) return;
+      await authedApi('/api/notifications/register-token', {
+        method: 'POST',
+        body: JSON.stringify({ token: currentToken, platform: 'android' }),
+      });
+      registeredToken = currentToken;
+    } catch (e) { /* retry on next auth/token event */ }
+  }
+
+  window.__gsRegisterPushToken = function (token) {
+    if (!token || typeof token !== 'string') return;
+    currentToken = token;
+    registerIfPossible();
+  };
+
+  window.__gsUnregisterPushToken = function (token) {
+    var tok = token || currentToken;
+    if (!tok) return;
+    registeredToken = null;
+    try {
+      api('/api/notifications/unregister-token', {
+        method: 'POST',
+        body: JSON.stringify({ token: tok }),
+      });
+    } catch (e) {}
+  };
+
+  // Re-register whenever auth state settles (login) and drop on logout.
+  try {
+    if (window.GAuth && window.GAuth.onAuthChange) {
+      window.GAuth.onAuthChange(function (user) {
+        if (user) registerIfPossible();
+        else if (currentToken) window.__gsUnregisterPushToken(currentToken);
+      });
+    }
+  } catch (e) {}
+})();
+
 window.Store = {
   STORE, api, el, ico, t,
   formatBytes, formatCount, formatNum, formatDate, ratingOf, ratingValue, ratingCountOf, getQuery, toast,

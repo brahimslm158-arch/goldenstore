@@ -3,7 +3,7 @@ import { cors } from 'hono/cors';
 import { getCookie, setCookie } from 'hono/cookie';
 import { getRequestListener } from '@hono/node-server';
 import crypto from 'node:crypto';
-import { firestore, getFieldValue, verifyFirebaseToken } from '../lib/firebase.js';
+import { firestore, getFieldValue, verifyFirebaseToken, messaging } from '../lib/firebase.js';
 import {
   r2PresignPut,
   r2PresignGet,
@@ -232,13 +232,83 @@ async function addNotification(db: any, data: any) {
   const type = data.type === 'new_app' || data.type === 'update' ? data.type : 'announcement';
   const app_slug = sanitizeText(data.app_slug, 120);
   const created_at = Number(data.created_at || nowSec());
-  return db.collection('notifications').add({
+  const ref = await db.collection('notifications').add({
     title,
     body,
     type,
     app_slug: app_slug || '',
     created_at,
   });
+  // Fire-and-forget FCM push to all registered (logged-in) devices.
+  sendPushToRegistered(db, { title, body, type, app_slug: app_slug || '', id: ref.id }).catch(
+    (err) => console.error('[fcm] push failed:', err?.message || err),
+  );
+  return ref;
+}
+
+// Send an FCM push to every registered device token. Only logged-in users
+// register tokens (see /notifications/register-token), so this targets
+// registered users only. Invalid/expired tokens are pruned from Firestore.
+async function sendPushToRegistered(
+  db: any,
+  n: { title: string; body: string; type: string; app_slug: string; id: string },
+) {
+  let tokensSnap: any;
+  try {
+    tokensSnap = await db.collection('fcm_tokens').get();
+  } catch (err: any) {
+    console.error('[fcm] failed to read tokens:', err?.message || err);
+    return;
+  }
+  const docs: any[] = tokensSnap.docs || [];
+  const tokens: string[] = docs
+    .map((d: any) => String(d.data()?.token || ''))
+    .filter((t: string) => t.length > 0);
+  if (tokens.length === 0) return;
+
+  const msg = await messaging();
+  const dataPayload = {
+    type: n.type,
+    app_slug: n.app_slug || '',
+    notification_id: n.id,
+  };
+  // Send in batches of 500 (FCM multicast limit).
+  const invalidTokens: string[] = [];
+  for (let i = 0; i < tokens.length; i += 500) {
+    const batch = tokens.slice(i, i + 500);
+    let resp: any;
+    try {
+      resp = await msg.sendEachForMulticast({
+        tokens: batch,
+        notification: { title: n.title, body: n.body || undefined },
+        data: dataPayload,
+        android: {
+          priority: 'high',
+          notification: { channelId: 'gs_main', sound: 'default' },
+        },
+      });
+    } catch (err: any) {
+      console.error('[fcm] multicast error:', err?.message || err);
+      continue;
+    }
+    resp.responses.forEach((r: any, idx: number) => {
+      if (!r.success) {
+        const code = r.error?.code || '';
+        if (
+          code.includes('registration-token-not-registered') ||
+          code.includes('invalid-registration-token') ||
+          code.includes('invalid-argument')
+        ) {
+          invalidTokens.push(batch[idx]);
+        }
+      }
+    });
+  }
+  // Prune dead tokens.
+  for (const t of invalidTokens) {
+    const dead = docs.find((d: any) => String(d.data()?.token || '') === t);
+    if (dead) await dead.ref.delete().catch(() => {});
+  }
 }
 
 // ---------------- public ----------------
@@ -255,6 +325,38 @@ app.get('/notifications', async (c) => {
   const db = await firestore();
   const notifications = await listNotifications(db, limit);
   return c.json({ notifications });
+});
+
+// Register an FCM device token for the logged-in user. Only authenticated
+// users can register, so pushes are delivered to registered users only.
+app.post('/notifications/register-token', async (c) => {
+  const ip = getClientIp(c);
+  if (!rateLimit(ip, 'reg-token', 30, 60)) return c.json({ error: 'rate_limited' }, 429);
+  const user = await requireFirebaseUser(c);
+  if (!user) return c.json({ error: 'unauthorized' }, 401);
+  const body = await c.req.json().catch(() => ({} as any));
+  const token = String(body.token || '').trim();
+  if (!token || token.length > 4096) return c.json({ error: 'invalid_token' }, 400);
+  const db = await firestore();
+  const docId = crypto.createHash('sha256').update(token).digest('hex');
+  await db.collection('fcm_tokens').doc(docId).set({
+    token,
+    uid: user.uid,
+    platform: String(body.platform || 'android').slice(0, 20),
+    updated_at: nowSec(),
+  });
+  return c.json({ ok: true });
+});
+
+// Remove an FCM device token (e.g. on logout).
+app.post('/notifications/unregister-token', async (c) => {
+  const body = await c.req.json().catch(() => ({} as any));
+  const token = String(body.token || '').trim();
+  if (!token) return c.json({ error: 'invalid_token' }, 400);
+  const db = await firestore();
+  const docId = crypto.createHash('sha256').update(token).digest('hex');
+  await db.collection('fcm_tokens').doc(docId).delete().catch(() => {});
+  return c.json({ ok: true });
 });
 
 // ---------------- i18n machine translation (free MT + Firestore cache) ----------------

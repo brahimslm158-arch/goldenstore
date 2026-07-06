@@ -146,6 +146,12 @@ export async function getFieldValue() {
   return FieldValue;
 }
 
+export async function messaging() {
+  const { getMessaging } = await import('firebase-admin/messaging');
+  const fbApp = await firebaseApp();
+  return getMessaging(fbApp);
+}
+
 export async function verifyFirebaseToken(idToken: string): Promise<{ uid: string; email?: string; name?: string } | null> {
   try {
     const { getAuth } = await import('firebase-admin/auth');
