@@ -243,33 +243,40 @@ async function addNotification(db: any, data: any) {
   // serverless (Vercel) the function is frozen/killed once the response is
   // returned, so a fire-and-forget push would be cut off before it reaches
   // FCM and notifications would never arrive on closed devices.
+  let push: PushResult = { targeted: 0, success: 0, failure: 0, errors: [] };
   try {
-    await sendPushToRegistered(db, { title, body, type, app_slug: app_slug || '', id: ref.id });
+    push = await sendPushToRegistered(db, { title, body, type, app_slug: app_slug || '', id: ref.id });
   } catch (err: any) {
     console.error('[fcm] push failed:', err?.message || err);
+    push.errors.push('exception: ' + (err?.message || String(err)));
   }
-  return ref;
+  return { ref, push };
 }
 
 // Send an FCM push to every registered device token. Only logged-in users
 // register tokens (see /notifications/register-token), so this targets
 // registered users only. Invalid/expired tokens are pruned from Firestore.
+type PushResult = { targeted: number; success: number; failure: number; errors: string[] };
+
 async function sendPushToRegistered(
   db: any,
   n: { title: string; body: string; type: string; app_slug: string; id: string },
-) {
+): Promise<PushResult> {
+  const result: PushResult = { targeted: 0, success: 0, failure: 0, errors: [] };
   let tokensSnap: any;
   try {
     tokensSnap = await db.collection('fcm_tokens').get();
   } catch (err: any) {
     console.error('[fcm] failed to read tokens:', err?.message || err);
-    return;
+    result.errors.push('read_tokens_failed: ' + (err?.message || String(err)));
+    return result;
   }
   const docs: any[] = tokensSnap.docs || [];
   const tokens: string[] = docs
     .map((d: any) => String(d.data()?.token || ''))
     .filter((t: string) => t.length > 0);
-  if (tokens.length === 0) return;
+  result.targeted = tokens.length;
+  if (tokens.length === 0) return result;
 
   const msg = await messaging();
   const dataPayload = {
@@ -294,11 +301,16 @@ async function sendPushToRegistered(
       });
     } catch (err: any) {
       console.error('[fcm] multicast error:', err?.message || err);
+      result.failure += batch.length;
+      result.errors.push('multicast_error: ' + (err?.message || String(err)));
       continue;
     }
+    result.success += resp.successCount || 0;
+    result.failure += resp.failureCount || 0;
     resp.responses.forEach((r: any, idx: number) => {
       if (!r.success) {
         const code = r.error?.code || '';
+        if (result.errors.length < 5) result.errors.push(code || (r.error?.message || 'unknown'));
         if (
           code.includes('registration-token-not-registered') ||
           code.includes('invalid-registration-token') ||
@@ -314,6 +326,7 @@ async function sendPushToRegistered(
     const dead = docs.find((d: any) => String(d.data()?.token || '') === t);
     if (dead) await dead.ref.delete().catch(() => {});
   }
+  return result;
 }
 
 // ---------------- public ----------------
@@ -1012,13 +1025,49 @@ app.post('/admin/notifications', async (c) => {
   const title = sanitizeText(body.title, 200);
   const text = sanitizeText(body.body, 1000);
   if (!title) return c.json({ error: 'title_required' }, 400);
-  const ref = await addNotification(db, {
+  const { ref, push } = await addNotification(db, {
     title,
     body: text,
     type: 'announcement',
     created_at: nowSec(),
   });
-  return c.json({ ok: true, id: ref.id });
+  // `push` reports how many devices were targeted / succeeded so the dashboard
+  // can tell whether the notification actually went out over FCM.
+  return c.json({ ok: true, id: ref.id, push });
+});
+
+// Diagnostics: how many device tokens are registered right now.
+app.get('/admin/push/status', async (c) => {
+  const db = await firestore();
+  let count = 0;
+  const platforms: Record<string, number> = {};
+  try {
+    const snap = await db.collection('fcm_tokens').get();
+    count = snap.size;
+    snap.forEach((d: any) => {
+      const p = String(d.data()?.platform || 'unknown');
+      platforms[p] = (platforms[p] || 0) + 1;
+    });
+  } catch (err: any) {
+    return c.json({ error: 'read_failed', message: err?.message || String(err) }, 500);
+  }
+  return c.json({ registered_tokens: count, platforms });
+});
+
+// Diagnostics: send a test push right now and return the detailed FCM result
+// (targeted / success / failure / error codes) without saving a notification.
+app.post('/admin/push/test', async (c) => {
+  const db = await firestore();
+  const body = await c.req.json().catch(() => ({} as any));
+  const title = sanitizeText(body.title, 200) || 'اختبار الإشعارات';
+  const text = sanitizeText(body.body, 1000) || 'هذا إشعار تجريبي من لوحة التحكم';
+  let push: PushResult = { targeted: 0, success: 0, failure: 0, errors: [] };
+  try {
+    push = await sendPushToRegistered(db, { title, body: text, type: 'announcement', app_slug: '', id: 'test-' + nowSec() });
+  } catch (err: any) {
+    return c.json({ ok: false, error: 'send_failed', message: err?.message || String(err) }, 500);
+  }
+  return c.json({ ok: true, push });
 });
 
 app.delete('/admin/notifications/:id', async (c) => {

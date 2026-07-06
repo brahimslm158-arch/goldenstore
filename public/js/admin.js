@@ -422,8 +422,44 @@
         'aria-label': 'النص',
       });
       const publishBtn = el('button', { class: 'btn btn-primary', type: 'button' }, ico('bell'), 'نشر إشعار');
+      const testBtn = el('button', { class: 'btn btn-secondary', type: 'button' }, ico('bell'), 'إشعار تجريبي');
+      const pushInfo = el('div', { class: 'push-info', style: { fontSize: '13px', marginTop: '8px', lineHeight: '1.6' } });
       const listWrap = el('div', { class: 'panel' });
       const list = el('div', { class: 'notif-list' });
+
+      function showPush(push) {
+        if (!push) { pushInfo.textContent = ''; return; }
+        const parts = [
+          `الأجهزة المستهدفة: ${push.targeted || 0}`,
+          `نجح: ${push.success || 0}`,
+          `فشل: ${push.failure || 0}`,
+        ];
+        if (push.errors && push.errors.length) parts.push(`أخطاء: ${push.errors.join(' | ')}`);
+        pushInfo.textContent = parts.join(' • ');
+        if ((push.targeted || 0) === 0) {
+          pushInfo.textContent += ' — لا يوجد أي جهاز مسجّل. افتح تطبيق الأندرويد، اسمح بالإشعارات، وسجّل الدخول.';
+        }
+      }
+
+      async function refreshStatus() {
+        try {
+          const s = await api('/api/admin/push/status');
+          pushInfo.textContent = `الأجهزة المسجّلة حالياً: ${s.registered_tokens || 0}`;
+        } catch (e) {}
+      }
+
+      testBtn.onclick = async () => {
+        testBtn.disabled = true;
+        try {
+          const res = await api('/api/admin/push/test', { method: 'POST', body: {} });
+          showPush(res.push);
+          toast('تم إرسال إشعار تجريبي', 'success');
+        } catch (e) {
+          toast(e.message || 'تعذر الإرسال', 'error');
+        } finally {
+          testBtn.disabled = false;
+        }
+      };
 
       async function load() {
         list.innerHTML = '<div class="center-spinner"><div class="spinner"></div></div>';
@@ -448,12 +484,13 @@
         if (!title) { toast('أدخل عنوان الإشعار', 'error'); return; }
         publishBtn.disabled = true;
         try {
-          await api('/api/admin/notifications', {
+          const res = await api('/api/admin/notifications', {
             method: 'POST',
             body: { title, body: bodyText },
           });
           titleInput.value = '';
           bodyInput.value = '';
+          showPush(res && res.push);
           toast('تم نشر الإشعار', 'success');
           await load();
         } catch (e) {
@@ -479,12 +516,14 @@
               el('label', null, 'النص'),
               bodyInput,
             ),
-            publishBtn,
+            el('div', { class: 'btn-row', style: { display: 'flex', gap: '8px', flexWrap: 'wrap' } }, publishBtn, testBtn),
+            pushInfo,
           ),
         ),
         listWrap,
       );
 
+      await refreshStatus();
       await load();
     } catch (e) {
       body.innerHTML = '';
