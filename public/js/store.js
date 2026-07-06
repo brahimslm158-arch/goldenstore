@@ -548,9 +548,15 @@ function bottomNav(active) {
         // The account tab ("أنت") shows the signed-in user's profile picture
         // instead of a generic icon.
         const isAccount = it.key === 'account';
-        const iconNode = (isAccount && _user && _user.photoURL)
-          ? el('span', { class: 'pill-ico nav-avatar' }, el('img', { src: _user.photoURL, alt: '', referrerpolicy: 'no-referrer' }))
-          : el('span', { class: 'pill-ico' }, ico(it.icon, 'icon'));
+        let iconNode;
+        if (isAccount && _user) {
+          const av = el('span', { class: 'pill-ico nav-avatar' });
+          if (_user.photoURL) av.append(el('img', { src: _user.photoURL, alt: '', referrerpolicy: 'no-referrer' }));
+          else av.append(el('span', { class: 'nav-avatar-txt' }, initials(_user)));
+          iconNode = av;
+        } else {
+          iconNode = el('span', { class: 'pill-ico' }, ico(it.icon, 'icon'));
+        }
         return el('a', { href: it.href, class: `navitem ${it.key === active ? 'active' : ''}` },
           iconNode,
           el('span', { class: 'nav-label' }, t(it.label)),
@@ -1272,7 +1278,8 @@ function onActiveDownloadsChange(fn) {
       'body{-webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none;}' +
       'input,textarea,[contenteditable="true"]{-webkit-user-select:text;user-select:text;}' +
       '.bottomnav .nav-avatar{display:flex;align-items:center;justify-content:center;}' +
-      '.bottomnav .nav-avatar img{width:24px;height:24px;border-radius:50%;object-fit:cover;display:block;}';
+      '.bottomnav .nav-avatar img{width:24px;height:24px;border-radius:50%;object-fit:cover;display:block;}' +
+      '.bottomnav .nav-avatar-txt{width:24px;height:24px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#0d0d0f;background:#e0b64c;}';
     (document.head || document.documentElement).appendChild(style);
     document.addEventListener('gesturestart', function (e) { e.preventDefault(); }, { passive: false });
     // Block pinch-zoom via multi-touch.
