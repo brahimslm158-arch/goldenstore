@@ -406,8 +406,9 @@
       // Already installed: tapping toggles back to the "install" state.
       if (btn.classList.contains('installed')) { unmarkInstalledStored(app.slug); showIdle(); return; }
 
-      // Require login before downloading
-      if (!S.isLoggedIn()) {
+      // Require login before downloading (skip in native wrapper where anonymous
+      // downloads are allowed and the redirect sign-in flow interrupts the flow)
+      if (!isNativeApp() && !S.isLoggedIn()) {
         try { await S.requireAuth(); } catch { return; }
       }
 
@@ -760,8 +761,9 @@
     async function submit() {
       if (voted) { toast(t('لقد قيّمت هذا التطبيق مسبقاً'), 'info'); return; }
       if (!selected) { toast(t('اختر عدد النجوم أولاً'), 'info'); return; }
-      // Require login before rating
-      if (!S.isLoggedIn()) {
+      // Require login before rating (skip in native wrapper where anonymous
+      // votes are allowed and the redirect sign-in flow cannot be awaited)
+      if (!isNativeApp() && !S.isLoggedIn()) {
         try { await S.requireAuth(); } catch { return; }
       }
       submitBtn.disabled = true;
