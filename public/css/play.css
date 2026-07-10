@@ -315,6 +315,70 @@ input, select { font-family: inherit; }
 .poster-grid .poster { width: 100%; }
 .poster-grid .poster .art { width: 100%; height: auto; aspect-ratio: 1 / 1; }
 
+/* Square grid cards (home-page grid view) */
+.grid-list {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  padding: 0 8px;
+}
+.grid-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  aspect-ratio: 1 / 1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 12px;
+  text-align: center;
+  overflow: hidden;
+  transition: background .12s, transform .06s;
+}
+.grid-card:active { transform: scale(.98); }
+.grid-art {
+  width: 58%;
+  aspect-ratio: 1 / 1;
+  border-radius: 18px;
+  overflow: hidden;
+  background: var(--surface-2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-3);
+  flex-shrink: 0;
+}
+.grid-art img { width: 100%; height: 100%; object-fit: cover; }
+.grid-info { width: 100%; }
+.grid-name {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.grid-meta {
+  font-size: 10px;
+  color: var(--text-2);
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.grid-rating {
+  font-size: 10px;
+  color: var(--text-2);
+  margin-top: 2px;
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  justify-content: center;
+}
+.grid-rating .icon { width: 10px; height: 10px; color: var(--star); }
+
 /* Two-column vertical list */
 .applist.two-col { display: grid; grid-template-columns: repeat(2, 1fr); gap: 2px 8px; }
 .applist.two-col .approw { border-bottom: none; padding: 8px 4px; gap: 10px; }
@@ -658,6 +722,7 @@ input, select { font-family: inherit; }
 @media (min-width: 600px) {
   .content { max-width: 720px; margin: 0 auto; }
   .poster-grid { grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); }
+  .grid-list { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .applist.two-col { grid-template-columns: repeat(2, 1fr); gap: 4px 16px; }
   .applist.two-col .approw .art { width: 52px; height: 52px; }
 }
@@ -863,6 +928,7 @@ input, select { font-family: inherit; }
     font-size: 13px;
     margin-top: 5px;
   }
+  .grid-list { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .applist.two-col {
     grid-template-columns: repeat(3, 1fr);
     gap: 4px 20px;
@@ -1147,6 +1213,7 @@ input, select { font-family: inherit; }
     grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
     gap: 24px 18px;
   }
+  .grid-list { grid-template-columns: repeat(5, minmax(0, 1fr)); }
   .applist.two-col {
     grid-template-columns: repeat(4, 1fr);
   }
@@ -1180,6 +1247,7 @@ input, select { font-family: inherit; }
   .content {
     max-width: 1600px;
   }
+  .grid-list { grid-template-columns: repeat(5, minmax(0, 1fr)); }
   .applist.two-col {
     grid-template-columns: repeat(5, 1fr);
   }

@@ -199,6 +199,22 @@ function listRow(a, opts = {}) {
   );
 }
 
+// Square grid card used in the home-page grid view.
+function gridCard(a) {
+  const rt = ratingOf(a);
+  return el('a', { href: `/app?slug=${encodeURIComponent(a.slug)}`, class: 'grid-card' },
+    el('div', { class: 'grid-art' }, a.icon_url ? el('img', { src: a.icon_url, alt: a.name, loading: 'lazy' }) : ico('package', 'icon icon-lg')),
+    el('div', { class: 'grid-info' },
+      el('div', { class: 'grid-name' }, a.name),
+      el('div', { class: 'grid-meta' }, `${a.version_name ? 'v' + a.version_name : ''}${a.version_name ? ' • ' : ''}${formatBytes(a.size_bytes || 0)}`),
+      el('div', { class: 'grid-rating' },
+        rt ? el('span', null, rt) : el('span', null, t('جديد')),
+        rt ? ico('star', 'icon fill') : null,
+      ),
+    ),
+  );
+}
+
 // Google Play-style featured card: image with gradient + description overlay, compact info bar below.
 function featureSlide(a) {
   const slide = el('a', { href: `/app?slug=${encodeURIComponent(a.slug)}`, class: 'fc-slide' });
@@ -1341,7 +1357,7 @@ function onActiveDownloadsChange(fn) {
 window.Store = {
   STORE, api, el, ico, t,
   formatBytes, formatCount, formatNum, formatDate, ratingOf, ratingValue, ratingCountOf, getQuery, toast,
-  posterCard, listRow, featureCarousel, categoryName,
+  posterCard, listRow, gridCard, featureCarousel, categoryName,
   spinner, skeletonHome, skeletonDetail, skeletonList, emptyState, errorState,
   topbarSearch, topbarNav, bottomNav, avatarEl, themeToggleBtn, langSwitcherEl, toggleTheme, currentTheme,
   fetchNotifications, notifUnreadCount, openNotifications,

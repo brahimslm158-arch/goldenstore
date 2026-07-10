@@ -195,9 +195,9 @@
       gridBtn.classList.toggle('on', mode === 'grid');
       listBtn.classList.toggle('on', mode === 'list');
       if (mode === 'grid') {
-        // 2-column grid with compact list rows
-        const grid = el('div', { class: 'applist two-col' });
-        apps.forEach((a) => grid.append(window.Store.listRow(a)));
+        // Square grid cards
+        const grid = el('div', { class: 'grid-list' });
+        apps.forEach((a) => grid.append(window.Store.gridCard(a)));
         body.append(grid);
       } else {
         // Single column list
