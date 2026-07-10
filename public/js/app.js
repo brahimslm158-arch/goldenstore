@@ -415,7 +415,8 @@
       // WebView, so hand off to the native DownloadManager bridge which saves
       // the APK to the device's Downloads and shows an "open to install" notice.
       if (isNativeApp()) {
-        const dlUrl = `${location.origin}/api/apps/${encodeURIComponent(app.slug)}/download`;
+        const apiBase = (window.Capacitor && window.Capacitor.getConfig && window.Capacitor.getConfig().apiBase) || 'https://goldenstore.vercel.app';
+        const dlUrl = `${apiBase}/api/apps/${encodeURIComponent(app.slug)}/download`;
         btn.classList.add('installing');
         btn.disabled = true;
         setIndeterminate();

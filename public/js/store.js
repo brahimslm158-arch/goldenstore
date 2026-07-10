@@ -36,16 +36,67 @@ function langSwitcherEl() {
 applyTheme(currentTheme());
 
 /* ----------------------------- API ----------------------------- */
+function isNativeApp() {
+  return typeof window !== 'undefined' && window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform();
+}
+function apiBaseUrl() {
+  if (!isNativeApp()) return '';
+  const cfg = window.Capacitor.getConfig && window.Capacitor.getConfig();
+  return (cfg && cfg.apiBase) || 'https://goldenstore.vercel.app';
+}
+function fullApiUrl(path) {
+  const base = apiBaseUrl();
+  return base && path.startsWith('/') ? base + path : path;
+}
+async function apiNativeCap(path, opts, timeoutMs) {
+  const capHttp = window.Capacitor.Plugins.CapacitorHttp;
+  const body = opts.body && typeof opts.body !== 'string' && !(opts.body instanceof FormData)
+    ? JSON.stringify(opts.body) : opts.body;
+  let headers = opts.headers || {};
+  if (body && !(body instanceof FormData) && typeof body !== 'string' && !headers['Content-Type'] && !headers['content-type']) {
+    headers = { 'Content-Type': 'application/json', ...headers };
+  }
+  const options = {
+    url: fullApiUrl(path),
+    method: opts.method || 'GET',
+    headers,
+    data: body,
+    responseType: 'json',
+  };
+  if (timeoutMs > 0) {
+    options.connectTimeout = timeoutMs;
+    options.readTimeout = timeoutMs;
+  }
+  let response;
+  try {
+    response = await capHttp.request(options);
+  } catch (e) {
+    const err = new Error((e && e.message) || 'network_error');
+    err.status = 0;
+    throw err;
+  }
+  const data = response.data || null;
+  if (response.status < 200 || response.status >= 300) {
+    const err = new Error((data && data.error) || 'error');
+    err.status = response.status;
+    err.data = data;
+    throw err;
+  }
+  return data;
+}
 async function api(path, opts = {}) {
-  const ctrl = new AbortController();
   const timeoutMs = typeof opts.timeoutMs === 'number' ? opts.timeoutMs : 15000;
+  if (isNativeApp() && window.Capacitor.Plugins && window.Capacitor.Plugins.CapacitorHttp) {
+    return apiNativeCap(path, opts, timeoutMs);
+  }
+  const ctrl = new AbortController();
   const timer = timeoutMs > 0 ? setTimeout(() => ctrl.abort(), timeoutMs) : null;
   let res;
   try {
-    res = await fetch(path, {
+    res = await fetch(fullApiUrl(path), {
       credentials: 'include',
       headers: opts.body && !(opts.body instanceof FormData) && typeof opts.body !== 'string'
-        ? { 'Content-Type': 'application/json' }
+        ? { 'Content-Type': 'application/json', ...(opts.headers || {}) }
         : opts.headers || {},
       ...opts,
       signal: opts.signal || ctrl.signal,
