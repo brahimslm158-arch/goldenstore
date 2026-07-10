@@ -50,10 +50,10 @@ function fullApiUrl(path) {
 }
 async function apiNativeCap(path, opts, timeoutMs) {
   const capHttp = window.Capacitor.Plugins.CapacitorHttp;
-  const body = opts.body && typeof opts.body !== 'string' && !(opts.body instanceof FormData)
-    ? JSON.stringify(opts.body) : opts.body;
+  const isJsonBody = opts.body && typeof opts.body !== 'string' && !(opts.body instanceof FormData);
+  const body = isJsonBody ? JSON.stringify(opts.body) : opts.body;
   let headers = opts.headers || {};
-  if (body && !(body instanceof FormData) && typeof body !== 'string' && !headers['Content-Type'] && !headers['content-type']) {
+  if (isJsonBody && !headers['Content-Type'] && !headers['content-type']) {
     headers = { 'Content-Type': 'application/json', ...headers };
   }
   const options = {
