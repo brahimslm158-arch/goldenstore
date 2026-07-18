@@ -86,22 +86,24 @@ function el(tag, attrs = null, ...children) {
   return node;
 }
 
-function i18nUnits(kind) {
-  try { const u = window.GSI18N && window.GSI18N.units(kind); if (u && u.length) return u; } catch (e) {}
-  return kind === 'count' ? ['', 'ألف', 'مليون', 'مليار'] : ['ب', 'ك.ب', 'م.ب', 'ج.ب'];
-}
 function formatBytes(bytes) {
-  const units = i18nUnits('bytes');
-  if (!bytes) return `0 ${units[0]}`;
+  const lang = (window.GSI18N && window.GSI18N.lang) || 'ar';
+  if (!bytes) return `0 ${lang === 'ar' ? 'ب' : 'B'}`;
+  const units = {
+    ar: ['ب', 'ك.ب', 'م.ب', 'ج.ب'],
+    en: ['B', 'KB', 'MB', 'GB'],
+    fr: ['o', 'Ko', 'Mo', 'Go'],
+    es: ['B', 'KB', 'MB', 'GB'],
+  };
+  const u = units[lang] || units['ar'];
   let i = 0;
   let v = bytes;
-  while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
-  return `${v.toFixed(v < 10 && i > 0 ? 1 : 0)} ${units[i]}`;
+  while (v >= 1024 && i < u.length - 1) { v /= 1024; i++; }
+  return `${v.toFixed(v < 10 && i > 0 ? 1 : 0)} ${u[i]}`;
 }
 
 function formatNum(n) {
-  const lang = (window.GSI18N && window.GSI18N.lang) || 'ar';
-  return Number(n || 0).toLocaleString(lang === 'ar' ? 'en-US' : lang);
+  return Number(n || 0).toLocaleString('en-US');
 }
 
 function formatDate(ts) {

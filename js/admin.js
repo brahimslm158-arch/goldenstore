@@ -1,5 +1,6 @@
 (async function () {
   const { api, el, ico, toast, formatBytes, formatNum, formatDate, themeToggleBtn } = window.GS;
+  const t = (window.GSI18N && window.GSI18N.t) ? window.GSI18N.t : (s) => s;
   const root = document.getElementById('content');
 
   let me = null;
@@ -333,9 +334,9 @@
       tabBtn('apps', 'apps', 'التطبيقات'),
       tabBtn('games', 'gamepad', 'الألعاب'),
       tabBtn('new', 'plus', 'إضافة جديد'),
-      tabBtn('update', 'android', 'تحديث التطبيق'),
       tabBtn('requests', 'flag', 'الطلبات والبلاغات'),
       tabBtn('notifications', 'bell', 'الإشعارات'),
+      tabBtn('app-update', 'download', 'تحديث التطبيق'),
       el('span', { class: 'tab-spacer' }),
       logoutTab,
     );
@@ -348,9 +349,9 @@
     else if (activeTab === 'apps') await renderAppsList(body, 'app');
     else if (activeTab === 'games') await renderAppsList(body, 'game');
     else if (activeTab === 'new') await renderNewApp(body);
-    else if (activeTab === 'update') await renderAppUpdate(body);
     else if (activeTab === 'requests') await renderRequests(body);
     else if (activeTab === 'notifications') await renderNotifications(body);
+    else if (activeTab === 'app-update') await renderAppUpdate(body);
     else if (activeTab.startsWith('edit:')) await renderEditApp(body, activeTab.slice(5));
   }
 
@@ -566,6 +567,79 @@
     }
   }
 
+  // -------- app update --------
+  async function renderAppUpdate(body) {
+    body.innerHTML = '<div class="center-spinner"><div class="spinner"></div></div>';
+    try {
+      let current = null;
+      try { current = await api('/api/app-update'); } catch {}
+
+      const versionInput = el('input', { class: 'input', type: 'text', placeholder: 'مثلاً: 1.2.0', value: current && current.version_name || '', 'aria-label': t('إصدار التطبيق') });
+      const codeInput = el('input', { class: 'input', type: 'number', placeholder: 'مثلاً: 3', value: current && current.version_code || '', 'aria-label': t('رمز الإصدار') });
+      const urlInput = el('input', { class: 'input', type: 'url', placeholder: 'https://example.com/goldenstore.apk', value: current && (current.apk_url || current.url) || '', 'aria-label': t('رابط APK') });
+      const notesInput = el('textarea', { class: 'input', rows: 4, placeholder: 'ما الجديد في هذا التحديث؟', 'aria-label': t('ملاحظات التحديث') }, current && current.notes || '');
+      const forceInput = el('input', { type: 'checkbox' });
+      if (current && current.force) forceInput.checked = true;
+
+      const publishBtn = el('button', { class: 'btn btn-primary', type: 'button' }, ico('download'), t('إرسال التحديث'));
+      const pushInfo = el('div', { class: 'push-info', style: { fontSize: '13px', marginTop: '8px', lineHeight: '1.6' } });
+
+      publishBtn.onclick = async () => {
+        const version_name = versionInput.value.trim();
+        const version_code = codeInput.value ? Number(codeInput.value) : null;
+        const apk_url = urlInput.value.trim();
+        const notes = notesInput.value.trim();
+        if (!version_name || !apk_url) { toast(t('يرجى ملء الحقول المطلوبة'), 'error'); return; }
+        publishBtn.disabled = true;
+        try {
+          const res = await api('/api/admin/app-update', {
+            method: 'POST',
+            body: { version_name, version_code, apk_url, notes, force: forceInput.checked, send_notification: true },
+          });
+          pushInfo.textContent = t('الإشعار') + ': ' + (res && res.push && (res.push.success || 0) + '/' + (res.push.targeted || 0));
+          toast(t('تم نشر التحديث'), 'success');
+        } catch (e) {
+          toast(t('فشل نشر التحديث'), 'error');
+        } finally {
+          publishBtn.disabled = false;
+        }
+      };
+
+      body.innerHTML = '';
+      body.append(
+        el('div', { class: 'panel' },
+          el('div', { class: 'panel-head' }, ico('download'), t('تحديث التطبيق')),
+          el('div', { class: 'form' },
+            el('div', { class: 'field' },
+              el('label', null, t('إصدار التطبيق'), el('span', { class: 'req' }, ' *')),
+              versionInput,
+            ),
+            el('div', { class: 'field' },
+              el('label', null, t('رمز الإصدار')),
+              codeInput,
+            ),
+            el('div', { class: 'field' },
+              el('label', null, t('رابط APK'), el('span', { class: 'req' }, ' *')),
+              urlInput,
+            ),
+            el('div', { class: 'field' },
+              el('label', null, t('ملاحظات التحديث')),
+              notesInput,
+            ),
+            el('div', { class: 'field' },
+              el('label', { style: { display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' } }, forceInput, t('إجبار التحديث (لا يمكن التجاوز)')),
+            ),
+            publishBtn,
+            pushInfo,
+          ),
+        ),
+      );
+    } catch (e) {
+      body.innerHTML = '';
+      body.append(emptyMsg('تعذر التحميل', e.message));
+    }
+  }
+
   function notificationCard(n, refreshList) {
     const type = n.type === 'new_app' || n.type === 'update' || n.type === 'announcement' ? n.type : 'announcement';
     const badgeLabel = type === 'new_app' ? 'تطبيق جديد' : type === 'update' ? 'تحديث' : 'إعلان';
@@ -633,93 +707,6 @@
     return card;
   }
 
-  // -------- app update --------
-  async function renderAppUpdate(body) {
-    body.innerHTML = '<div class="center-spinner"><div class="spinner"></div></div>';
-    try {
-      const current = await api('/api/app-update').catch(() => ({ update: null }));
-      body.innerHTML = '';
-
-      const apkDz = dropzone({ accept: '.apk', label: 'اسحب أو اختر ملف APK للتطبيق' });
-      const versionNameInput = el('input', { name: 'version_name', type: 'text', placeholder: 'مثلاً: 1.2.0' });
-      const versionCodeInput = el('input', { name: 'version_code', type: 'number', placeholder: 'مثلاً: 3' });
-      const messageInput = el('textarea', { name: 'message', placeholder: 'نص التحديث والمستجدات…', rows: '4' });
-      const forceInput = el('input', { name: 'force', type: 'checkbox' });
-      const notifyInput = el('input', { name: 'send_notification', type: 'checkbox', checked: true });
-      const submitBtn = el('button', { class: 'btn btn-primary btn-lg', type: 'submit' }, ico('upload'), ' نشر التحديث');
-
-      const form = el('form', { class: 'form', onsubmit: async (e) => {
-        e.preventDefault();
-        const files = apkDz.getFiles();
-        if (!files.length) { toast('اختر ملف APK أولاً', 'error'); return; }
-        const version_name = versionNameInput.value.trim();
-        const version_code = parseInt(versionCodeInput.value, 10);
-        if (!version_name || !version_code || version_code <= 0) { toast('أدخل اسم ورقم إصدار صحيحين', 'error'); return; }
-
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '';
-        submitBtn.append(ico('upload'), document.createTextNode(' جارٍ الرفع…'));
-        try {
-          const apk_key = await r2Upload(files[0], 'app-update', 'goldenstore', (p) => apkDz.setProgress(0, p));
-          await api('/api/admin/app-update', {
-            method: 'POST',
-            body: {
-              apk_key,
-              version_name,
-              version_code,
-              message: messageInput.value.trim(),
-              force: forceInput.checked,
-              send_notification: notifyInput.checked,
-            },
-          });
-          toast('تم نشر التحديث بنجاح', 'success');
-          apkDz.reset();
-          renderAppUpdate(body);
-        } catch (err) {
-          toast(err.message || 'فشل نشر التحديث', 'error');
-        } finally {
-          submitBtn.disabled = false;
-          submitBtn.innerHTML = '';
-          submitBtn.append(ico('upload'), document.createTextNode(' نشر التحديث'));
-        }
-      } },
-        el('div', { class: 'panel' },
-          el('div', { class: 'panel-head' }, ico('android'), 'تحديث تطبيق Golden Store'),
-          el('div', { class: 'sub', style: 'margin-bottom:14px;' }, 'ارفع ملف APK جديداً للتطبيق. سيتلقى المستخدمون إشعاراً (إن وُسّعت) وسيظهر لهم نافذة تحديث عند فتح التطبيق.'),
-          apkDz,
-          formRow(
-            formFieldLike('اسم الإصدار', versionNameInput, true),
-            formFieldLike('رقم الإصدار (versionCode)', versionCodeInput, true),
-          ),
-          formFieldLike('رسالة التحديث', messageInput),
-          el('label', { class: 'toggle', style: 'display:flex; align-items:center; gap:10px; margin:12px 0;' }, forceInput, el('span', null, 'إجبار المستخدم على التحديث')),
-          el('label', { class: 'toggle', style: 'display:flex; align-items:center; gap:10px; margin:12px 0;' }, notifyInput, el('span', null, 'إرسال إشعار للمستخدمين')),
-          submitBtn,
-        ),
-      );
-
-      if (current && current.update) {
-        body.append(el('div', { class: 'panel', style: 'margin-bottom:16px;' },
-          el('div', { class: 'panel-head' }, ico('info'), 'الإصدار المنشور حالياً'),
-          el('div', null, `الإصدار: ${current.update.version_name || '—'} (code ${current.update.version_code || '—'})`),
-          el('div', null, `التاريخ: ${formatDate(current.update.created_at)}`),
-          current.update.message ? el('p', { class: 'muted' }, current.update.message) : null,
-        ));
-      }
-      body.append(form);
-    } catch (e) {
-      body.innerHTML = '';
-      body.append(emptyMsg('تعذر التحميل', e.message));
-    }
-  }
-
-  function formFieldLike(label, input, required) {
-    return el('div', { class: 'field' },
-      el('label', null, label, required ? el('span', { class: 'req' }, ' *') : null),
-      input,
-    );
-  }
-
   // -------- apps list --------
   async function renderAppsList(body, kind) {
     kind = kind === 'game' ? 'game' : 'app';
@@ -761,7 +748,7 @@
               el('div', null, a.name),
               (a.stars > 0) ? el('span', { class: 'star-pin', style: 'position:relative; top:auto; inset-inline-end:auto; display:inline-flex; margin-top:6px;' }, ico('star'), formatNum(a.stars)) : null,
             ),
-            el('td', { 'data-label': 'التصنيف' }, cats.find(c => c.slug === a.category)?.name || a.category),
+            el('td', { 'data-label': 'التصنيف' }, t(cats.find(c => c.slug === a.category)?.name) || t(a.category) || '—'),
             el('td', { 'data-label': 'الإصدار' }, a.version_name || '—'),
             el('td', { 'data-label': 'الحجم' }, formatBytes(a.size_bytes)),
             el('td', { 'data-label': 'التنزيلات' }, formatNum(a.downloads)),
@@ -1119,7 +1106,7 @@
         const isGameCat = c.slug.startsWith('game_');
         if (currentType === 'game' && !isGameCat && c.slug !== 'other') return;
         if (currentType !== 'game' && isGameCat) return;
-        const opt = el('option', { value: c.slug }, c.name);
+        const opt = el('option', { value: c.slug }, t(c.name));
         if (selected === c.slug) opt.selected = true;
         sel.append(opt);
       });

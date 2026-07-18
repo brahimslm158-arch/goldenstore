@@ -171,10 +171,7 @@ function formatCount(n) {
   if (n >= 1e3) return (n / 1e3).toFixed(1).replace(/\.0$/, '') + ' ' + u[1];
   return String(n);
 }
-function formatNum(n) {
-  const lang = (window.GSI18N && window.GSI18N.lang) || 'ar';
-  return Number(n || 0).toLocaleString(lang === 'ar' ? 'en-US' : lang);
-}
+function formatNum(n) { return Number(n || 0).toLocaleString('en-US'); }
 function formatDate(ts) {
   if (!ts) return '—';
   const lang = (window.GSI18N && window.GSI18N.lang) || 'ar';
@@ -351,15 +348,13 @@ const CAT_NAMES = {
   medical: 'طبّي', personalization: 'تخصيص', sports: 'رياضة', weather: 'طقس',
   auto: 'سيارات ومركبات', beauty: 'جمال وتجميل', art_design: 'فنّ وتصميم',
   house_home: 'منزل', parenting: 'أبوّة وأمومة', events: 'فعاليات', comics: 'قصص مصوّرة',
-  vpn: 'VPN وخصوصية', system: 'أدوات النظام', wallpapers: 'خلفيات', files: 'إدارة الملفات',
-  connectivity: 'اتصال وشبكات', other: 'أخرى',
+  other: 'أخرى',
   // Game categories
   game_action: 'أكشن', game_adventure: 'مغامرات', game_arcade: 'أركيد', game_board: 'ألعاب لوحية',
   game_card: 'ورق (كوتشينة)', game_casino: 'كازينو', game_casual: 'عادية', game_educational: 'تعليمية',
   game_music: 'موسيقى', game_puzzle: 'ألغاز', game_racing: 'سباقات', game_rpg: 'تقمّص أدوار',
   game_simulation: 'محاكاة', game_sports: 'رياضية', game_strategy: 'استراتيجية',
-  game_trivia: 'معلومات عامة', game_word: 'كلمات', game_family: 'عائلية', game_shooter: 'إطلاق نار',
-  game_action_adventure: 'حركة ومغامرة', game_role_playing: 'ألعاب جماعية', game_other: 'ألعاب أخرى',
+  game_trivia: 'معلومات عامة', game_word: 'كلمات', game_other: 'ألعاب أخرى',
   // Legacy
   games: 'ألعاب',
 };
@@ -545,9 +540,14 @@ async function openNotifications() {
 
   list.forEach((n) => {
     const type = n.type === 'new_app' || n.type === 'update' || n.type === 'announcement' ? n.type : 'announcement';
-    const row = n.app_slug
-      ? el('a', { class: 'notif-row', href: `/app?slug=${encodeURIComponent(n.app_slug)}` })
-      : el('div', { class: 'notif-row' });
+    let row;
+    if (type === 'update' && n.data && n.data.apk_url) {
+      row = el('a', { class: 'notif-row', href: '#', onclick: (e) => { e.preventDefault(); showUpdateDialog(n.data); overlay.remove(); } });
+    } else if (n.app_slug) {
+      row = el('a', { class: 'notif-row', href: `/app?slug=${encodeURIComponent(n.app_slug)}` });
+    } else {
+      row = el('div', { class: 'notif-row' });
+    }
     row.append(
       el('div', { class: 'notif-ico' }, ico(type === 'new_app' ? 'package' : type === 'update' ? 'download' : 'bell')),
       el('div', { class: 'notif-info' },
@@ -1256,8 +1256,86 @@ async function signOut() {
   location.href = '/';
 }
 
+/* ----------------------------- App update popup ----------------------------- */
+const APP_UPDATE_DISMISS_KEY = 'gs_app_update_dismissed';
+
+function getCurrentAppVersion() {
+  try {
+    const cfg = window.Capacitor && window.Capacitor.getConfig && window.Capacitor.getConfig();
+    if (cfg && cfg.appVersion) return String(cfg.appVersion);
+  } catch (e) {}
+  return '1.0';
+}
+
+function shouldShowUpdate(update) {
+  if (!update || !update.version_name || !update.apk_url) return false;
+  try {
+    const dismissed = JSON.parse(localStorage.getItem(APP_UPDATE_DISMISS_KEY) || '{}');
+    if (!update.force && dismissed[update.version_name]) return false;
+  } catch (e) {}
+  return String(update.version_name) !== getCurrentAppVersion();
+}
+
+function showUpdateDialog(update) {
+  if (!update || !update.apk_url) return;
+  const existing = document.getElementById('gs-update-dialog');
+  if (existing) existing.remove();
+
+  const overlay = el('div', {
+    id: 'gs-update-dialog',
+    style: {
+      position: 'fixed', inset: '0', zIndex: '300',
+      background: 'rgba(0,0,0,.7)', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '20px',
+    },
+  });
+  const card = el('div', {
+    style: {
+      background: 'var(--surface)', color: 'var(--text)', border: '1px solid var(--line)', borderRadius: '20px',
+      maxWidth: '420px', width: '100%', padding: '24px', textAlign: 'center', boxShadow: '0 24px 80px rgba(0,0,0,.4)',
+    },
+  },
+    el('div', { style: { fontSize: '48px', marginBottom: '10px' } }, '⬆'),
+    el('h2', { style: { fontSize: '20px', marginBottom: '8px' } }, t('تحديث جديد متاح')),
+    el('p', { style: { color: 'var(--text-2)', fontSize: '14px', lineHeight: '1.7', marginBottom: '18px' } },
+      update.notes || t('يتوفر إصدار جديد من التطبيق. حمّله الآن للحصول على أحدث الميزات والإصلاحات.'),
+    ),
+    el('div', { style: { display: 'flex', gap: '10px', flexDirection: 'column' } },
+      el('a', {
+        href: update.apk_url,
+        class: 'btn btn-primary btn-lg',
+        target: '_blank',
+        download: 'goldenstore-' + update.version_name + '.apk',
+        onclick: () => { setTimeout(() => overlay.remove(), 200); },
+      }, ico('download'), t('تحميل الآن')),
+      update.force ? null : el('button', {
+        class: 'btn btn-secondary',
+        type: 'button',
+        onclick: () => {
+          try { const d = JSON.parse(localStorage.getItem(APP_UPDATE_DISMISS_KEY) || '{}'); d[update.version_name] = Date.now(); localStorage.setItem(APP_UPDATE_DISMISS_KEY, JSON.stringify(d)); } catch (e) {}
+          overlay.remove();
+        },
+      }, t('لاحقاً')),
+    ),
+  );
+  overlay.append(card);
+  overlay.addEventListener('click', (e) => { if (e.target === overlay && !update.force) overlay.remove(); });
+  document.body.append(overlay);
+}
+
+async function checkAppUpdate() {
+  if (!isNativeApp()) return;
+  try {
+    const update = await api('/api/app-update', { timeoutMs: 8000 });
+    if (shouldShowUpdate(update)) showUpdateDialog(update);
+  } catch (e) { console.error('[appUpdate] check failed', e); }
+}
+
 /* ----------------------------- Boot ----------------------------- */
-function boot() { initAuth(); }
+function boot() {
+  initAuth();
+  // Check for a newer app version shortly after the store renders.
+  if (isNativeApp()) setTimeout(checkAppUpdate, 2000);
+}
 
 /* ----------------------------- Download History ----------------------------- */
 const DL_HISTORY_KEY = 'gs_downloads';
@@ -1432,6 +1510,7 @@ window.Store = {
   earnPoints, pointsBalance, pointsWithdraw,
   getDownloadHistory, addToDownloadHistory, clearDownloadHistory,
   getActiveDownloads, setActiveDownload, updateActiveDownloadProgress, removeActiveDownload, onActiveDownloadsChange,
+  checkAppUpdate, showUpdateDialog,
 };
 
 document.addEventListener('DOMContentLoaded', boot);

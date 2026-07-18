@@ -1,0 +1,245 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="theme-color" content="#0d0d0f">
+<title>Golden Store — حمّل تطبيق الأندرويد</title>
+<meta name="description" content="Golden Store هو متجرك الذهبي للتطبيقات والألعاب. حمّل التطبيق الآن على أندرويد.">
+<link rel="icon" type="image/png" href="/images/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
+<script src="/js/lang.js"></script>
+<style>
+:root {
+  --bg: #0d0d0f;
+  --surface: #1b1b1f;
+  --surface-2: #232328;
+  --line: #2e2e33;
+  --text: #e8e8ea;
+  --text-2: #a8abb3;
+  --text-3: #82858d;
+  --gold: #f4c01f;
+  --gold-2: #ffd34d;
+  --primary: #a8c7fa;
+  --on-primary: #062e6f;
+  --radius: 22px;
+  --font: 'Tajawal', 'Roboto', system-ui, sans-serif;
+}
+:root[data-theme="light"] {
+  --bg: #f4f5f7;
+  --surface: #ffffff;
+  --surface-2: #eceef2;
+  --line: #dde0e6;
+  --text: #1a1c20;
+  --text-2: #555a62;
+  --text-3: #828892;
+  --on-primary: #ffffff;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font);
+  font-size: 16px;
+  line-height: 1.6;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+.wrap {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-start;
+  padding: 48px 20px 80px;
+  background: radial-gradient(120% 80% at 50% 0%, #1a1a1f 0%, var(--bg) 60%);
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  font-size: 28px;
+  font-weight: 800;
+  margin-bottom: 38px;
+}
+.brand img {
+  width: 64px;
+  height: 64px;
+  border-radius: 18px;
+  box-shadow: 0 12px 40px rgba(0,0,0,.35);
+}
+.brand span { color: var(--text); }
+.brand b { color: var(--gold); }
+.card {
+  width: 100%;
+  max-width: 520px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 38px 28px;
+  text-align: center;
+  box-shadow: 0 24px 80px rgba(0,0,0,.35);
+}
+h1 {
+  font-size: 26px;
+  font-weight: 800;
+  margin-bottom: 10px;
+}
+.tagline {
+  color: var(--text-2);
+  font-size: 15px;
+  margin-bottom: 28px;
+}
+.phone-mock {
+  width: 160px;
+  height: 160px;
+  margin: 0 auto 28px;
+  background: var(--surface-2);
+  border-radius: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--line);
+}
+.phone-mock img {
+  width: 96px;
+  height: 96px;
+  border-radius: 22px;
+}
+.features {
+  display: grid;
+  gap: 10px;
+  text-align: start;
+  margin-bottom: 28px;
+}
+.feature {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--surface-2);
+  border-radius: 14px;
+  font-size: 14px;
+  color: var(--text-2);
+}
+.feature .dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--gold);
+  flex-shrink: 0;
+}
+.actions { display: flex; flex-direction: column; gap: 12px; }
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  border-radius: 999px;
+  padding: 14px 24px;
+  font-weight: 800;
+  font-size: 16px;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  transition: transform .08s, filter .15s;
+}
+.btn:active { transform: scale(.98); }
+.btn-primary {
+  background: linear-gradient(135deg, var(--gold) 0%, var(--gold-2) 100%);
+  color: var(--on-primary);
+  box-shadow: 0 8px 28px rgba(244,192,31,.25);
+}
+.btn-primary:hover { filter: brightness(1.05); }
+.btn-secondary {
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--line);
+}
+.btn-secondary:hover { background: var(--line); }
+.version-note {
+  margin-top: 14px;
+  font-size: 12px;
+  color: var(--text-3);
+}
+.footnote {
+  margin-top: auto;
+  padding-top: 32px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-3);
+}
+.footnote a { color: var(--primary); text-decoration: none; }
+.hidden { display: none !important; }
+@media (max-width: 480px) {
+  .card { padding: 28px 18px; }
+  h1 { font-size: 22px; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="brand" dir="ltr">
+    <img src="/images/logo.png" alt="Golden Store">
+    <span>Golden<b>Store</b></span>
+  </div>
+
+  <div class="card">
+    <h1 id="headline">متجر التطبيقات والألعاب</h1>
+    <p class="tagline" id="subline">حمّل تطبيق Golden Store واحصل على آلاف التطبيقات والألعاب في مكان واحد.</p>
+
+    <div class="phone-mock">
+      <img src="/images/logo.png" alt="Golden Store App">
+    </div>
+
+    <div class="features" id="features">
+      <div class="feature"><span class="dot"></span><span>تصميم سريع وأنيق شبيه بـ Google Play</span></div>
+      <div class="feature"><span class="dot"></span><span>تنزيل APK مباشر وتثبيت ذكي</span></div>
+      <div class="feature"><span class="dot"></span><span>إشعارات فورية بالتطبيقات الجديدة والتحديثات</span></div>
+    </div>
+
+    <div class="actions">
+      <a id="downloadBtn" href="#" class="btn btn-primary">تحميل APK</a>
+      <a href="/admin.html" class="btn btn-secondary">لوحة تحكم الإدارة</a>
+    </div>
+    <div class="version-note" id="versionNote"></div>
+  </div>
+
+  <div class="footnote">
+    جميع الحقوق محفوظة © <a href="/">GoldenStore</a>
+  </div>
+</div>
+
+<script>
+(function () {
+  var T = (window.GSI18N && window.GSI18N.t) ? window.GSI18N.t : function (s) { return s; };
+  document.getElementById('headline').textContent = T('Golden Store — متجر التطبيقات');
+  document.getElementById('subline').textContent = T('حمّل تطبيق Golden Store واحصل على آلاف التطبيقات والألعاب في مكان واحد.');
+
+  var downloadBtn = document.getElementById('downloadBtn');
+  var versionNote = document.getElementById('versionNote');
+
+  function setDownload(url, version) {
+    if (url) {
+      downloadBtn.href = url;
+      downloadBtn.setAttribute('download', 'goldenstore-' + (version || 'latest') + '.apk');
+    }
+    if (version) {
+      versionNote.textContent = T('الإصدار الحالي') + ': ' + version;
+    }
+  }
+
+  // Try to load the latest APK info published from the admin panel.
+  fetch('/api/app-update', { method: 'GET', credentials: 'same-origin' })
+    .then(function (r) { return r.json().catch(function () { return null; }); })
+    .then(function (data) {
+      if (data && data.apk_url) setDownload(data.apk_url, data.version_name);
+      else if (data && data.url) setDownload(data.url, data.version_name);
+    })
+    .catch(function () {});
+})();
+</script>
+</body>
+</html>
