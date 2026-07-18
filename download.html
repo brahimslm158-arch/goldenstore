@@ -220,25 +220,32 @@ h1 {
 
   var downloadBtn = document.getElementById('downloadBtn');
   var versionNote = document.getElementById('versionNote');
+  downloadBtn.textContent = T('تحميل APK');
 
   function setDownload(url, version) {
     if (url) {
       downloadBtn.href = url;
       downloadBtn.setAttribute('download', 'goldenstore-' + (version || 'latest') + '.apk');
+      downloadBtn.classList.remove('disabled');
+    } else {
+      downloadBtn.classList.add('disabled');
+      downloadBtn.textContent = T('الرابط غير متوفر بعد');
+      downloadBtn.style.opacity = '0.6';
+      downloadBtn.style.pointerEvents = 'none';
     }
     if (version) {
       versionNote.textContent = T('الإصدار الحالي') + ': ' + version;
     }
   }
 
-  // Try to load the latest APK info published from the admin panel.
+  // Load the APK link published from the admin panel.
   fetch('/api/app-update', { method: 'GET', credentials: 'same-origin' })
     .then(function (r) { return r.json().catch(function () { return null; }); })
     .then(function (data) {
-      if (data && data.apk_url) setDownload(data.apk_url, data.version_name);
-      else if (data && data.url) setDownload(data.url, data.version_name);
+      if (data && (data.apk_url || data.url)) setDownload(data.apk_url || data.url, data.version_name);
+      else setDownload(null, null);
     })
-    .catch(function () {});
+    .catch(function () { setDownload(null, null); });
 })();
 </script>
 </body>

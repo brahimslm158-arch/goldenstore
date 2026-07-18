@@ -336,7 +336,7 @@
       tabBtn('new', 'plus', 'إضافة جديد'),
       tabBtn('requests', 'flag', 'الطلبات والبلاغات'),
       tabBtn('notifications', 'bell', 'الإشعارات'),
-      tabBtn('app-update', 'download', 'تحديث التطبيق'),
+      tabBtn('app-update', 'download', 'رابط تحميل التطبيق'),
       el('span', { class: 'tab-spacer' }),
       logoutTab,
     );
@@ -567,70 +567,67 @@
     }
   }
 
-  // -------- app update --------
+  // -------- app download link (sent from admin to the landing page) --------
   async function renderAppUpdate(body) {
     body.innerHTML = '<div class="center-spinner"><div class="spinner"></div></div>';
     try {
       let current = null;
       try { current = await api('/api/app-update'); } catch {}
 
-      const versionInput = el('input', { class: 'input', type: 'text', placeholder: 'مثلاً: 1.2.0', value: current && current.version_name || '', 'aria-label': t('إصدار التطبيق') });
-      const codeInput = el('input', { class: 'input', type: 'number', placeholder: 'مثلاً: 3', value: current && current.version_code || '', 'aria-label': t('رمز الإصدار') });
       const urlInput = el('input', { class: 'input', type: 'url', placeholder: 'https://example.com/goldenstore.apk', value: current && (current.apk_url || current.url) || '', 'aria-label': t('رابط APK') });
-      const notesInput = el('textarea', { class: 'input', rows: 4, placeholder: 'ما الجديد في هذا التحديث؟', 'aria-label': t('ملاحظات التحديث') }, current && current.notes || '');
-      const forceInput = el('input', { type: 'checkbox' });
-      if (current && current.force) forceInput.checked = true;
+      const versionInput = el('input', { class: 'input', type: 'text', placeholder: 'مثلاً: 1.2.0 (اختياري)', value: current && current.version_name || '', 'aria-label': t('إصدار التطبيق') });
+      const notesInput = el('textarea', { class: 'input', rows: 3, placeholder: 'ملاحظات قصيرة تظهر في نافذة التحديث (اختياري)', 'aria-label': t('ملاحظات التحديث') }, current && current.notes || '');
+      const notifyInput = el('input', { type: 'checkbox' });
+      notifyInput.checked = true;
 
-      const publishBtn = el('button', { class: 'btn btn-primary', type: 'button' }, ico('download'), t('إرسال التحديث'));
-      const pushInfo = el('div', { class: 'push-info', style: { fontSize: '13px', marginTop: '8px', lineHeight: '1.6' } });
+      const saveBtn = el('button', { class: 'btn btn-primary', type: 'button' }, ico('download'), t('حفظ رابط التحميل'));
+      const hint = el('div', { class: 'hint' }, t('هذا الرابط سيظهر في زر تحميل صفحة التحميل. إذا أدخلت إصدارا جديدا، سيظهر للمستخدمين نافذة تحديث داخل التطبيق.'));
+      const resultInfo = el('div', { class: 'push-info', style: { fontSize: '13px', marginTop: '8px', lineHeight: '1.6' } });
 
-      publishBtn.onclick = async () => {
-        const version_name = versionInput.value.trim();
-        const version_code = codeInput.value ? Number(codeInput.value) : null;
+      saveBtn.onclick = async () => {
         const apk_url = urlInput.value.trim();
+        if (!apk_url) { toast(t('يرجى ملء الحقول المطلوبة'), 'error'); return; }
+        const version_name = versionInput.value.trim() || undefined;
+        const version_code = version_name ? (current && current.version_code ? current.version_code + 1 : null) : null;
         const notes = notesInput.value.trim();
-        if (!version_name || !apk_url) { toast(t('يرجى ملء الحقول المطلوبة'), 'error'); return; }
-        publishBtn.disabled = true;
+        saveBtn.disabled = true;
         try {
           const res = await api('/api/admin/app-update', {
             method: 'POST',
-            body: { version_name, version_code, apk_url, notes, force: forceInput.checked, send_notification: true },
+            body: { version_name, version_code, apk_url, notes, force: false, send_notification: notifyInput.checked },
           });
-          pushInfo.textContent = t('الإشعار') + ': ' + (res && res.push && (res.push.success || 0) + '/' + (res.push.targeted || 0));
-          toast(t('تم نشر التحديث'), 'success');
+          resultInfo.textContent = t('تم حفظ الرابط') + (res && res.push ? ` — ${res.push.success || 0}/${res.push.targeted || 0} ` + t('إشعار') : '');
+          toast(t('تم حفظ رابط التحميل'), 'success');
         } catch (e) {
-          toast(t('فشل نشر التحديث'), 'error');
+          toast(t('فشل حفظ الرابط'), 'error');
         } finally {
-          publishBtn.disabled = false;
+          saveBtn.disabled = false;
         }
       };
 
       body.innerHTML = '';
       body.append(
         el('div', { class: 'panel' },
-          el('div', { class: 'panel-head' }, ico('download'), t('تحديث التطبيق')),
+          el('div', { class: 'panel-head' }, ico('download'), t('رابط تحميل التطبيق')),
           el('div', { class: 'form' },
-            el('div', { class: 'field' },
-              el('label', null, t('إصدار التطبيق'), el('span', { class: 'req' }, ' *')),
-              versionInput,
-            ),
-            el('div', { class: 'field' },
-              el('label', null, t('رمز الإصدار')),
-              codeInput,
-            ),
             el('div', { class: 'field' },
               el('label', null, t('رابط APK'), el('span', { class: 'req' }, ' *')),
               urlInput,
+              hint,
+            ),
+            el('div', { class: 'field' },
+              el('label', null, t('إصدار التطبيق'), ' ', el('span', { style: { color: 'var(--text-3)', fontSize: '12px' } }, '(اختياري — لإظهار نافذة تحديث داخل التطبيق)')),
+              versionInput,
             ),
             el('div', { class: 'field' },
               el('label', null, t('ملاحظات التحديث')),
               notesInput,
             ),
             el('div', { class: 'field' },
-              el('label', { style: { display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' } }, forceInput, t('إجبار التحديث (لا يمكن التجاوز)')),
+              el('label', { style: { display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' } }, notifyInput, t('إرسال إشعار للمستخدمين')),
             ),
-            publishBtn,
-            pushInfo,
+            saveBtn,
+            resultInfo,
           ),
         ),
       );
