@@ -590,7 +590,7 @@
         const files = apkDz.getFiles();
         if (!files.length) { toast(t('اختر ملف APK أولاً'), 'error'); return; }
         const version_name = versionInput.value.trim() || undefined;
-        const version_code = version_name ? (current && current.version_code ? current.version_code + 1 : 1) : 0;
+        const version_code = version_name ? Math.floor(Date.now() / 1000) : 0;
         const notes = notesInput.value.trim();
         saveBtn.disabled = true;
         try {

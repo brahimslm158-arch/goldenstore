@@ -1299,28 +1299,63 @@ function showUpdateDialog(update) {
     el('p', { style: { color: 'var(--text-2)', fontSize: '14px', lineHeight: '1.7', marginBottom: '18px' } },
       update.notes || t('يتوفر إصدار جديد من التطبيق. حمّله الآن للحصول على أحدث الميزات والإصلاحات.'),
     ),
-    el('div', { style: { display: 'flex', gap: '10px', flexDirection: 'column' } },
-      el('a', {
-        href: update.apk_url,
-        class: 'btn btn-primary btn-lg',
-        target: '_blank',
-        download: 'goldenstore-' + update.version_name + '.apk',
-        onclick: () => { setTimeout(() => overlay.remove(), 200); },
-      }, ico('download'), t('تحميل الآن')),
-      update.force ? null : el('button', {
-        class: 'btn btn-secondary',
-        type: 'button',
-        onclick: () => {
-          try { const d = JSON.parse(localStorage.getItem(APP_UPDATE_DISMISS_KEY) || '{}'); d[update.version_name] = Date.now(); localStorage.setItem(APP_UPDATE_DISMISS_KEY, JSON.stringify(d)); } catch (e) {}
-          overlay.remove();
-        },
-      }, t('لاحقاً')),
-    ),
   );
+
+  const android = window.GSAndroid;
+  function startDownload() {
+    if (android && typeof android.downloadApk === 'function') {
+      const filename = 'goldenstore-' + (update.version_name || 'update') + '.apk';
+      try {
+        android.downloadApk(update.apk_url, filename, 'app-update', 'com.goldenstore.app');
+        card.innerHTML = '<div style="font-size:48px;margin-bottom:10px">⬇</div><h2 style="font-size:20px;margin-bottom:8px">' + t('جارٍ التحميل…') + '</h2><p style="color:var(--text-2);font-size:14px;line-height:1.7">' + t('سيتم التثبيت تلقائياً عند اكتمال التحميل.') + '</p>';
+        return;
+      } catch (e) {}
+    }
+    // Fallback: open the APK URL in the system/browser.
+    window.open(update.apk_url, '_blank');
+    setTimeout(() => overlay.remove(), 200);
+  }
+
+  const actions = el('div', { style: { display: 'flex', gap: '10px', flexDirection: 'column' } },
+    el('button', {
+      class: 'btn btn-primary btn-lg',
+      type: 'button',
+      onclick: startDownload,
+    }, ico('download'), t('تحميل الآن')),
+    update.force ? null : el('button', {
+      class: 'btn btn-secondary',
+      type: 'button',
+      onclick: () => {
+        try { const d = JSON.parse(localStorage.getItem(APP_UPDATE_DISMISS_KEY) || '{}'); d[update.version_name] = Date.now(); localStorage.setItem(APP_UPDATE_DISMISS_KEY, JSON.stringify(d)); } catch (e) {}
+        overlay.remove();
+      },
+    }, t('لاحقاً')),
+  );
+  card.append(actions);
+
   overlay.append(card);
   overlay.addEventListener('click', (e) => { if (e.target === overlay && !update.force) overlay.remove(); });
   document.body.append(overlay);
 }
+
+window.__gsApkDownloadUpdate = function (slug, status, progress, message) {
+  if (slug !== 'app-update') return;
+  if (status === 'failed') {
+    const map = {
+      signature_mismatch: t('تعارض توقيع الحزمة: ألغِ التطبيق المثبت ثم ثبّت النسخة الجديدة.'),
+      package_mismatch: t('اسم الحزمة غير متطابق مع التطبيق.'),
+      apk_parse_failed: t('تعذّر قراءة ملف APK.'),
+      install_error: t('فشل التثبيت.'),
+      file_missing: t('ملف التحميل مفقود.'),
+    };
+    toast(map[message] || t('فشل التحميل'), 'error');
+    const card = document.querySelector('#gs-update-dialog .gs-update-card');
+    if (card) card.innerHTML = '<div style="font-size:48px;margin-bottom:10px">⚠</div><h2 style="font-size:20px;margin-bottom:8px">' + t('فشل التحديث') + '</h2><p style="color:var(--text-2);font-size:14px;line-height:1.7">' + (map[message] || t('تعذّر تحديث التطبيق. حاول إلغاء التثبيت وإعادة المحاولة.')) + '</p>';
+  } else if (status === 'installed') {
+    toast(t('تم التحديث بنجاح'), 'success');
+    setTimeout(() => { try { location.reload(); } catch (e) {} }, 500);
+  }
+};
 
 async function checkAppUpdate() {
   if (!isNativeApp()) return;
