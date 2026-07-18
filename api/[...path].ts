@@ -1116,16 +1116,32 @@ app.post('/admin/app-update', async (c) => {
   const body = await c.req.json().catch(() => ({} as any));
   const version_name = sanitizeText(body.version_name, 60);
   const version_code = safeInt(body.version_code, 0, 999999999);
-  const apk_url = sanitizeUrl(body.apk_url);
+
+  let apk_url = sanitizeUrl(body.apk_url);
+  let apk_key = String(body.apk_key || '').trim();
+  let size_bytes = 0;
+
+  if (!apk_url && !apk_key) return c.json({ error: 'apk_url_or_key_required' }, 400);
+
+  if (apk_key) {
+    if (!isValidR2Key(apk_key, 'apk')) return c.json({ error: 'invalid_apk_key' }, 400);
+    const head = await r2Head(apk_key);
+    if (!head) return c.json({ error: 'apk_not_found_in_r2' }, 400);
+    apk_url = r2PublicUrl(apk_key);
+    size_bytes = head.size || 0;
+  }
+
   if (!apk_url) return c.json({ error: 'apk_url_required' }, 400);
 
   const db = await firestore();
-  const updateDoc = {
+  const updateDoc: any = {
     version_name: version_name || '',
     version_code,
     apk_url,
+    apk_key: apk_key || undefined,
     notes: sanitizeText(body.notes, 1000),
     force: body.force === true,
+    size_bytes,
     created_at: nowSec(),
   };
   await db.collection('app_updates').doc('current').set(updateDoc);

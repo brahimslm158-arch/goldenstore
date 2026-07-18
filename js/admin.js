@@ -567,39 +567,43 @@
     }
   }
 
-  // -------- app download link (sent from admin to the landing page) --------
+  // -------- app download link (upload APK to R2, link appears on landing page) --------
   async function renderAppUpdate(body) {
     body.innerHTML = '<div class="center-spinner"><div class="spinner"></div></div>';
     try {
       let current = null;
       try { current = await api('/api/app-update'); } catch {}
 
-      const urlInput = el('input', { class: 'input', type: 'url', placeholder: 'https://example.com/goldenstore.apk', value: current && (current.apk_url || current.url) || '', 'aria-label': t('رابط APK') });
+      const apkDz = dropzone({ accept: '.apk', label: 'اسحب أو اختر ملف APK للتطبيق' });
       const versionInput = el('input', { class: 'input', type: 'text', placeholder: 'مثلاً: 1.2.0 (اختياري)', value: current && current.version_name || '', 'aria-label': t('إصدار التطبيق') });
       const notesInput = el('textarea', { class: 'input', rows: 3, placeholder: 'ملاحظات قصيرة تظهر في نافذة التحديث (اختياري)', 'aria-label': t('ملاحظات التحديث') }, current && current.notes || '');
       const notifyInput = el('input', { type: 'checkbox' });
       notifyInput.checked = true;
 
-      const saveBtn = el('button', { class: 'btn btn-primary', type: 'button' }, ico('download'), t('حفظ رابط التحميل'));
-      const hint = el('div', { class: 'hint' }, t('هذا الرابط سيظهر في زر تحميل صفحة التحميل. إذا أدخلت إصدارا جديدا، سيظهر للمستخدمين نافذة تحديث داخل التطبيق.'));
+      const saveBtn = el('button', { class: 'btn btn-primary', type: 'button' }, ico('download'), t('نشر التحديث'));
+      const currentInfo = current && current.apk_url
+        ? el('div', { class: 'hint' }, `الرابط الحالي: ${current.apk_url} — الإصدار: ${current.version_name || '—'}`)
+        : null;
       const resultInfo = el('div', { class: 'push-info', style: { fontSize: '13px', marginTop: '8px', lineHeight: '1.6' } });
 
       saveBtn.onclick = async () => {
-        const apk_url = urlInput.value.trim();
-        if (!apk_url) { toast(t('يرجى ملء الحقول المطلوبة'), 'error'); return; }
+        const files = apkDz.getFiles();
+        if (!files.length) { toast(t('اختر ملف APK أولاً'), 'error'); return; }
         const version_name = versionInput.value.trim() || undefined;
-        const version_code = version_name ? (current && current.version_code ? current.version_code + 1 : null) : null;
+        const version_code = version_name ? (current && current.version_code ? current.version_code + 1 : 1) : 0;
         const notes = notesInput.value.trim();
         saveBtn.disabled = true;
         try {
+          toast(t('جارٍ رفع APK…'));
+          const apk_key = await r2Upload(files[0], 'apk', 'goldenstore-app', (r) => apkDz.setProgress(0, r));
           const res = await api('/api/admin/app-update', {
             method: 'POST',
-            body: { version_name, version_code, apk_url, notes, force: false, send_notification: notifyInput.checked },
+            body: { version_name, version_code, apk_key, notes, force: false, send_notification: notifyInput.checked },
           });
           resultInfo.textContent = t('تم حفظ الرابط') + (res && res.push ? ` — ${res.push.success || 0}/${res.push.targeted || 0} ` + t('إشعار') : '');
-          toast(t('تم حفظ رابط التحميل'), 'success');
+          toast(t('تم نشر التحديث'), 'success');
         } catch (e) {
-          toast(t('فشل حفظ الرابط'), 'error');
+          toast(t('فشل نشر التحديث'), 'error');
         } finally {
           saveBtn.disabled = false;
         }
@@ -608,12 +612,11 @@
       body.innerHTML = '';
       body.append(
         el('div', { class: 'panel' },
-          el('div', { class: 'panel-head' }, ico('download'), t('رابط تحميل التطبيق')),
+          el('div', { class: 'panel-head' }, ico('download'), t('رفع تحديث التطبيق')),
           el('div', { class: 'form' },
             el('div', { class: 'field' },
-              el('label', null, t('رابط APK'), el('span', { class: 'req' }, ' *')),
-              urlInput,
-              hint,
+              el('label', null, t('ملف APK'), el('span', { class: 'req' }, ' *')),
+              apkDz,
             ),
             el('div', { class: 'field' },
               el('label', null, t('إصدار التطبيق'), ' ', el('span', { style: { color: 'var(--text-3)', fontSize: '12px' } }, '(اختياري — لإظهار نافذة تحديث داخل التطبيق)')),
@@ -626,6 +629,7 @@
             el('div', { class: 'field' },
               el('label', { style: { display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer' } }, notifyInput, t('إرسال إشعار للمستخدمين')),
             ),
+            currentInfo,
             saveBtn,
             resultInfo,
           ),
