@@ -62,8 +62,10 @@
         return T('تعذّر الاتصال بالشبكة. تحقّق من الإنترنت وحاول مجدداً.');
       case 'auth/popup-blocked':
         return T('المتصفّح حظر النافذة المنبثقة. اسمح بالنوافذ المنبثقة ثم حاول مجدداً.');
+      case 'auth/developer-error':
+        return 'لم يتم تسجيل تطبيق Android أو بصمة SHA-1 في Firebase/Google Cloud. أضِفها في Firebase Console > Project settings > Android app > Add fingerprint. (SHA-1 مطلوب) ' + (e && e.message ? '[' + e.message + ']' : '');
       default:
-        return T('تعذّر تسجيل الدخول') + (code ? ' (' + code + ')' : '') + '. ' + T('حاول مجدداً.');
+        return T('تعذّر تسجيل الدخول') + (code ? ' (' + code + ')' : '') + '. ' + T('حاول مجدداً.') + (e && e.message ? ' ' + e.message : '');
     }
   }
 

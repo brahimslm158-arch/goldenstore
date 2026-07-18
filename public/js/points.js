@@ -218,7 +218,7 @@
   function renderReferralSection(container, data, referral) {
     const cfg = data.config || {};
     const code = referral.code || '';
-    const inviteUrl = referral.invite_url || (location.origin + '/points?ref=' + code);
+    const inviteUrl = referral.invite_url || (S.publicOrigin ? S.publicOrigin() : location.origin + '/points?ref=' + code);
     const referredBy = referral.referred_by || '';
     const title = el('div', { class: 'points-invite-title' }, t('ادعُ صديقاً واربح نقاطاً'));
     const desc = el('div', { class: 'points-invite-desc' },

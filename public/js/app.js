@@ -390,6 +390,7 @@
       if (status === 'installed') {
         markInstalledStored(app.slug);
         showInstalled();
+        S.earnPoints(app.slug);
         return;
       }
       if (status === 'failed') {

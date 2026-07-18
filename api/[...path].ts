@@ -202,6 +202,7 @@ function notificationPublic(doc: any) {
     body: sanitizeText(d.body, 1000),
     type,
     app_slug: sanitizeText(d.app_slug, 120),
+    data: d.data || null,
     created_at: Number(d.created_at || 0),
   };
 }
@@ -250,12 +251,14 @@ async function addNotification(db: any, data: any) {
   const body = sanitizeText(data.body, 1000);
   const type = data.type === 'new_app' || data.type === 'update' ? data.type : 'announcement';
   const app_slug = sanitizeText(data.app_slug, 120);
+  const payloadData = data.data && typeof data.data === 'object' ? data.data : null;
   const created_at = Number(data.created_at || nowSec());
   const ref = await db.collection('notifications').add({
     title,
     body,
     type,
     app_slug: app_slug || '',
+    data: payloadData,
     created_at,
   });
   // Push to all registered (logged-in) devices. This MUST be awaited: on
@@ -272,6 +275,7 @@ async function addNotification(db: any, data: any) {
       app_slug: app_slug || '',
       id: ref.id,
       image,
+      data: payloadData,
     });
   } catch (err: any) {
     console.error('[fcm] push failed:', err?.message || err);
@@ -287,7 +291,7 @@ type PushResult = { targeted: number; success: number; failure: number; errors: 
 
 async function sendPushToRegistered(
   db: any,
-  n: { title: string; body: string; type: string; app_slug: string; id: string; image?: string },
+  n: { title: string; body: string; type: string; app_slug: string; id: string; image?: string; data?: any },
 ): Promise<PushResult> {
   const result: PushResult = { targeted: 0, success: 0, failure: 0, errors: [] };
   let tokensSnap: any;
@@ -321,6 +325,10 @@ async function sendPushToRegistered(
     image: n.image || '',
     store_logo: STORE_LOGO_URL,
   };
+  // Include extra payload data (e.g. app update link) as a JSON string.
+  if (n.data && typeof n.data === 'object') {
+    try { dataPayload.extra = JSON.stringify(n.data); } catch {}
+  }
   // Send in batches of 500 (FCM multicast limit).
   const invalidTokens: string[] = [];
   for (let i = 0; i < tokens.length; i += 500) {
@@ -371,6 +379,35 @@ app.get('/store', (c) => {
     name: process.env.STORE_NAME || 'Goldenstore',
     domain: process.env.STORE_DOMAIN || 'goldenstore.me',
   });
+});
+
+// Latest published app update (used by the download landing page and the Android app).
+app.get('/app-update', async (c) => {
+  try {
+    const db = await firestore();
+    const doc = await db.collection('app_updates').doc('current').get();
+    if (!doc.exists) return c.json({});
+    const d = doc.data() || {};
+    const version_code = safeInt(d.version_code, 0, 999999999);
+    const apk_url = sanitizeUrl(d.apk_url) || sanitizeUrl(d.url) || '';
+    const notes = sanitizeText(d.notes, 1000);
+    const out: Record<string, any> = {
+      version_name: sanitizeText(d.version_name, 60) || '',
+      version_code,
+      apk_url,
+      url: apk_url,
+      notes,
+      message: notes,
+      force: d.force === true,
+      created_at: Number(d.created_at || 0),
+    };
+    // Native update-check.js expects { update: {...} }
+    out.update = { ...out };
+    return c.json(out);
+  } catch (err: any) {
+    console.error('[app-update] get failed:', err?.message || err);
+    return c.json({});
+  }
 });
 
 app.get('/notifications', async (c) => {
@@ -1060,6 +1097,7 @@ app.post('/admin/notifications', async (c) => {
   const title = sanitizeText(body.title, 200);
   const text = sanitizeText(body.body, 1000);
   if (!title) return c.json({ error: 'title_required' }, 400);
+
   const { ref, push } = await addNotification(db, {
     title,
     body: text,
@@ -1069,6 +1107,54 @@ app.post('/admin/notifications', async (c) => {
   // `push` reports how many devices were targeted / succeeded so the dashboard
   // can tell whether the notification actually went out over FCM.
   return c.json({ ok: true, id: ref.id, push });
+});
+
+// Publish/update the public app download link. This is shown on the landing
+// page and checked by the Android app on launch. Optionally sends a push
+// notification so users open the update dialog.
+app.post('/admin/app-update', async (c) => {
+  const body = await c.req.json().catch(() => ({} as any));
+  const version_name = sanitizeText(body.version_name, 60);
+  const version_code = safeInt(body.version_code, 0, 999999999);
+  const apk_url = sanitizeUrl(body.apk_url);
+  if (!apk_url) return c.json({ error: 'apk_url_required' }, 400);
+
+  const db = await firestore();
+  const updateDoc = {
+    version_name: version_name || '',
+    version_code,
+    apk_url,
+    notes: sanitizeText(body.notes, 1000),
+    force: body.force === true,
+    created_at: nowSec(),
+  };
+  await db.collection('app_updates').doc('current').set(updateDoc);
+
+  let push: PushResult = { targeted: 0, success: 0, failure: 0, errors: [] };
+  if (body.send_notification) {
+    try {
+      const title = version_name ? `تحديث Golden Store ${version_name}` : 'تحديث Golden Store متاح';
+      const { push: p } = await addNotification(db, {
+        type: 'update',
+        title,
+        body: updateDoc.notes || 'حمل النسخة الجديدة الآن',
+        app_slug: '',
+        data: {
+          version_name: updateDoc.version_name,
+          version_code: updateDoc.version_code,
+          apk_url: updateDoc.apk_url,
+          notes: updateDoc.notes,
+          force: updateDoc.force,
+        },
+        created_at: updateDoc.created_at,
+      });
+      push = p;
+    } catch (err: any) {
+      console.error('[admin/app-update] notification failed:', err?.message || err);
+      push.errors.push(err?.message || String(err));
+    }
+  }
+  return c.json({ ok: true, update: updateDoc, push });
 });
 
 // Diagnostics: how many device tokens are registered right now.

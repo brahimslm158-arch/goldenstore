@@ -102,12 +102,65 @@ function isGoldenStoreApp() {
   return /GoldenStoreApp/i.test(ua);
 }
 
-// Use a popup in regular browsers. In the GoldenStore app, use redirect flow
-// because WebView popup windows don't support window.opener / postMessage
-// back to the main WebView, causing a white page after account selection.
+// Called from the native Android wrapper after a successful Google Sign-In.
+// If an error is provided, the pending promise rejects with a Firebase-style code.
+function handleNativeGoogleSignIn(idToken, accessToken, email, displayName, photoURL, error, errorCode) {
+  if (error || !idToken) {
+    var e = new Error(error || 'auth/sign-in-failed');
+    e.code = errorCode || 'auth/sign-in-failed';
+    if (window.__gsGoogleSignInReject) window.__gsGoogleSignInReject(e);
+    return;
+  }
+  var credential = firebase.auth.GoogleAuthProvider.credential(idToken, accessToken || null);
+  _auth.signInWithCredential(credential).then(function(result) {
+    if (window.__gsGoogleSignInResolve) window.__gsGoogleSignInResolve(result.user);
+  }).catch(function(e) {
+    if (window.__gsGoogleSignInReject) window.__gsGoogleSignInReject(e);
+  });
+}
+
+// Use a popup in regular browsers. In the GoldenStore app, use the native
+// Google Sign-In bridge so everything happens inside the app without leaving
+// the WebView.
 async function signInWithGoogle() {
   initFirebase();
   if (!_auth) throw new Error('Firebase not initialized');
+
+  // Native Android app path: the GSAndroid bridge performs a real Google Sign-In
+  // and returns the Google ID token, which we then exchange for a Firebase credential.
+  if (window.GSAndroid && typeof window.GSAndroid.signInWithGoogle === 'function') {
+    return new Promise(function(resolve, reject) {
+      var timeout = setTimeout(function() {
+        window.__gsGoogleSignInResolve = null;
+        window.__gsGoogleSignInReject = null;
+        var e = new Error('auth/network-request-failed');
+        e.code = 'auth/network-request-failed';
+        reject(e);
+      }, 60000);
+
+      window.__gsGoogleSignInResolve = function(user) {
+        clearTimeout(timeout);
+        window.__gsGoogleSignInResolve = null;
+        window.__gsGoogleSignInReject = null;
+        resolve(user);
+      };
+      window.__gsGoogleSignInReject = function(e) {
+        clearTimeout(timeout);
+        window.__gsGoogleSignInResolve = null;
+        window.__gsGoogleSignInReject = null;
+        reject(e);
+      };
+
+      try {
+        window.GSAndroid.signInWithGoogle();
+      } catch (e) {
+        clearTimeout(timeout);
+        window.__gsGoogleSignInResolve = null;
+        window.__gsGoogleSignInReject = null;
+        reject(e);
+      }
+    });
+  }
 
   if (isInAppBrowser()) {
     var iae = new Error('in-app-browser');
@@ -115,13 +168,7 @@ async function signInWithGoogle() {
     throw iae;
   }
 
-  // Native app: always use redirect (popup can't communicate back)
-  if (isGoldenStoreApp()) {
-    _redirectPending = true;
-    await _auth.signInWithRedirect(makeProvider());
-    return null;
-  }
-
+  // Fallback for non-native, non-in-app browsers.
   try {
     var result = await _auth.signInWithPopup(makeProvider());
     return result.user;
@@ -158,6 +205,7 @@ window.GAuth = {
   signInWithGoogle: signInWithGoogle,
   signOut: signOut,
   isRedirectPending: function() { return _redirectPending; },
+  handleNativeGoogleSignIn: handleNativeGoogleSignIn,
 };
 
 // Auto-init
