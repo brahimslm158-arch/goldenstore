@@ -171,7 +171,10 @@ function formatCount(n) {
   if (n >= 1e3) return (n / 1e3).toFixed(1).replace(/\.0$/, '') + ' ' + u[1];
   return String(n);
 }
-function formatNum(n) { return Number(n || 0).toLocaleString('en-US'); }
+function formatNum(n) {
+  const lang = (window.GSI18N && window.GSI18N.lang) || 'ar';
+  return Number(n || 0).toLocaleString(lang === 'ar' ? 'en-US' : lang);
+}
 function formatDate(ts) {
   if (!ts) return '—';
   const lang = (window.GSI18N && window.GSI18N.lang) || 'ar';
@@ -348,13 +351,15 @@ const CAT_NAMES = {
   medical: 'طبّي', personalization: 'تخصيص', sports: 'رياضة', weather: 'طقس',
   auto: 'سيارات ومركبات', beauty: 'جمال وتجميل', art_design: 'فنّ وتصميم',
   house_home: 'منزل', parenting: 'أبوّة وأمومة', events: 'فعاليات', comics: 'قصص مصوّرة',
-  other: 'أخرى',
+  vpn: 'VPN وخصوصية', system: 'أدوات النظام', wallpapers: 'خلفيات', files: 'إدارة الملفات',
+  connectivity: 'اتصال وشبكات', other: 'أخرى',
   // Game categories
   game_action: 'أكشن', game_adventure: 'مغامرات', game_arcade: 'أركيد', game_board: 'ألعاب لوحية',
   game_card: 'ورق (كوتشينة)', game_casino: 'كازينو', game_casual: 'عادية', game_educational: 'تعليمية',
   game_music: 'موسيقى', game_puzzle: 'ألغاز', game_racing: 'سباقات', game_rpg: 'تقمّص أدوار',
   game_simulation: 'محاكاة', game_sports: 'رياضية', game_strategy: 'استراتيجية',
-  game_trivia: 'معلومات عامة', game_word: 'كلمات', game_other: 'ألعاب أخرى',
+  game_trivia: 'معلومات عامة', game_word: 'كلمات', game_family: 'عائلية', game_shooter: 'إطلاق نار',
+  game_action_adventure: 'حركة ومغامرة', game_role_playing: 'ألعاب جماعية', game_other: 'ألعاب أخرى',
   // Legacy
   games: 'ألعاب',
 };

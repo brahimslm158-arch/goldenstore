@@ -3,27 +3,98 @@
 <head>
 <meta charset="utf-8">
 <script src="/js/theme-init.js"></script>
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <meta name="theme-color" content="#0d0d0f">
-<title>Golden Store — متجر التطبيقات</title>
-<meta name="description" content="Golden Store — متجر التطبيقات والألعاب. حمّل أفضل التطبيقات مجاناً.">
+<title>Golden Store — تحميل التطبيق</title>
+<meta name="description" content="Golden Store — تطبيق المتجر العربي لتحميل أحدث التطبيقات والألعاب مجاناً.">
 <link rel="icon" type="image/png" href="/images/logo.png">
-<link rel="apple-touch-icon" href="/images/logo.png">
-<link rel="manifest" href="/manifest.webmanifest">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/css/play.css?v=1782648900">
+<link rel="stylesheet" href="/css/play.css?v=1784371248">
+<style>
+.landing { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; background: radial-gradient(120% 120% at 50% 0%, #1b1b1f 0%, #0d0d0f 60%); text-align: center; }
+.landing-card { width: 100%; max-width: 460px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); padding: 32px 28px; box-shadow: 0 20px 60px rgba(0,0,0,.35); }
+.landing-logo { width: 96px; height: 96px; border-radius: 24px; margin: 0 auto 20px; background: var(--surface-2); display: flex; align-items: center; justify-content: center; border: 1px solid var(--line); }
+.landing-logo img { width: 64px; height: 64px; object-fit: contain; }
+.landing h1 { font-size: 28px; font-weight: 800; margin: 0 0 8px; letter-spacing: -.3px; }
+.landing h1 b { color: var(--gold); }
+.landing .tagline { color: var(--text-2); font-size: 16px; line-height: 1.6; margin: 0 0 26px; }
+.landing .dl-btn { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; padding: 16px 22px; border-radius: 14px; background: var(--gold); color: var(--gold-ink); font-weight: 800; font-size: 17px; border: none; cursor: pointer; text-decoration: none; margin-bottom: 12px; transition: transform .1s, filter .15s; }
+.landing .dl-btn:hover { filter: brightness(1.08); }
+.landing .dl-btn svg { width: 22px; height: 22px; fill: currentColor; }
+.landing .meta { color: var(--text-3); font-size: 13px; margin-bottom: 26px; }
+.landing .steps { text-align: start; background: var(--surface-2); border-radius: var(--radius-sm); padding: 18px 20px; margin-bottom: 18px; }
+.landing .steps h2 { font-size: 15px; font-weight: 700; margin: 0 0 12px; color: var(--text); }
+.landing .steps ol { margin: 0; padding-inline-start: 20px; color: var(--text-2); font-size: 14px; line-height: 1.8; }
+.landing .steps li { margin-bottom: 6px; }
+.landing .alt { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+.landing .alt a { color: var(--text-2); font-size: 13px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 999px; text-decoration: none; }
+.landing .alt a:hover { background: var(--surface-2); color: var(--text); }
+.landing footer { margin-top: 24px; color: var(--text-3); font-size: 12px; }
+@media (max-width: 420px) {
+  .landing-card { padding: 26px 20px; }
+  .landing h1 { font-size: 24px; }
+}
+</style>
+<script>
+(function redirectToStore() {
+  var isApp = false;
+  try {
+    isApp = (typeof window.Capacitor !== 'undefined' && window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform()) ||
+            /Capacitor\/|capacitor/.test(navigator.userAgent || '');
+  } catch (e) {}
+  if (isApp && location.pathname !== '/store.html') {
+    location.replace('/store.html');
+  }
+})();
+</script>
 </head>
-<body data-page="home">
-  <div class="shell" id="root"></div>
+<body>
+  <div class="landing">
+    <div class="landing-card">
+      <div class="landing-logo"><img src="/images/logo.png" alt="Golden Store"></div>
+      <h1>Golden <b>Store</b></h1>
+      <p class="tagline">حمل تطبيق المتجر مباشرة على جهازك الأندرويد، واحصل على أحدث التطبيقات والألعاب بسهولة وأمان.</p>
 
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-  <script src="/js/icons.js?v=1782648900"></script>
-  <script src="/js/lang.js?v=1782648900"></script>
-  <script src="/js/firebase-auth.js?v=1782648900"></script>
-  <script src="/js/store.js?v=1782648900"></script>
-  <script src="/js/home.js?v=1782648900"></script>
+      <a class="dl-btn" href="goldenstore.apk" download>
+        <svg viewBox="0 0 24 24"><path d="M5 20h14v-2H5v2zm7-18l-7 7h4v6h6v-6h4l-7-7z"/></svg>
+        تحميل APK
+      </a>
+      <p class="meta" id="dl-meta">الإصدار 1.1 • الحجم ~2.1 MB • Android 5.0+</p>
+
+      <div class="steps">
+        <h2>كيف تثبّت التطبيق؟</h2>
+        <ol>
+          <li>اضغط على زر "تحميل APK" واحفظ الملف.</li>
+          <li>افتح الملف المحمّل وفعّل "التثبيت من مصادر غير معروفة" عند الطلب.</li>
+          <li>أكمل التثبيت ثم افتح Golden Store.</li>
+        </ol>
+      </div>
+
+      <div class="alt">
+        <a href="/admin" id="admin-link">لوحة التحكم</a>
+      </div>
+
+      <footer>© Golden Store — جميع الحقوق محفوظة</footer>
+    </div>
+  </div>
+
+  <script>
+    (function(){
+      try {
+        var app = (typeof window.Capacitor !== 'undefined' && window.Capacitor && typeof window.Capacitor.isNativePlatform === 'function' && window.Capacitor.isNativePlatform()) || /Capacitor\/|capacitor/.test(navigator.userAgent || '');
+        if (app && location.pathname !== '/store.html') location.replace('/store.html');
+      } catch(e){}
+      // Update size if file is available locally
+      fetch('goldenstore.apk', { method: 'HEAD' }).then(function(r){
+        var len = r.headers.get('content-length');
+        if (len) {
+          var mb = (len/1024/1024).toFixed(2);
+          document.getElementById('dl-meta').textContent = 'الإصدار 1.1 • الحجم ' + mb + ' MB • Android 5.0+';
+        }
+      }).catch(function(){});
+    })();
+  </script>
 </body>
 </html>

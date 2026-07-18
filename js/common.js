@@ -86,9 +86,13 @@ function el(tag, attrs = null, ...children) {
   return node;
 }
 
+function i18nUnits(kind) {
+  try { const u = window.GSI18N && window.GSI18N.units(kind); if (u && u.length) return u; } catch (e) {}
+  return kind === 'count' ? ['', 'ألف', 'مليون', 'مليار'] : ['ب', 'ك.ب', 'م.ب', 'ج.ب'];
+}
 function formatBytes(bytes) {
-  if (!bytes) return '0 ب';
-  const units = ['ب', 'ك.ب', 'م.ب', 'ج.ب'];
+  const units = i18nUnits('bytes');
+  if (!bytes) return `0 ${units[0]}`;
   let i = 0;
   let v = bytes;
   while (v >= 1024 && i < units.length - 1) { v /= 1024; i++; }
@@ -96,13 +100,15 @@ function formatBytes(bytes) {
 }
 
 function formatNum(n) {
-  return Number(n || 0).toLocaleString('en-US');
+  const lang = (window.GSI18N && window.GSI18N.lang) || 'ar';
+  return Number(n || 0).toLocaleString(lang === 'ar' ? 'en-US' : lang);
 }
 
 function formatDate(ts) {
   if (!ts) return '—';
+  const lang = (window.GSI18N && window.GSI18N.lang) || 'ar';
   const d = new Date(ts * 1000);
-  return d.toLocaleDateString('ar', { year: 'numeric', month: 'short', day: 'numeric', numberingSystem: 'latn' });
+  return d.toLocaleDateString(lang, { year: 'numeric', month: 'short', day: 'numeric', numberingSystem: 'latn' });
 }
 
 function getQuery(name) {
