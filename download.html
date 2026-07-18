@@ -79,21 +79,6 @@ html, body {
   <a id="downloadBtn" class="btn no-link" href="#">تحميل</a>
 </div>
 
-<script>
-(function () {
-  var btn = document.getElementById('downloadBtn');
-  function setDownload(url) {
-    if (url) {
-      btn.href = url;
-      btn.classList.remove('no-link');
-      btn.setAttribute('download', 'goldenstore.apk');
-    }
-  }
-  fetch('/api/app-update', { method: 'GET', credentials: 'same-origin' })
-    .then(function (r) { return r.json().catch(function () { return null; }); })
-    .then(function (data) { setDownload(data && (data.apk_url || data.url)); })
-    .catch(function () {});
-})();
-</script>
+<script src="/js/download.js?v=1784392500"></script>
 </body>
 </html>
