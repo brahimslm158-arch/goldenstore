@@ -244,7 +244,10 @@
     'تعذر الإرسال، حاول مجددا': { en: 'Failed to send, try again', fr: 'Échec, réessayez', es: 'Error al enviar, inténtalo de nuevo' },
 
     // auth / login
+    'متابعة': { en: 'Continue', fr: 'Continuer', es: 'Continuar' },
     'متابعة باستخدام Google': { en: 'Continue with Google', fr: 'Continuer avec Google', es: 'Continuar con Google' },
+    'متابعة بدون حساب': { en: 'Continue without account', fr: 'Continuer sans compte', es: 'Continuar sin cuenta' },
+    'اضغط متابعة للدخول إلى المتجر وتنزيل التطبيقات — لا يحتاج حساب Google.': { en: 'Press continue to enter the store and download apps — no Google account required.', fr: 'Appuyez sur continuer pour accéder au store — aucun compte Google requis.', es: 'Presiona continuar para entrar a la tienda — no se necesita cuenta de Google.' },
     'سجل الدخول بحساب Google للوصول إلى المتجر وتنزيل التطبيقات.': { en: 'Sign in with Google to access the store.', fr: 'Connectez-vous avec Google pour accéder au store.', es: 'Inicia sesión con Google para acceder a la tienda.' },
     'بالمتابعة فإنك توافق على شروط الاستخدام وسياسة الخصوصية لـ Golden Store.': { en: 'By continuing, you agree to Golden Store terms and privacy policy.', fr: 'En continuant, vous acceptez les conditions de Golden Store.', es: 'Al continuar, aceptas los términos de Golden Store.' },
     'جار تسجيل الدخول…': { en: 'Signing in…', fr: 'Connexion…', es: 'Iniciando sesión…' },

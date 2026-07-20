@@ -1,4 +1,4 @@
-// Firebase Auth — Google Sign-in module
+// Firebase Auth — Google Sign-in + anonymous custom-token fallback
 // Uses Firebase compat SDK loaded from CDN in HTML
 
 var FIREBASE_CONFIG = {
@@ -119,6 +119,36 @@ function handleNativeGoogleSignIn(idToken, accessToken, email, displayName, phot
   });
 }
 
+// Build the API URL for the current environment (web vs Capacitor app).
+function apiBaseUrl() {
+  try {
+    if (window.Capacitor && typeof window.Capacitor.getConfig === 'function') {
+      var cfg = window.Capacitor.getConfig();
+      if (cfg && cfg.apiBase) return cfg.apiBase.replace(/\/$/, '');
+    }
+  } catch (e) {}
+  return '';
+}
+
+async function signInAnonymously() {
+  initFirebase();
+  if (!_auth) throw new Error('Firebase not initialized');
+  try {
+    var res = await fetch(apiBaseUrl() + '/api/auth/token', {
+      method: 'GET',
+      credentials: 'same-origin',
+    });
+    if (!res.ok) throw new Error('token_request_failed');
+    var data = await res.json().catch(function () { return {}; });
+    if (!data || !data.token) throw new Error('token_missing');
+    var result = await _auth.signInWithCustomToken(data.token);
+    return result && result.user ? result.user : null;
+  } catch (e) {
+    console.error('anonymous sign-in failed', e);
+    throw e;
+  }
+}
+
 // Use a popup in regular browsers. In the GoldenStore app, use the native
 // Google Sign-In bridge so everything happens inside the app without leaving
 // the WebView.
@@ -202,6 +232,7 @@ window.GAuth = {
   ready: ready,
   getUser: getUser,
   getIdToken: getIdToken,
+  signInAnonymously: signInAnonymously,
   signInWithGoogle: signInWithGoogle,
   signOut: signOut,
   isRedirectPending: function() { return _redirectPending; },

@@ -3,7 +3,7 @@ import { cors } from 'hono/cors';
 import { getCookie, setCookie } from 'hono/cookie';
 import { getRequestListener } from '@hono/node-server';
 import crypto from 'node:crypto';
-import { firestore, getFieldValue, verifyFirebaseToken, messaging } from '../lib/firebase.js';
+import { firestore, getFieldValue, verifyFirebaseToken, messaging, getAuthAdmin } from '../lib/firebase.js';
 import {
   r2PresignPut,
   r2PresignGet,
@@ -407,6 +407,25 @@ app.get('/app-update', async (c) => {
   } catch (err: any) {
     console.error('[app-update] get failed:', err?.message || err);
     return c.json({});
+  }
+});
+
+// Issue a Firebase custom auth token for an anonymous guest session.
+// This lets the Android app work without requiring a SHA-1 fingerprint for
+// Google Sign-In. The client trades this token for a real Firebase session.
+app.get('/auth/token', async (c) => {
+  const ip = getClientIp(c);
+  if (!rateLimit(ip, 'auth-token', 20, 60)) {
+    return c.json({ error: 'rate_limited' }, 429);
+  }
+  try {
+    const uid = 'gs_' + randomId();
+    const auth = await getAuthAdmin();
+    const token = await auth.createCustomToken(uid);
+    return c.json({ token, uid });
+  } catch (err: any) {
+    console.error('[auth/token] failed:', err?.message || err);
+    return c.json({ error: 'token_creation_failed' }, 500);
   }
 });
 
