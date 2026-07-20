@@ -1522,7 +1522,7 @@ function onActiveDownloadsChange(fn) {
       console.log('[pushBridge] token registered', currentToken.slice(0, 16));
     } catch (e) {
       console.error('[pushBridge] register token failed', e);
-      try { toast('فشل تفعيل الإشعارات: ' + (e && e.message ? e.message : 'unknown'), 'error', 4000); } catch (t) {}
+      try { toast(t('فشل تفعيل الإشعارات: ') + (e && e.message ? e.message : 'unknown'), 'error', 4000); } catch (t) {}
     }
   }
 

@@ -59,8 +59,8 @@
       el('div', { class: 'auth-required-card' },
         el('div', { class: 'auth-required-header' },
           el('img', { src: '/images/logo.png', alt: 'Golden Store', class: 'auth-logo' }),
-            el('h2', { class: 'auth-title' }, t('\u0633\u062c\u0651\u0644 \u0627\u0644\u062f\u062e\u0648\u0644 \u0644\u0639\u0631\u0636 \u0646\u0642\u0627\u0637\u0643')),
-            el('p', { class: 'auth-desc' }, t('\u0646\u0642\u0627\u0637\u0643 \u0645\u0631\u062a\u0628\u0637\u0629 \u0628\u062d\u0633\u0627\u0628 Google. \u0633\u062c\u0651\u0644 \u0627\u0644\u062f\u062e\u0648\u0644 \u0644\u0639\u0631\u0636 \u0631\u0635\u064a\u062f\u0643 \u0648\u0637\u0644\u0628 \u0627\u0644\u0633\u062d\u0628.')),
+            el('h2', { class: 'auth-title' }, t('سجّل الدخول لعرض نقاطك')),
+            el('p', { class: 'auth-desc' }, t('نقاطك مرتبطة بحساب Google. سجّل الدخول لعرض رصيدك وطلب السحب.')),
         ),
         el('button', {
           class: 'gbtn auth-google-btn',

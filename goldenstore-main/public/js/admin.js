@@ -402,7 +402,7 @@
             const b = e.currentTarget; b.disabled = true;
             try {
               const r = await api('/api/admin/migrate-types', { method: 'POST' });
-              toast(`تم تعيين النوع لـ ${r.updated} عنصر (الإجمالي ${r.total})`, 'success');
+              toast(t('تم تحديث أنواع العناصر') + ': ' + r.updated + ' / ' + r.total, 'success');
             } catch { toast('فشل التحديث', 'error'); }
             b.disabled = false;
           } }, ico('check'), 'تعيين النوع للعناصر القديمة'),
@@ -834,7 +834,7 @@
         activeTab = `edit:${res.id}`;
         renderApp();
       } catch (err) {
-        toast(`فشل الرفع: ${err.message || ''}`, 'error');
+        toast(t('فشل الرفع') + ': ' + (err.message || ''), 'error');
         submitBtn.disabled = false;
         submitBtn.innerHTML = '';
         submitBtn.append(ico('upload'), document.createTextNode('رفع التطبيق'));
