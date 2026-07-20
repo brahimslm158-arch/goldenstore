@@ -378,7 +378,6 @@
         label.textContent = t('تم التنزيل، جارٍ التثبيت…');
         S.removeActiveDownload(app.slug);
         S.addToDownloadHistory(app);
-        S.earnPoints(app.slug);
         return;
       }
       if (status === 'installing') {
@@ -390,7 +389,6 @@
       if (status === 'installed') {
         markInstalledStored(app.slug);
         showInstalled();
-        S.earnPoints(app.slug);
         return;
       }
       if (status === 'failed') {
@@ -519,7 +517,6 @@
         S.addToDownloadHistory(app);
         showInstalled();
         toast(t('اكتمل التحميل وحفظ الملف في جهازك'), 'success');
-        S.earnPoints(app.slug);
       } catch (e) {
         // Streaming failed (network/limits) — fall back to a normal download so
         // the user still gets the file, and don't fake an "installed" state.
@@ -563,7 +560,6 @@
         markInstalledStored(app.slug);
         S.addToDownloadHistory(app);
         showInstalled();
-        S.earnPoints(app.slug);
       } else {
         setProgress(currentProgress);
         // Continue advancing the bar smoothly until completion
@@ -587,8 +583,7 @@
               S.addToDownloadHistory(app);
               showInstalled();
               toast(t('اكتمل التحميل'), 'success');
-              S.earnPoints(app.slug);
-            }, 800);
+                  }, 800);
           }
         }, stepInterval);
       }
