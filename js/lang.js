@@ -174,6 +174,16 @@
     'معلومات عامة': { en: 'Trivia', fr: 'Quiz', es: 'Trivia' },
     'كلمات': { en: 'Word', fr: 'Mots', es: 'Palabras' },
     'ألعاب أخرى': { en: 'Other Games', fr: 'Autres jeux', es: 'Otros juegos' },
+    'VPN وخصوصية': { en: 'VPN & Privacy', fr: 'VPN et confidentialité', es: 'VPN y privacidad' },
+    'أدوات النظام': { en: 'System Tools', fr: 'Outils système', es: 'Herramientas del sistema' },
+    'خلفيات': { en: 'Wallpapers', fr: 'Fonds d’écran', es: 'Fondos de pantalla' },
+    'إدارة الملفات': { en: 'File Management', fr: 'Gestionnaire de fichiers', es: 'Gestión de archivos' },
+    'اتصال وشبكات': { en: 'Connectivity', fr: 'Connectivité', es: 'Conectividad' },
+    'عائلية': { en: 'Family', fr: 'Famille', es: 'Familiar' },
+    'إطلاق نار': { en: 'Shooter', fr: 'Tir', es: 'Disparos' },
+    'حركة ومغامرة': { en: 'Action & Adventure', fr: 'Action et aventure', es: 'Acción y aventura' },
+    'ألعاب جماعية': { en: 'Role Playing', fr: 'Jeu de rôle', es: 'Juego de rol' },
+    'موسيقى': { en: 'Music', fr: 'Musique', es: 'Música' },
 
     // empty / status
     'لا توجد نتائج': { en: 'No results', fr: 'Aucun résultat', es: 'Sin resultados' },

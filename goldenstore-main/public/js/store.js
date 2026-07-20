@@ -348,13 +348,16 @@ const CAT_NAMES = {
   medical: 'طبّي', personalization: 'تخصيص', sports: 'رياضة', weather: 'طقس',
   auto: 'سيارات ومركبات', beauty: 'جمال وتجميل', art_design: 'فنّ وتصميم',
   house_home: 'منزل', parenting: 'أبوّة وأمومة', events: 'فعاليات', comics: 'قصص مصوّرة',
-  other: 'أخرى',
+  vpn: 'VPN وخصوصية', system: 'أدوات النظام', wallpapers: 'خلفيات', files: 'إدارة الملفات',
+  connectivity: 'اتصال وشبكات', other: 'أخرى',
   // Game categories
   game_action: 'أكشن', game_adventure: 'مغامرات', game_arcade: 'أركيد', game_board: 'ألعاب لوحية',
   game_card: 'ورق (كوتشينة)', game_casino: 'كازينو', game_casual: 'عادية', game_educational: 'تعليمية',
   game_music: 'موسيقى', game_puzzle: 'ألغاز', game_racing: 'سباقات', game_rpg: 'تقمّص أدوار',
   game_simulation: 'محاكاة', game_sports: 'رياضية', game_strategy: 'استراتيجية',
   game_trivia: 'معلومات عامة', game_word: 'كلمات', game_other: 'ألعاب أخرى',
+  game_family: 'عائلية', game_shooter: 'إطلاق نار', game_action_adventure: 'حركة ومغامرة',
+  game_role_playing: 'ألعاب جماعية',
   // Legacy
   games: 'ألعاب',
 };
@@ -1485,18 +1488,38 @@ function onActiveDownloadsChange(fn) {
   var currentToken = null;
   var registeredToken = null;
 
+  function getStoredReg() {
+    try { return JSON.parse(localStorage.getItem('__gs_push_reg')); } catch (e) { return null; }
+  }
+  function setStoredReg(token, uid) {
+    try { localStorage.setItem('__gs_push_reg', JSON.stringify({ token: token, uid: uid, ts: Date.now() })); } catch (e) {}
+  }
+  function clearStoredReg() {
+    try { localStorage.removeItem('__gs_push_reg'); } catch (e) {}
+  }
+
+  function currentUid() {
+    try { return window.Store && window.Store.getUser && window.Store.getUser().uid; } catch (e) { return null; }
+  }
+
   async function registerIfPossible() {
     if (!currentToken) return;
     if (registeredToken === currentToken) return;
     if (!window.Store || !window.Store.isLoggedIn || !window.Store.isLoggedIn()) return;
+    var uid = currentUid();
+    var stored = getStoredReg();
+    if (stored && stored.token === currentToken && stored.uid === uid) {
+      registeredToken = currentToken;
+      return;
+    }
     try {
       await authedApi('/api/notifications/register-token', {
         method: 'POST',
         body: JSON.stringify({ token: currentToken, platform: 'android' }),
       });
       registeredToken = currentToken;
+      setStoredReg(currentToken, uid);
       console.log('[pushBridge] token registered', currentToken.slice(0, 16));
-      try { toast('تم تفعيل الإشعارات'); } catch (t) {}
     } catch (e) {
       console.error('[pushBridge] register token failed', e);
       try { toast('فشل تفعيل الإشعارات: ' + (e && e.message ? e.message : 'unknown'), 'error', 4000); } catch (t) {}
@@ -1513,6 +1536,7 @@ function onActiveDownloadsChange(fn) {
     var tok = token || currentToken;
     if (!tok) return;
     registeredToken = null;
+    clearStoredReg();
     try {
       api('/api/notifications/unregister-token', {
         method: 'POST',

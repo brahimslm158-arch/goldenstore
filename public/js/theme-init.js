@@ -13,7 +13,7 @@ try {
 // Admin panel and the download page itself are excluded.
 (function () {
   var path = location.pathname;
-  if (path.indexOf('/admin') === 0 || path.indexOf('/download') === 0 || path.indexOf('/404') === 0) return;
+  if (path.indexOf('/gs-admin-c0d982f8') === 0 || path.indexOf('/download') === 0 || path.indexOf('/404') === 0) return;
   try {
     if (!/GoldenStoreApp/.test(navigator.userAgent) && !window.Capacitor) {
       location.replace('/download.html');

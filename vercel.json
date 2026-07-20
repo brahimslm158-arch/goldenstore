@@ -14,7 +14,7 @@
           { "source": "/points", "destination": "/points.html" },
           { "source": "/books", "destination": "/books.html" },
           { "source": "/games", "destination": "/games.html" },
-          { "source": "/admin", "destination": "/admin.html" },
+          { "source": "/gs-admin-c0d982f8", "destination": "/gs-admin-c0d982f8.html" },
           { "source": "/api/:path*", "destination": "/api/[...path]" }
     ],
     "headers": [
