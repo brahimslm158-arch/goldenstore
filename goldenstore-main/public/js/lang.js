@@ -203,6 +203,7 @@
 
     // ratings & reviews
     'تقييم': { en: 'ratings', fr: 'évaluations', es: 'valoraciones' },
+    'تقييمات': { en: 'ratings', fr: 'évaluations', es: 'valoraciones' },
     'تقييمك': { en: 'Your rating', fr: 'Votre note', es: 'Tu valoración' },
     'نجوم': { en: 'stars', fr: 'étoiles', es: 'estrellas' },
     'من': { en: 'of', fr: 'sur', es: 'de' },
@@ -499,6 +500,12 @@
     'نقاطك مرتبطة بحساب Google. سجّل الدخول لعرض رصيدك وطلب السحب.': { en: 'Your points are linked to a Google account. Log in to view your balance and request withdrawal.', fr: 'Vos points sont liés à un compte Google. Connectez-vous pour voir votre solde et demander un retrait.', es: 'Tus puntos están vinculados a una cuenta de Google. Inicia sesión para ver tu saldo y solicitar un retiro.' },
     'تم تحديث أنواع العناصر': { en: 'Item types updated', fr: 'Types d’éléments mis à jour', es: 'Tipos de elementos actualizados' },
     'فشل الرفع': { en: 'Upload failed', fr: 'Échec de l’upload', es: 'Error al subir' },
+    'غير مقيّم': { en: 'Not rated', fr: 'Non évalué', es: 'Sin valorar' },
+    'مقيّم': { en: 'Rated', fr: 'Évalué', es: 'Valorado' },
+    'مثال: 2.5.1': { en: 'e.g. 2.5.1', fr: 'ex. 2.5.1', es: 'ej. 2.5.1' },
+    'مثال: https://play.google.com/...': { en: 'e.g. https://play.google.com/...', fr: 'ex. https://play.google.com/...', es: 'ej. https://play.google.com/...' },
+    'اشرح المشكلة…': { en: 'Describe the issue…', fr: 'Décrivez le problème…', es: 'Describe el problema…' },
+    'خيارات إضافية': { en: 'More options', fr: 'Plus d’options', es: 'Más opciones' },
   };
 
   // Number/size unit labels per language.
@@ -527,7 +534,24 @@
   // "الأعلى تقييماً" and "الأعلى تقييما" both resolve to the same entry.
   function norm(s) { return s.replace(/[\u064B-\u0652\u0670\u0640]/g, ''); }
   var ON = {};
-  Object.keys(O).forEach(function (k) { ON[norm(k)] = O[k]; });
+  var LOOKUP = {};
+  Object.keys(O).forEach(function (k) {
+    ON[norm(k)] = O[k];
+    // Build a reverse lookup so dynamic values (like English category names)
+    // can be mapped back to the Arabic source key and then translated.
+    var vals = O[k];
+    if (vals) {
+      ['ar', 'en', 'fr', 'es'].forEach(function (l) {
+        var v = vals[l] || (l === 'ar' ? k : '');
+        if (!v) return;
+        var key = v.toLowerCase().trim();
+        if (key && !LOOKUP[key]) LOOKUP[key] = k;
+      });
+    }
+  });
+  function lookup(text) {
+    return LOOKUP[(text || '').toString().toLowerCase().trim()] || null;
+  }
 
   function known(core) {
     var ov = ON[norm(core)];
@@ -730,6 +754,7 @@
     units: units,
     t: t,
     translate: walk,
+    lookup: lookup,
   };
 
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);

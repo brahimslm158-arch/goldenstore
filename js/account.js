@@ -182,7 +182,7 @@
     const overlay = el('div', { class: 'dialog-overlay', onclick: (e) => { if (e.target === overlay) close(); } });
     function close() { overlay.remove(); document.removeEventListener('keydown', esc); }
     function esc(e) { if (e.key === 'Escape') close(); }
-    const card = el('div', { class: 'dialog-card', dir: 'rtl' },
+    const card = el('div', { class: 'dialog-card', dir: document.documentElement.dir || 'rtl' },
       el('div', { class: 'dialog-head' },
         el('div', { class: 'dialog-title' }, ico('logout', 'icon'), t('تسجيل الخروج')),
         el('button', { class: 'dialog-close', 'aria-label': t('إغلاق'), onclick: () => close() }, ico('close')),

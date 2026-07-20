@@ -192,18 +192,6 @@ function ratingOf(app) {
 function getQuery(name) { return new URLSearchParams(location.search).get(name) || ''; }
 
 
-function getPendingReferral() {
-  try { return localStorage.getItem(REF_PENDING_KEY) || ''; } catch { return ''; }
-}
-function clearPendingReferral() {
-  try { localStorage.removeItem(REF_PENDING_KEY); } catch {}
-}
-function setPendingReferral(code) {
-  const value = sanitizeText(code, 32);
-  if (!value) return;
-  try { localStorage.setItem(REF_PENDING_KEY, value); } catch {}
-}
-
 function toast(msg, type = 'info', ms = 3000) {
   let stack = document.querySelector('.toast-stack');
   if (!stack) { stack = el('div', { class: 'toast-stack' }); document.body.append(stack); }
@@ -358,7 +346,15 @@ const CAT_NAMES = {
   // Legacy
   games: 'ألعاب',
 };
-function categoryName(slug) { return t(CAT_NAMES[slug] || ''); }
+function categoryName(slug) {
+  if (!slug) return '';
+  const known = CAT_NAMES[slug];
+  if (known) return t(known);
+  const lookup = window.GSI18N && window.GSI18N.lookup;
+  const arKey = typeof lookup === 'function' ? lookup(slug) : null;
+  if (arKey) return t(arKey);
+  return t(slug);
+}
 
 /* -------------------------- States UI -------------------------- */
 function spinner() { return el('div', { class: 'center' }, el('div', { class: 'spinner' })); }
