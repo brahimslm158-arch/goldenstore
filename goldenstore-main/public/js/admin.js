@@ -377,7 +377,7 @@
           el('div', { class: 'panel-head' }, ico('trending'), 'الأكثر تنزيلاً'),
           stats.top_apps.length ? el('div', { class: 'table-wrap' },
             (() => {
-              const t = el('table', { class: 'table' },
+              const tableEl = el('table', { class: 'table' },
                 el('thead', null, el('tr', null,
                   el('th', null, ''), el('th', null, 'الاسم'),
                   el('th', null, 'التنزيلات'), el('th', null, ''),
@@ -391,7 +391,7 @@
                   el('td', { class: 'cell-actions' }, el('a', { class: 'btn btn-sm btn-secondary', href: `/app?slug=${a.slug}`, target: '_blank' }, ico('external'), 'عرض')),
                 ))),
               );
-              return t;
+              return tableEl;
             })(),
           ) : emptyMsg('لا توجد بيانات بعد', 'ارفع تطبيقك الأول لرؤية الإحصائيات.'),
         ),
@@ -730,7 +730,7 @@
         body.append(emptyMsg(`لا توجد ${kind === 'game' ? 'ألعاب' : 'تطبيقات'} بعد`, `أضف ${noun}اً جديداً من زر «${kind === 'game' ? 'إضافة لعبة' : 'إضافة تطبيق'}».`));
         return;
       }
-      const t = el('div', { class: 'table-wrap' },
+      const tableWrap = el('div', { class: 'table-wrap' },
         el('table', { class: 'table' },
           el('thead', null, el('tr', null,
             el('th', null, ''),
@@ -768,7 +768,7 @@
           ))),
         ),
       );
-      body.append(t);
+      body.append(tableWrap);
     } catch (e) {
       body.innerHTML = '';
       body.append(emptyMsg('تعذر التحميل', e.message));
